@@ -1,0 +1,16 @@
+
+# Dependencies - thư viện được cài tự động
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+**/dist/
+
+# Environment variables - không đưa mật khẩu lên GitHub
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
