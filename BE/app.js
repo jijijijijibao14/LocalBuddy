@@ -7,7 +7,7 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const seedAdmin = require("./seedAdmin");
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173" }));
+app.use(cors({ origin: process.env.CLIENT_URL || "https://local-buddy-chi.vercel.app/" }));
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(morgan("dev"));
