@@ -7,7 +7,27 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const seedAdmin = require("./seedAdmin");
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_URL || "https://local-buddy-chi.vercel.app/" }));
+const cors = require("cors");
+
+// Các domain được phép gọi API
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.CLIENT_URL
+].filter(Boolean);
+
+// Cấu hình CORS
+app.use(cors({
+  origin: function (origin, callback) {
+    // Cho phép request không có Origin và domain đã được cho phép
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Origin không được phép truy cập API"));
+  },
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(morgan("dev"));
