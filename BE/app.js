@@ -7,7 +7,6 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const seedAdmin = require("./seedAdmin");
 const app = express();
-const cors = require("cors");
 
 // Các domain được phép gọi API
 const allowedOrigins = [
