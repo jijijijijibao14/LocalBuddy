@@ -38,6 +38,12 @@ npm run dev
 ```
 Mở `http://localhost:5173`.
 
+## Triển khai production
+- Backend: cấu hình `MONGO_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` và `CLIENT_URL` trong nền tảng host. `CLIENT_URL` phải là origin của frontend (ví dụ `https://your-app.vercel.app`), không có `/` cuối; có thể khai báo nhiều origin, phân tách bằng dấu phẩy.
+- Frontend: cấu hình `VITE_API_URL` thành URL backend đầy đủ, có `/api` ở cuối (ví dụ `https://your-api.example.com/api`) trong môi trường build của nền tảng frontend. Vite nhúng biến này vào bundle lúc build, vì vậy cần build/deploy lại sau khi thay đổi.
+- Không dùng URL `localhost` hoặc URL frontend Vercel làm `VITE_API_URL` production. Nếu thiếu biến này, frontend production sẽ báo lỗi cấu hình rõ ràng thay vì gửi API request nhầm host.
+- Thư mục `BE/uploads` là ổ đĩa cục bộ; trên host có filesystem tạm thời, file tải lên có thể mất khi service khởi động lại hoặc deploy. Dùng object storage bền vững trước khi cần giữ ảnh/chứng chỉ production.
+
 ## Chức năng MVP
 - Landing page giới thiệu quy trình và 3 gói trải nghiệm: Ẩm thực, Cà phê, Du lịch.
 - Danh sách công khai chỉ hiển thị hồ sơ Buddy đang hoạt động và đã được Admin xác minh.
@@ -47,7 +53,7 @@ Mở `http://localhost:5173`.
 - Ngăn tạo yêu cầu trùng cùng Buddy/ngày/khung giờ khi đã có yêu cầu Pending hoặc Confirmed; Admin cũng kiểm tra xung đột trước khi xác nhận.
 - Admin duyệt hồ sơ Buddy, quản lý tài khoản và cập nhật trạng thái đặt lịch.
 - Hồ sơ Local/Traveler cho phép chọn khu vực Đà Nẵng, tải ảnh đại diện, thêm nhiều ngôn ngữ và tải chứng chỉ ảnh/PDF không bắt buộc.
-- Local có thể khai báo giá dịch vụ theo giờ; Traveler lọc Local theo số giờ trải nghiệm và ngân sách tối đa mỗi giờ.
+- Local có thể khai báo giá dịch vụ theo giờ; Traveler lọc theo sở thích, khu vực, ngôn ngữ, ngày/giờ bắt đầu và ngân sách tối đa mỗi giờ. Thời lượng trải nghiệm được dùng khi đặt lịch và tính giá, không dùng để lọc danh sách.
 - Hồ sơ cá nhân của Local được đồng bộ sang `BuddyProfile`; tài khoản Local cũ được đồng bộ khi Admin mở danh sách hồ sơ.
 
 ## Tài khoản seed

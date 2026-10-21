@@ -8,17 +8,29 @@ const connectDB = require("./config/db");
 const seedAdmin = require("./seedAdmin");
 const app = express();
 
-// Các domain được phép gọi API
-const allowedOrigins = [
+function normalizeOrigin(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    throw new Error(`CLIENT_URL không phải URL hợp lệ: ${value}`);
+  }
+}
+
+// CLIENT_URL accepts a comma-separated list of frontend origins.
+const allowedOrigins = new Set([
   "http://localhost:5173",
-  process.env.CLIENT_URL
-].filter(Boolean);
+  ...(process.env.CLIENT_URL || "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .map(normalizeOrigin),
+]);
 
 // Cấu hình CORS
 app.use(cors({
   origin: function (origin, callback) {
     // Cho phép request không có Origin và domain đã được cho phép
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
       return callback(null, true);
     }
 

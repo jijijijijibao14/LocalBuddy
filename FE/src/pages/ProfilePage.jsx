@@ -9,7 +9,7 @@ import {
   Upload,
   ChevronDown,
 } from "lucide-react";
-import api from "../services/api";
+import api, { API_BASE_URL } from "../services/api";
 
 const AREAS = [
   "Hải Châu",
@@ -45,7 +45,7 @@ const uploadUrl = (url) =>
     ? ""
     : url.startsWith("http")
       ? url
-      : `${(import.meta.env.VITE_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, "")}${url}`;
+      : `${API_BASE_URL.replace(/\/api\/?$/, "")}${url}`;
 
 function MultiSelectDropdown({ options, value, onChange, placeholder }) {
   const selectedLabels = options
