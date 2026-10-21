@@ -1,0 +1,12 @@
+const router = require("express").Router();
+const c = require("../controllers/adminController");
+const { protect, allowRoles } = require("../middleware/auth");
+router.use(protect, allowRoles("admin"));
+router.get("/stats", c.stats);
+router.get("/users", c.users);
+router.patch("/users/:id/status", c.updateUser);
+router.get("/buddies", c.buddies);
+router.patch("/buddies/:id/verification", c.updateBuddyVerification);
+router.get("/bookings", c.bookings);
+router.patch("/bookings/:id", c.updateBooking);
+module.exports = router;
