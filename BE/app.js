@@ -11,6 +11,13 @@ app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:5173" }));
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(morgan("dev"));
+// Route gốc: kiểm tra backend khi mở URL Render
+app.get("/", (req, res) => {
+  res.json({
+    message: "Local Buddy API is running",
+    health: "/api/health"
+  });
+});
 app.use(
   "/api/auth",
   rateLimit({
