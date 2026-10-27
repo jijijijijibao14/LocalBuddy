@@ -9,9 +9,18 @@ import LocalDashboard from "./pages/LocalDashboard";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LocalSafetyEKYC from "./pages/LocalSafetyEKYC";
+import VNPayReturnPage from "./pages/VNPayReturnPage";
 export default function App() {
   return (
     <Routes>
+      <Route
+        path="/payment/vnpay-return"
+        element={
+          <MainLayout>
+            <VNPayReturnPage />
+          </MainLayout>
+        }
+      />
       <Route
         path="/local-safety-ekyc"
         element={

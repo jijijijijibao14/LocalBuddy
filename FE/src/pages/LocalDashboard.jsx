@@ -10,9 +10,11 @@ import {
   UserRound,
   Star,
   Wallet,
+  QrCode,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
+import WalletTopUpModal from "../components/WalletTopUpModal";
 
 function todayString() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -66,6 +68,7 @@ export default function LocalDashboard() {
   const [walletBalance, setWalletBalance] = useState(
     Number(getStoredUser().walletBalance || 0),
   );
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [date, setDate] = useState(todayString());
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
@@ -278,18 +281,31 @@ export default function LocalDashboard() {
         ))}
       </section>
 
-      <section className="rounded-2xl bg-gradient-to-br from-[#e3f5ff] to-[#e7fff5] p-5">
-        <div className="flex items-center gap-2">
-          <Wallet className="text-brand" size={19} />
-          <h2 className="font-extrabold">Ví Local Buddy</h2>
+      <section className="rounded-2xl bg-gradient-to-br from-[#e3f5ff] via-sky-50 to-[#e7fff5] p-5 shadow-sm border border-sky-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Wallet className="text-brand" size={19} />
+            <h2 className="font-extrabold text-navy">Ví Local Buddy</h2>
+          </div>
+          <span className="rounded-full bg-[#005baa]/10 px-2.5 py-0.5 text-[10px] font-extrabold text-[#005baa] flex items-center gap-1">
+            <QrCode size={11} /> VNPAY-QR
+          </span>
         </div>
-        <p className="mt-4 text-xs text-slate-500">Số dư khả dụng</p>
+        <p className="mt-4 text-xs font-medium text-slate-500">Số dư khả dụng</p>
         <p className="mt-1 text-3xl font-black text-brand">
           {walletBalance.toLocaleString("vi-VN")} đ
         </p>
-        <p className="mt-3 text-xs leading-5 text-slate-500">
-          Số dư được tải từ tài khoản Local của bạn. Nạp/rút tiền và thanh toán
-          trực tuyến chưa được tích hợp trong phiên bản demo.
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => setIsTopUpOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-blue-900/15 hover:opacity-95 transition-opacity cursor-pointer"
+          >
+            <QrCode size={15} />
+            <span>Nạp tiền qua VNPAY-QR</span>
+          </button>
+        </div>
+        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
+          Nạp tiền nhanh chóng qua cổng VNPAY-QR để sẵn sàng chi trả các dịch vụ và trải nghiệm.
         </p>
       </section>
 
@@ -537,6 +553,19 @@ export default function LocalDashboard() {
           {message}
         </p>
       )}
+
+      <WalletTopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        currentBalance={walletBalance}
+        onSuccess={(newBal) => {
+          setWalletBalance(newBal);
+          const u = getStoredUser();
+          const updated = { ...u, walletBalance: newBal };
+          localStorage.setItem("lb_user", JSON.stringify(updated));
+          window.dispatchEvent(new Event("lb-auth-change"));
+        }}
+      />
     </div>
   );
 }

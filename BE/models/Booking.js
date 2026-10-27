@@ -72,6 +72,19 @@ const schema = new mongoose.Schema(
       enum: ["Pending", "Confirmed", "Completed", "Cancelled"],
       default: "Pending",
     },
+    paymentStatus: {
+      type: String,
+      enum: ["Unpaid", "Paid", "Refunded"],
+      default: "Unpaid",
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["Wallet", "VNPAY_QR", "None"],
+      default: "None",
+    },
+    paidAt: {
+      type: Date,
+    },
   },
   { timestamps: true }
 );

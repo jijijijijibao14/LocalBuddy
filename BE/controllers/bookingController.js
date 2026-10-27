@@ -1,5 +1,7 @@
 const Booking = require("../models/Booking");
 const BuddyProfile = require("../models/BuddyProfile");
+const User = require("../models/User");
+const Transaction = require("../models/Transaction");
 const { availabilityInstant } = require("../utils/availability");
 
 function toMinutes(value) {
@@ -36,6 +38,7 @@ exports.create = async (req, res) => {
       language = "Tiếng Việt",
       foodBudget = 0,
       message = "",
+      paymentMethod = "None",
     } = req.body;
 
     if (!buddyId || !date || !startTime || !endTime) {
@@ -176,6 +179,29 @@ exports.create = async (req, res) => {
       });
     }
 
+    const calculatedPrice = Math.round((buddy.price / 3) * duration);
+
+    let paymentStatus = "Unpaid";
+    let paidAt = undefined;
+    let freshUser = null;
+
+    if (paymentMethod === "Wallet") {
+      freshUser = await User.findById(req.user._id);
+      if (!freshUser || freshUser.walletBalance < calculatedPrice) {
+        return res.status(400).json({
+          message: `Số dư ví không đủ (${(freshUser?.walletBalance || 0).toLocaleString("vi-VN")} đ). Cần ${calculatedPrice.toLocaleString("vi-VN")} đ để thanh toán. Vui lòng nạp thêm tiền vào ví hoặc chọn thanh toán qua VNPAY-QR.`,
+          insufficient: true,
+          required: calculatedPrice,
+          currentBalance: freshUser?.walletBalance || 0,
+        });
+      }
+
+      freshUser.walletBalance -= calculatedPrice;
+      await freshUser.save();
+      paymentStatus = "Paid";
+      paidAt = new Date();
+    }
+
     const booking = await Booking.create({
       customer: req.user._id,
       buddy: buddy._id,
@@ -185,19 +211,62 @@ exports.create = async (req, res) => {
       durationHours: duration,
       time: `${startTime} - ${endTime}`,
       message: String(message).slice(0, 1000),
-      price: Math.round((buddy.price / 3) * duration),
+      price: calculatedPrice,
       status: "Pending",
+      paymentStatus,
+      paymentMethod,
+      paidAt,
       guestCount: guests,
       language: language.trim(),
       foodBudget: budget,
     });
 
+    let qrData = null;
+
+    if (paymentMethod === "Wallet") {
+      await Transaction.create({
+        user: req.user._id,
+        booking: booking._id,
+        type: "Booking",
+        amount: calculatedPrice,
+        status: "Completed",
+        paymentMethod: "Wallet",
+        description: `Thanh toán đặt lịch Local: ${buddy.fullName} (${duration}h)`,
+      });
+    } else if (paymentMethod === "VNPAY_QR") {
+      const orderId = `BK${booking._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
+      const qrCodeUrl = `https://api.vietqr.io/image/970419-0123456789-compact2.jpg?amount=${calculatedPrice}&addInfo=LOCALBUDDY%20${orderId}&accountName=LOCAL%20BUDDY`;
+      await Transaction.create({
+        user: req.user._id,
+        booking: booking._id,
+        type: "Booking",
+        amount: calculatedPrice,
+        status: "Pending",
+        orderId,
+        paymentMethod: "VNPAY_QR",
+        description: `Thanh toán đặt lịch Local: ${buddy.fullName} (${duration}h) qua VNPAY-QR`,
+      });
+      qrData = {
+        qrCodeUrl,
+        orderId,
+        amount: calculatedPrice,
+        bookingId: booking._id,
+      };
+    }
+
+    const populatedBooking = await booking.populate([
+      { path: "buddy", select: "fullName area coverImage price" },
+      { path: "customer", select: "fullName email" },
+    ]);
+
     res.status(201).json({
-      message: "Đã gửi yêu cầu đến Local.",
-      booking: await booking.populate([
-        { path: "buddy", select: "fullName area coverImage price" },
-        { path: "customer", select: "fullName email" },
-      ]),
+      message:
+        paymentStatus === "Paid"
+          ? "Đặt lịch và thanh toán bằng ví thành công!"
+          : "Đã gửi yêu cầu đến Local.",
+      booking: populatedBooking,
+      newBalance: freshUser ? freshUser.walletBalance : undefined,
+      qrData,
     });
   } catch (error) {
     console.error("Create booking error:", error);
@@ -450,3 +519,148 @@ exports.updateLocalStatus = async (req, res) => {
     });
   }
 };
+
+// 11. Thanh toán lịch đặt bằng ví Local Buddy
+exports.payWithWallet = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await Booking.findOne({ _id: id, customer: req.user._id }).populate("buddy", "fullName");
+    if (!booking) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu đặt lịch." });
+    }
+    if (booking.paymentStatus === "Paid") {
+      return res.status(400).json({ message: "Lịch đặt này đã được thanh toán trước đó." });
+    }
+    if (booking.status === "Cancelled") {
+      return res.status(400).json({ message: "Không thể thanh toán cho lịch đặt đã bị hủy." });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user || user.walletBalance < booking.price) {
+      return res.status(400).json({
+        message: `Số dư ví không đủ. Cần ${booking.price.toLocaleString("vi-VN")} đ nhưng ví hiện chỉ có ${(user?.walletBalance || 0).toLocaleString("vi-VN")} đ. Vui lòng nạp thêm tiền.`,
+        insufficient: true,
+        required: booking.price,
+        currentBalance: user?.walletBalance || 0,
+      });
+    }
+
+    user.walletBalance -= booking.price;
+    await user.save();
+
+    booking.paymentStatus = "Paid";
+    booking.paymentMethod = "Wallet";
+    booking.paidAt = new Date();
+    await booking.save();
+
+    await Transaction.create({
+      user: req.user._id,
+      booking: booking._id,
+      type: "Booking",
+      amount: booking.price,
+      status: "Completed",
+      paymentMethod: "Wallet",
+      description: `Thanh toán đặt lịch Local: ${booking.buddy?.fullName || "Local Buddy"}`,
+    });
+
+    return res.json({
+      success: true,
+      message: "Thanh toán bằng ví Local Buddy thành công!",
+      booking,
+      newBalance: user.walletBalance,
+    });
+  } catch (error) {
+    console.error("Pay booking with wallet error:", error);
+    return res.status(500).json({ message: "Lỗi xử lý thanh toán ví." });
+  }
+};
+
+// 12. Lấy thông tin mã VNPAY-QR thanh toán cho lịch đặt
+exports.getBookingVNPayQR = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await Booking.findOne({ _id: id, customer: req.user._id }).populate("buddy", "fullName");
+    if (!booking) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu đặt lịch." });
+    }
+    if (booking.paymentStatus === "Paid") {
+      return res.status(400).json({ message: "Lịch đặt này đã được thanh toán trước đó." });
+    }
+
+    const orderId = `BK${booking._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
+    const qrCodeUrl = `https://api.vietqr.io/image/970419-0123456789-compact2.jpg?amount=${booking.price}&addInfo=LOCALBUDDY%20${orderId}&accountName=LOCAL%20BUDDY`;
+
+    await Transaction.create({
+      user: req.user._id,
+      booking: booking._id,
+      type: "Booking",
+      amount: booking.price,
+      status: "Pending",
+      orderId,
+      paymentMethod: "VNPAY_QR",
+      description: `Thanh toán đặt lịch Local: ${booking.buddy?.fullName || "Local Buddy"} qua VNPAY-QR`,
+    });
+
+    booking.paymentMethod = "VNPAY_QR";
+    await booking.save();
+
+    return res.json({
+      success: true,
+      qrCodeUrl,
+      orderId,
+      amount: booking.price,
+      bookingId: booking._id,
+    });
+  } catch (error) {
+    console.error("Get booking VNPAY QR error:", error);
+    return res.status(500).json({ message: "Không thể tạo mã QR thanh toán đặt lịch." });
+  }
+};
+
+// 13. Xác nhận thanh toán đặt lịch qua VNPAY-QR
+exports.confirmBookingVNPayQR = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { orderId } = req.body;
+    const booking = await Booking.findOne({ _id: id, customer: req.user._id });
+    if (!booking) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu đặt lịch." });
+    }
+    if (booking.paymentStatus === "Paid") {
+      return res.json({
+        success: true,
+        message: "Lịch đặt này đã được thanh toán.",
+        booking,
+      });
+    }
+
+    booking.paymentStatus = "Paid";
+    booking.paymentMethod = "VNPAY_QR";
+    booking.paidAt = new Date();
+    await booking.save();
+
+    if (orderId) {
+      await Transaction.findOneAndUpdate(
+        { orderId },
+        {
+          $set: {
+            status: "Completed",
+            vnpTransactionNo: `QR${Date.now()}`,
+            vnpBankCode: "VNPAYQR",
+            vnpPayDate: new Date().toISOString(),
+          },
+        }
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: "Xác nhận thanh toán đặt lịch qua VNPAY-QR thành công!",
+      booking,
+    });
+  } catch (error) {
+    console.error("Confirm booking VNPAY QR error:", error);
+    return res.status(500).json({ message: "Lỗi xác nhận thanh toán." });
+  }
+};
+

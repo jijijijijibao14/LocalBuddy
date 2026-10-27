@@ -11,9 +11,13 @@ import {
   Star,
   Users,
   Utensils,
+  Wallet,
+  QrCode,
 } from "lucide-react";
 import { useParams, Link, useSearchParams } from "react-router-dom";
 import api from "../services/api";
+import BookingPaymentModal from "../components/BookingPaymentModal";
+import WalletTopUpModal from "../components/WalletTopUpModal";
 
 const defaultTimes = ["09:00 - 12:00", "13:00 - 16:00", "15:00 - 18:00"];
 
@@ -40,7 +44,15 @@ export default function BuddyDetailPage() {
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  
+  // Trạng thái thanh toán phí giao dịch
+  const [paymentMethod, setPaymentMethod] = useState("Wallet"); // 'Wallet' | 'VNPAY_QR' | 'None'
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [createdBooking, setCreatedBooking] = useState(null);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [initialQrData, setInitialQrData] = useState(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+
   const endMinutes = (() => {
     const [hour, minute] = startTime.split(":").map(Number);
     return hour * 60 + minute + Number(durationHours) * 60;
@@ -50,6 +62,38 @@ export default function BuddyDetailPage() {
     Number.isFinite(endMinutes) && endMinutes <= 24 * 60
       ? `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`
       : "";
+
+  // Tính chi phí dịch vụ dự kiến
+  const estimatedPrice = buddy?.price
+    ? Math.round((Number(buddy.price) / 3) * Number(durationHours))
+    : 0;
+  const isBalanceEnough = walletBalance >= estimatedPrice;
+
+  // Lấy số dư ví của traveler
+  const fetchWallet = () => {
+    if (localStorage.getItem("lb_token")) {
+      api
+        .get("/users/me")
+        .then(({ data }) => {
+          if (data?.user?.walletBalance != null) {
+            setWalletBalance(Number(data.user.walletBalance));
+          }
+        })
+        .catch(() => {
+          try {
+            const u = JSON.parse(localStorage.getItem("lb_user") || "{}");
+            setWalletBalance(Number(u.walletBalance || 0));
+          } catch {}
+        });
+    }
+  };
+
+  useEffect(() => {
+    fetchWallet();
+    const handleAuthChange = () => fetchWallet();
+    window.addEventListener("lb-auth-change", handleAuthChange);
+    return () => window.removeEventListener("lb-auth-change", handleAuthChange);
+  }, []);
 
   // Chỉ lấy lịch rảnh đúng ngày và đủ thời lượng đã chọn.
   const availableSlots = (buddy?.availability || [])
@@ -73,7 +117,6 @@ export default function BuddyDetailPage() {
       );
     })
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
-
 
   useEffect(() => {
     let cancelled = false;
@@ -113,10 +156,20 @@ export default function BuddyDetailPage() {
       setNotice("Khung giờ trải nghiệm không hợp lệ.");
       return;
     }
+
+    if (paymentMethod === "Wallet" && !isBalanceEnough) {
+      setNotice(
+        `Số dư ví Local Buddy không đủ (${walletBalance.toLocaleString("vi-VN")} đ < ${estimatedPrice.toLocaleString("vi-VN")} đ). Vui lòng nạp thêm tiền hoặc chọn thanh toán qua VNPAY-QR.`
+      );
+      return;
+    }
+
     setSubmitting(true);
     setNotice("");
+    setBookingSuccess(false);
+
     try {
-      await api.post("/bookings", {
+      const response = await api.post("/bookings", {
         buddyId: buddy._id || buddy.id,
         date,
         startTime,
@@ -126,15 +179,54 @@ export default function BuddyDetailPage() {
         language,
         foodBudget: Number(foodBudget),
         message,
+        paymentMethod,
       });
-      setNotice(
-        "Đã gửi yêu cầu đến Local. Bạn có thể theo dõi trạng thái trong phần quản lý lịch đặt.",
-      );
+
+      const data = response.data;
+      if (data?.booking) {
+        setCreatedBooking(data.booking);
+      }
+
+      if (paymentMethod === "Wallet") {
+        if (data?.newBalance != null) {
+          setWalletBalance(data.newBalance);
+          try {
+            const raw = localStorage.getItem("lb_user");
+            if (raw) {
+              const u = JSON.parse(raw);
+              u.walletBalance = data.newBalance;
+              localStorage.setItem("lb_user", JSON.stringify(u));
+              window.dispatchEvent(new Event("lb-auth-change"));
+            }
+          } catch {}
+        }
+        setBookingSuccess(true);
+        setNotice(
+          "🎉 Đặt lịch thành công! Khoản phí dịch vụ đã được thanh toán tự động qua Ví Local Buddy.",
+        );
+      } else if (paymentMethod === "VNPAY_QR") {
+        if (data?.qrData) {
+          setInitialQrData(data.qrData);
+        }
+        setIsPayModalOpen(true);
+      } else {
+        setBookingSuccess(true);
+        setNotice(
+          "Đã gửi yêu cầu đến Local! Bạn có thể thanh toán khoản phí sau trong bảng điều khiển.",
+        );
+      }
     } catch (error) {
-      setNotice(
-        error.response?.data?.message ||
-          "Không thể gửi yêu cầu lúc này. Vui lòng thử lại.",
-      );
+      const errRes = error.response?.data;
+      if (errRes?.insufficient) {
+        setNotice(
+          `Số dư ví không đủ (${(errRes.currentBalance || walletBalance).toLocaleString("vi-VN")} đ). Cần ${estimatedPrice.toLocaleString("vi-VN")} đ. Vui lòng nạp thêm tiền hoặc chọn VNPAY-QR.`
+        );
+      } else {
+        setNotice(
+          errRes?.message ||
+            "Không thể gửi yêu cầu lúc này. Vui lòng thử lại.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -449,25 +541,183 @@ export default function BuddyDetailPage() {
               onChange={(e) => setMessage(e.target.value)}
             />
           </label>
+          {/* Tổng phí và Lựa chọn phương thức thanh toán */}
+          <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>Thời lượng ({durationHours} giờ):</span>
+              <span className="font-semibold text-slate-700">
+                {durationHours} × {Number(buddy.pricePerHour ?? Math.round(Number(buddy.price || 0) / 3)).toLocaleString("vi-VN")}đ
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
+              <span className="text-xs font-bold text-navy">Tổng chi phí dịch vụ:</span>
+              <span className="text-base font-black text-brand">
+                {estimatedPrice.toLocaleString("vi-VN")} đ
+              </span>
+            </div>
+
+            <p className="mt-4 text-xs font-bold text-slate-800">
+              Chọn phương thức thanh toán:
+            </p>
+
+            <div className="mt-2 space-y-2">
+              {/* Ví Local Buddy */}
+              <label
+                onClick={() => setPaymentMethod("Wallet")}
+                className={`flex cursor-pointer items-start justify-between rounded-xl border p-3 transition-all ${
+                  paymentMethod === "Wallet"
+                    ? "border-brand bg-blue-50/60 shadow-xs ring-2 ring-brand/20"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand text-white shrink-0 mt-0.5">
+                    <Wallet size={16} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-navy block">Ví Local Buddy</span>
+                    <span className="text-[11px] text-slate-500">
+                      Số dư:{" "}
+                      <b className={isBalanceEnough ? "text-emerald-600" : "text-amber-600"}>
+                        {walletBalance.toLocaleString("vi-VN")} đ
+                      </b>
+                    </span>
+                    {!isBalanceEnough && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+                          Thiếu {(estimatedPrice - walletBalance).toLocaleString("vi-VN")} đ
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsTopUpOpen(true);
+                          }}
+                          className="text-[10px] font-bold text-brand hover:underline cursor-pointer"
+                        >
+                          + Nạp ví ngay
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <input
+                  type="radio"
+                  name="detailPaymentMethod"
+                  checked={paymentMethod === "Wallet"}
+                  onChange={() => setPaymentMethod("Wallet")}
+                  className="mt-1 h-3.5 w-3.5 text-brand"
+                />
+              </label>
+
+              {/* VNPAY-QR */}
+              <label
+                onClick={() => setPaymentMethod("VNPAY_QR")}
+                className={`flex cursor-pointer items-start justify-between rounded-xl border p-3 transition-all ${
+                  paymentMethod === "VNPAY_QR"
+                    ? "border-[#005baa] bg-blue-50/60 shadow-xs ring-2 ring-[#005baa]/20"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#005baa] text-white shrink-0 mt-0.5">
+                    <QrCode size={16} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-navy block">Quét mã VNPAY-QR</span>
+                    <span className="text-[11px] text-slate-500">
+                      Quét qua mọi app ngân hàng & Ví VNPAY
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="radio"
+                  name="detailPaymentMethod"
+                  checked={paymentMethod === "VNPAY_QR"}
+                  onChange={() => setPaymentMethod("VNPAY_QR")}
+                  className="mt-1 h-3.5 w-3.5 text-brand"
+                />
+              </label>
+
+              {/* Thanh toán sau */}
+              <label
+                onClick={() => setPaymentMethod("None")}
+                className={`flex cursor-pointer items-start justify-between rounded-xl border p-3 transition-all ${
+                  paymentMethod === "None"
+                    ? "border-slate-500 bg-slate-100 shadow-xs ring-2 ring-slate-400/20"
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-600 text-white shrink-0 mt-0.5">
+                    <Clock size={16} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-black text-navy block">Thanh toán sau</span>
+                    <span className="text-[11px] text-slate-500">
+                      Giữ lịch trước, thanh toán sau trong bảng điều khiển
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="radio"
+                  name="detailPaymentMethod"
+                  checked={paymentMethod === "None"}
+                  onChange={() => setPaymentMethod("None")}
+                  className="mt-1 h-3.5 w-3.5 text-brand"
+                />
+              </label>
+            </div>
+          </div>
+
           <button
             disabled={submitting}
-            className="btn-primary mt-4 w-full"
+            className={`mt-4 w-full flex items-center justify-center gap-2 cursor-pointer font-bold ${
+              paymentMethod === "VNPAY_QR"
+                ? "rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-4 py-3 text-sm text-white shadow-md shadow-blue-900/15 hover:opacity-95"
+                : "btn-primary"
+            }`}
             onClick={book}
           >
-            <CalendarDays size={15} />{" "}
-            {submitting ? "Đang gửi..." : "Gửi yêu cầu trải nghiệm"}
+            {paymentMethod === "Wallet" && <Wallet size={16} />}
+            {paymentMethod === "VNPAY_QR" && <QrCode size={16} />}
+            {paymentMethod === "None" && <CalendarDays size={16} />}
+            {submitting
+              ? "Đang xử lý..."
+              : paymentMethod === "Wallet"
+                ? "Thanh toán bằng Ví & Đặt lịch"
+                : paymentMethod === "VNPAY_QR"
+                  ? "Quét mã VNPAY-QR & Đặt lịch"
+                  : "Gửi yêu cầu (Thanh toán sau)"}
           </button>
-          <Link to="/login" className="btn-green mt-2 w-full">
+
+          <Link to="/login" className="btn-green mt-2 w-full text-center">
             <MessageCircle size={15} /> Chat trực tiếp (đăng nhập)
           </Link>
+
           {notice && (
-            <p className="mt-3 rounded-lg bg-blue-50 p-3 text-xs leading-5 text-brand">
-              {notice}
-            </p>
+            <div
+              className={`mt-3 rounded-lg p-3 text-xs leading-5 ${
+                bookingSuccess
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-blue-50 text-brand"
+              }`}
+            >
+              <p>{notice}</p>
+              {bookingSuccess && (
+                <Link
+                  to="/dashboard"
+                  className="mt-2 inline-flex items-center gap-1 font-bold text-emerald-700 underline"
+                >
+                  Xem yêu cầu trong Không gian cá nhân →
+                </Link>
+              )}
+            </div>
           )}
+
           <div className="mt-5 rounded-xl bg-emerald-50 p-3 text-xs leading-5 text-emerald-800">
-            <ShieldCheck size={15} className="mr-1 inline" /> Chưa thanh toán
-            online. Nhóm vận hành sẽ kiểm tra lịch Buddy và xác nhận thủ công.
+            <ShieldCheck size={15} className="mr-1 inline" /> 
+            Khoản thanh toán được bảo vệ an toàn. Tiền chỉ được chuyển cho Buddy sau khi chuyến đi hoàn tất.
           </div>
           <p className="mt-4 flex items-center gap-2 text-[11px] text-slate-500">
             <Clock size={13} />
@@ -475,6 +725,43 @@ export default function BuddyDetailPage() {
           </p>
         </aside>
       </div>
+
+      {/* Modal thanh toán VNPAY-QR / Ví */}
+      <BookingPaymentModal
+        isOpen={isPayModalOpen}
+        onClose={() => setIsPayModalOpen(false)}
+        booking={createdBooking}
+        initialQrData={initialQrData}
+        onSuccess={(updated) => {
+          setCreatedBooking(updated);
+          setBookingSuccess(true);
+          setNotice("🎉 Thanh toán phí dịch vụ đặt lịch qua VNPAY-QR thành công!");
+          setIsPayModalOpen(false);
+        }}
+        onOpenTopUp={() => {
+          setIsPayModalOpen(false);
+          setIsTopUpOpen(true);
+        }}
+      />
+
+      {/* Modal Nạp tiền vào Ví Local Buddy */}
+      <WalletTopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        currentBalance={walletBalance}
+        onSuccess={(newBal) => {
+          setWalletBalance(newBal);
+          try {
+            const raw = localStorage.getItem("lb_user");
+            if (raw) {
+              const u = JSON.parse(raw);
+              u.walletBalance = newBal;
+              localStorage.setItem("lb_user", JSON.stringify(u));
+              window.dispatchEvent(new Event("lb-auth-change"));
+            }
+          } catch {}
+        }}
+      />
     </div>
   );
 }

@@ -19,6 +19,9 @@ function normalizeOrigin(value) {
 // CLIENT_URL accepts a comma-separated list of frontend origins.
 const allowedOrigins = new Set([
   "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
   ...(process.env.CLIENT_URL || "")
     .split(",")
     .map((origin) => origin.trim())
@@ -65,6 +68,7 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/buddies", require("./routes/buddyRoutes"));
 app.use("/api/bookings", require("./routes/bookingRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/wallet", require("./routes/walletRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use((req, res) =>
   res.status(404).json({ message: "API endpoint không tồn tại." }),
