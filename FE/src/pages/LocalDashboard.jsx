@@ -15,6 +15,7 @@ import {
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import WalletTopUpModal from "../components/WalletTopUpModal";
+import ConversationList from "../components/ConversationList";
 
 function todayString() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -74,6 +75,7 @@ export default function LocalDashboard() {
   const [endTime, setEndTime] = useState("17:00");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [currentLocalUser, setCurrentLocalUser] = useState(getStoredUser);
 
   async function loadData() {
     try {
@@ -93,6 +95,7 @@ export default function LocalDashboard() {
       setAvailabilityDirty(false);
       setBookings(bookingResponse.data || []);
       setProfileScore(getProfileScore(user));
+      setCurrentLocalUser({ ...getStoredUser(), ...user });
       setWalletBalance(Number(user.walletBalance || 0));
       localStorage.setItem(
         "lb_user",
@@ -553,6 +556,11 @@ export default function LocalDashboard() {
           {message}
         </p>
       )}
+
+      {/* Danh sách tin nhắn trực tiếp */}
+      <div className="mt-5">
+        <ConversationList currentUser={currentLocalUser} />
+      </div>
 
       <WalletTopUpModal
         isOpen={isTopUpOpen}

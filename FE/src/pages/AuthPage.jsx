@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Compass,
   ShieldCheck,
@@ -14,6 +14,7 @@ import api from "../services/api";
 export default function AuthPage({ mode = "login" }) {
   const register = mode === "register";
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -46,7 +47,8 @@ export default function AuthPage({ mode = "login" }) {
         localStorage.setItem("lb_token", data.token);
         localStorage.setItem("lb_user", JSON.stringify(data.user));
         // Mọi role đều về cùng HomePage; nội dung được render theo role.
-        navigate("/", { replace: true });
+        const redirectTo = searchParams.get("redirect") || "/";
+        navigate(redirectTo, { replace: true });
         window.dispatchEvent(new Event("lb-auth-change"));
       }
     } catch (e) {

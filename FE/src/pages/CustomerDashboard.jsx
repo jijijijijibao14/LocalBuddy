@@ -16,6 +16,7 @@ import api from "../services/api";
 import { Link } from "react-router-dom";
 import WalletTopUpModal from "../components/WalletTopUpModal";
 import BookingPaymentModal from "../components/BookingPaymentModal";
+import ConversationList from "../components/ConversationList";
 
 function getStoredUser() {
   try {
@@ -390,6 +391,11 @@ export default function CustomerDashboard() {
           setIsTopUpOpen(true);
         }}
       />
+
+      {/* Danh sách tin nhắn trực tiếp */}
+      <div className="mt-5">
+        <ConversationList currentUser={user} />
+      </div>
     </div>
   );
 }

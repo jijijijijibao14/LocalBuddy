@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   MapPin,
   Search,
+  MessageCircle,
 } from "lucide-react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -117,6 +118,19 @@ export default function Navbar() {
             <Link className="nav-link" to="/profile">
               Hồ sơ của tôi
             </Link>
+          )}
+
+          {token && user && (role === "local" || role === "traveler") && (
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("lb-open-chat", {}));
+              }}
+              className="nav-link inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <MessageCircle size={15} />
+              <span>Tin nhắn</span>
+            </button>
           )}
 
           {role === "local" && (

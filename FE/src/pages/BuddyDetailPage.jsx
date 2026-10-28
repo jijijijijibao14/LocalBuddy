@@ -14,10 +14,11 @@ import {
   Wallet,
   QrCode,
 } from "lucide-react";
-import { useParams, Link, useSearchParams } from "react-router-dom";
+import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import BookingPaymentModal from "../components/BookingPaymentModal";
 import WalletTopUpModal from "../components/WalletTopUpModal";
+import ChatModal from "../components/ChatModal";
 
 const defaultTimes = ["09:00 - 12:00", "13:00 - 16:00", "15:00 - 18:00"];
 
@@ -52,6 +53,43 @@ export default function BuddyDetailPage() {
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [initialQrData, setInitialQrData] = useState(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+
+  // Chat state
+  const [currentUser, setCurrentUser] = useState(getCurrentUser);
+  useEffect(() => {
+    if (searchParams.get("openChat") === "true" || searchParams.get("openChat") === "1") {
+      if (buddy && localStorage.getItem("lb_token")) {
+        const localUser = {
+          _id: buddy.user || buddy._id,
+          fullName: buddy.fullName,
+          avatar: buddy.coverImage || buddy.avatar || "",
+          role: "local",
+        };
+        window.dispatchEvent(
+          new CustomEvent("lb-open-chat", {
+            detail: { otherUser: localUser },
+          })
+        );
+      }
+    }
+  }, [searchParams, buddy]);
+  const [isChatOpen, setIsChatOpen] = useState(
+    searchParams.get("openChat") === "true" || searchParams.get("openChat") === "1"
+  );
+  const navigate = useNavigate();
+
+  function getCurrentUser() {
+    try {
+      const raw = localStorage.getItem("lb_user");
+      if (!raw) return null;
+      const u = JSON.parse(raw);
+      const target = u.user && !u.fullName ? u.user : u;
+      if (target && !target._id && target.id) target._id = target.id;
+      return target;
+    } catch {
+      return null;
+    }
+  }
 
   const endMinutes = (() => {
     const [hour, minute] = startTime.split(":").map(Number);
@@ -92,7 +130,12 @@ export default function BuddyDetailPage() {
     fetchWallet();
     const handleAuthChange = () => fetchWallet();
     window.addEventListener("lb-auth-change", handleAuthChange);
-    return () => window.removeEventListener("lb-auth-change", handleAuthChange);
+    const syncUser = () => setCurrentUser(getCurrentUser());
+    window.addEventListener("lb-auth-change", syncUser);
+    return () => {
+      window.removeEventListener("lb-auth-change", handleAuthChange);
+      window.removeEventListener("lb-auth-change", syncUser);
+    };
   }, []);
 
   // Chỉ lấy lịch rảnh đúng ngày và đủ thời lượng đã chọn.
@@ -691,9 +734,67 @@ export default function BuddyDetailPage() {
                   : "Gửi yêu cầu (Thanh toán sau)"}
           </button>
 
-          <Link to="/login" className="btn-green mt-2 w-full text-center">
-            <MessageCircle size={15} /> Chat trực tiếp (đăng nhập)
-          </Link>
+          {/* Nút Chat trực tiếp */}
+          {(() => {
+            const isLoggedIn = !!localStorage.getItem("lb_token");
+            const currentUser = getCurrentUser();
+            const currentBuddyUserId = buddy?.user || buddy?._id;
+
+            if (!isLoggedIn) {
+              const redirectUrl = encodeURIComponent(`/buddy/${id}?openChat=true`);
+              return (
+                <div className="mt-2">
+                  <Link
+                    to={`/login?redirect=${redirectUrl}`}
+                    className="btn-green w-full text-center flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle size={15} /> Chat trực tiếp với Local (Cần đăng nhập)
+                  </Link>
+                  <p className="mt-1 text-[11px] text-center text-slate-500">
+                    Vui lòng đăng nhập tài khoản Traveler để gửi tin nhắn an toàn.
+                  </p>
+                </div>
+              );
+            }
+
+            if (currentUser?._id === currentBuddyUserId) {
+              return (
+                <div className="mt-2 rounded-xl bg-slate-100 p-2.5 text-center text-xs text-slate-600 font-medium">
+                  Đây là trang hồ sơ của bạn
+                </div>
+              );
+            }
+
+            if (currentUser?.role !== "traveler") {
+              return (
+                <div className="mt-2 rounded-xl bg-amber-50 p-2.5 text-center text-xs text-amber-700 font-medium">
+                  Tính năng chat trực tiếp dành cho tài khoản Traveler.
+                </div>
+              );
+            }
+
+            return (
+              <button
+                type="button"
+                className="btn-green mt-2 w-full flex items-center justify-center gap-2"
+                onClick={() => {
+                  const localUser = {
+                    _id: buddy.user || buddy._id,
+                    fullName: buddy.fullName,
+                    avatar: buddy.coverImage || buddy.avatar || "",
+                    role: "local",
+                  };
+                  window.dispatchEvent(
+                    new CustomEvent("lb-open-chat", {
+                      detail: { otherUser: localUser },
+                    })
+                  );
+                }}
+              >
+                <MessageCircle size={15} /> Chat trực tiếp với {buddy?.fullName || "Local"}
+              </button>
+            );
+          })()}
 
           {notice && (
             <div
