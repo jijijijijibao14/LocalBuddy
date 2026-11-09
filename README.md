@@ -2,6 +2,16 @@
 
 Dự án gồm frontend React + Vite + Tailwind CSS và backend Express + MongoDB/Mongoose + JWT.
 
+## Giới thiệu và quy mô dự án
+LocalBuddy là nền tảng kết nối **Traveler** (du khách) với **Local Buddy** (người địa phương) để đặt các trải nghiệm Ẩm thực, Cà phê, Du lịch. Hệ thống có 3 vai trò: Traveler, Local và Admin.
+
+| Thành phần | Quy mô |
+|---|---|
+| Frontend (`FE/`) | SPA React 18 + Vite + Tailwind CSS; 10 trang (Trang chủ, Đăng nhập/Đăng ký, Chi tiết Buddy, Hồ sơ, Ví, eKYC, Dashboard Traveler/Local/Admin, VNPay return) và 10 component dùng chung; đa ngôn ngữ vi/en/fr/ja/ko (i18next); biểu đồ Recharts; chat realtime qua socket.io-client |
+| Backend (`BE/`) | REST API Express 4 + Socket.IO; 6 model chính (User, BuddyProfile, Booking, Message, Transaction, WalletSettings) và 7 nhóm route (auth, users, buddies, bookings, wallet, chat, admin) với ~50 endpoint; JWT, rate limit, upload file bằng multer |
+| Cơ sở dữ liệu | MongoDB (Mongoose) |
+| Triển khai | Frontend trên Vercel, backend trên Render (xem mục Triển khai production) |
+
 ## Yêu cầu
 - Node.js 20 LTS trở lên
 - MongoDB local hoặc MongoDB Atlas
@@ -44,6 +54,11 @@ Mở `http://localhost:5173`.
 - Không dùng URL `localhost` hoặc URL frontend Vercel làm `VITE_API_URL` production. Nếu thiếu biến này, frontend production sẽ báo lỗi cấu hình rõ ràng thay vì gửi API request nhầm host.
 - Thư mục `BE/uploads` là ổ đĩa cục bộ; trên host có filesystem tạm thời, file tải lên có thể mất khi service khởi động lại hoặc deploy. Dùng object storage bền vững trước khi cần giữ ảnh/chứng chỉ production.
 
+## Chức năng theo vai trò
+- **Traveler**: đăng ký/đăng nhập, tìm và lọc Buddy, đặt lịch, thanh toán trước (ví, VNPay/QR), nạp tiền và rút tiền, chat với Local/Admin, quản lý hồ sơ.
+- **Local**: hoàn tất eKYC demo, quản lý hồ sơ (khu vực, ngôn ngữ, chứng chỉ, ảnh, giá theo giờ), cập nhật lịch rảnh, xác nhận/từ chối/hoàn thành booking, nhận thu nhập vào ví.
+- **Admin**: thống kê, duyệt hồ sơ Local, quản lý người dùng và booking, cấu hình hoa hồng/Premium demo, xử lý rút tiền, hỗ trợ qua chat.
+
 ## Chức năng MVP
 - Landing page giới thiệu quy trình và 3 gói trải nghiệm: Ẩm thực, Cà phê, Du lịch.
 - Danh sách công khai chỉ hiển thị hồ sơ Buddy đang hoạt động và đã được Admin xác minh.
@@ -67,8 +82,12 @@ Mở `http://localhost:5173`.
 ## API chính
 - `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
 - `GET /api/buddies`, `GET /api/buddies/:id`
-- `POST /api/bookings`, `GET /api/bookings/mine`
-- `GET /api/users/me`, `PATCH /api/users/me`, `GET /api/users/me/buddy-profile`
+- `PATCH /api/buddies/mine/availability`
+- `POST /api/bookings`, `GET /api/bookings/mine`, `GET /api/bookings/local`, `PATCH /api/bookings/:id/local-status`
+- `POST /api/bookings/:id/pay-wallet`, `POST /api/bookings/:id/pay-vnpay-qr`, `POST /api/bookings/:id/confirm-vnpay-qr`
+- `GET /api/users/me`, `PATCH /api/users/me`, `GET /api/users/me/buddy-profile`, `PATCH /api/users/me/kyc-demo/complete`
+- `POST /api/wallet/vnpay/create-url`, `GET /api/wallet/vnpay/return`, `GET /api/wallet/vnpay/ipn`, `POST /api/wallet/confirm-deposit`
+- `PATCH /api/admin/users/:id/premium`
 - `GET /api/admin/stats`, `GET /api/admin/users`, `PATCH /api/admin/users/:id/status`
 - `GET /api/admin/buddies`, `PATCH /api/admin/buddies/:id/verification`
 - `GET /api/admin/bookings`, `PATCH /api/admin/bookings/:id`
