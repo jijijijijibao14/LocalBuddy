@@ -24,12 +24,9 @@ function normalizeOrigin(value) {
   }
 }
 
-// CLIENT_URL accepts a comma-separated list of frontend origins.
+// CLIENT_URL chấp nhận danh sách các nguồn gốc frontend được phân cách bằng dấu phẩy.
 const allowedOrigins = new Set([
   "http://localhost:5173",
-  "http://localhost:5174",
-  "http://127.0.0.1:5173",
-  "http://127.0.0.1:5174",
   ...(process.env.CLIENT_URL || "")
     .split(",")
     .map((origin) => origin.trim())
@@ -53,7 +50,6 @@ app.use(cors({
 app.use(express.json({ limit: "1mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(morgan("dev"));
-
 // Route gốc: kiểm tra backend khi mở URL Render
 app.get("/", (req, res) => {
   res.json({
@@ -80,7 +76,6 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/wallet", require("./routes/walletRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/chat", require("./routes/chatRoutes"));
-
 app.use((req, res) =>
   res.status(404).json({ message: "API endpoint không tồn tại." }),
 );
@@ -89,7 +84,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Lỗi máy chủ nội bộ." });
 });
 
-// ─── Socket.IO ────────────────────────────────────────────────────────────────
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
@@ -102,8 +96,8 @@ const io = new Server(httpServer, {
     credentials: true,
   },
 });
+app.set("io", io);
 
-// Middleware xác thực Socket.IO bằng JWT
 io.use(async (socket, next) => {
   try {
     const token =
@@ -113,10 +107,11 @@ io.use(async (socket, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id).select(
-      "fullName avatar role status"
+      "fullName avatar role status",
     );
-    if (!user || user.status !== "Active")
+    if (!user || user.status !== "Active") {
       return next(new Error("Tài khoản không hoạt động."));
+    }
 
     socket.user = user;
     next();
@@ -128,110 +123,94 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   const { _id: userId, role, fullName } = socket.user;
   console.log(`[Socket] ${fullName} (${role}) kết nối – ${socket.id}`);
-
-  // Tham gia phòng cá nhân để nhận thông báo riêng
   socket.join(String(userId));
 
-  // ── Tham gia phòng chat với user khác ────────────────────────────────────
-  socket.on("join_room", ({ otherUserId }) => {
-    if (!otherUserId) return;
-    const roomId = buildRoomId(userId, otherUserId);
-    socket.join(roomId);
-    console.log(`[Socket] ${fullName} tham gia phòng ${roomId}`);
+  const canChatWith = async (otherUserId) => {
+    const otherUser = await User.findById(otherUserId).select("role status");
+    if (!otherUser || otherUser.status !== "Active") return false;
+    return role === "admin"
+      ? otherUser.role !== "admin"
+      : otherUser.role === "admin" ||
+          (role === "traveler" && otherUser.role === "local") ||
+          (role === "local" && otherUser.role === "traveler");
+  };
+
+  socket.on("join_room", async ({ otherUserId } = {}) => {
+    if (!otherUserId || !(await canChatWith(otherUserId))) return;
+    socket.join(buildRoomId(userId, otherUserId));
   });
 
-  // ── Rời phòng chat ────────────────────────────────────────────────────────
-  socket.on("leave_room", ({ otherUserId }) => {
-    if (!otherUserId) return;
-    const roomId = buildRoomId(userId, otherUserId);
-    socket.leave(roomId);
+  socket.on("leave_room", ({ otherUserId } = {}) => {
+    if (otherUserId) socket.leave(buildRoomId(userId, otherUserId));
   });
 
-  // ── Gửi tin nhắn realtime ─────────────────────────────────────────────────
-  socket.on("send_message", async ({ otherUserId, content }, ack) => {
+  socket.on("send_message", async ({ otherUserId, content, replyTo } = {}, ack) => {
     try {
-      // Validation nội dung
       const validation = validateMessageContent(content);
       if (!validation.valid) {
-        if (typeof ack === "function")
-          ack({ error: validation.reason });
+        if (typeof ack === "function") ack({ error: validation.reason });
         return;
       }
-
-      // Kiểm tra user kia
-      const otherUser = await User.findById(otherUserId).select("role status");
-      if (!otherUser || otherUser.status !== "Active") {
-        if (typeof ack === "function")
-          ack({ error: "Người dùng không tồn tại." });
-        return;
-      }
-
-      // Xác định traveler / local
-      let travelerId, localId;
-      if (role === "traveler") {
-        if (otherUser.role !== "local") {
-          if (typeof ack === "function")
-            ack({ error: "Bạn chỉ có thể chat với Local Buddy." });
-          return;
+      if (!otherUserId || !(await canChatWith(otherUserId))) {
+        if (typeof ack === "function") {
+          ack({ error: "Bạn không thể chat với tài khoản này." });
         }
-        travelerId = userId;
-        localId = otherUserId;
-      } else if (role === "local") {
-        if (otherUser.role !== "traveler") {
-          if (typeof ack === "function")
-            ack({ error: "Bạn chỉ có thể chat với Traveler." });
-          return;
-        }
-        travelerId = otherUserId;
-        localId = userId;
-      } else {
-        if (typeof ack === "function")
-          ack({ error: "Admin không dùng tính năng chat này." });
         return;
       }
 
+      const travelerId =
+        role === "admin" ? otherUserId : role === "traveler" ? userId : otherUserId;
+      const localId =
+        role === "admin" ? userId : role === "local" ? userId : otherUserId;
       const roomId = buildRoomId(travelerId, localId);
 
-      // Lưu vào DB
-      const msg = await Message.create({
+      if (replyTo) {
+        const parent = await Message.findOne({ _id: replyTo, roomId }).select("_id");
+        if (!parent) {
+          if (typeof ack === "function") {
+            ack({ error: "Tin nhắn được trả lời không thuộc cuộc trò chuyện này." });
+          }
+          return;
+        }
+      }
+
+      const message = await Message.create({
         roomId,
         sender: userId,
         traveler: travelerId,
         local: localId,
+        participants: [userId, otherUserId],
         content: content.trim(),
+        ...(replyTo ? { replyTo } : {}),
       });
-      await msg.populate("sender", "fullName avatar role");
+      await message.populate("sender", "fullName avatar role");
 
       const payload = {
-        _id: msg._id,
-        roomId: msg.roomId,
-        sender: msg.sender,
-        content: msg.content,
-        read: msg.read,
-        createdAt: msg.createdAt,
+        _id: message._id,
+        roomId: message.roomId,
+        sender: message.sender,
+        content: message.content,
+        replyTo: message.replyTo,
+        read: message.read,
+        createdAt: message.createdAt,
       };
-
-      // Phát đến cả phòng (bao gồm người gửi trên các tab khác)
       io.to(roomId).emit("new_message", payload);
-
-      // Thông báo cho user kia nếu họ chưa ở trong phòng (dùng phòng cá nhân)
       io.to(String(otherUserId)).emit("new_message_notification", {
         roomId,
         from: { _id: userId, fullName, role },
         preview: content.trim().slice(0, 80),
-        createdAt: msg.createdAt,
+        createdAt: message.createdAt,
       });
-
       if (typeof ack === "function") ack({ ok: true, message: payload });
-    } catch (err) {
-      console.error("[Socket] send_message error:", err);
-      if (typeof ack === "function")
+    } catch (error) {
+      console.error("[Socket] send_message error:", error);
+      if (typeof ack === "function") {
         ack({ error: "Lỗi máy chủ, vui lòng thử lại." });
+      }
     }
   });
 
-  // ── Đang nhập (typing indicator) ─────────────────────────────────────────
-  socket.on("typing", ({ otherUserId, isTyping }) => {
+  socket.on("typing", ({ otherUserId, isTyping } = {}) => {
     if (!otherUserId) return;
     const roomId = buildRoomId(userId, otherUserId);
     socket.to(roomId).emit("user_typing", {
@@ -241,15 +220,13 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ── Đánh dấu đã đọc ──────────────────────────────────────────────────────
-  socket.on("mark_read", async ({ otherUserId }) => {
+  socket.on("mark_read", async ({ otherUserId } = {}) => {
     if (!otherUserId) return;
     const roomId = buildRoomId(userId, otherUserId);
     await Message.updateMany(
       { roomId, sender: otherUserId, read: false },
-      { read: true }
-    ).catch(console.error);
-    // Thông báo cho người gửi rằng tin đã được đọc
+      { $set: { read: true } },
+    ).catch((error) => console.error("[Socket] mark_read error:", error));
     io.to(String(otherUserId)).emit("messages_read", { roomId });
   });
 
@@ -258,7 +235,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// ─── Khởi động server ────────────────────────────────────────────────────────
 const port = process.env.PORT || 3001;
 
 async function startServer() {

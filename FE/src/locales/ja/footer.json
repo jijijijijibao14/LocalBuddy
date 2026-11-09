@@ -1,0 +1,19 @@
+{
+  "description": "地元の人と一緒にダナンを発見。リアルで安全、思い出に残る体験につなげます。",
+  "localExperiences": "100%地元ならではの体験",
+  "districts": "対応エリア",
+  "districtHaiChau": "Hải Châu・Thanh Khê",
+  "districtSonTra": "Sơn Trà・Ngũ Hành Sơn",
+  "districtLienChieu": "Liên Chiểu・Hòa Vang",
+  "districtHoiAn": "ホイアンと周辺地域",
+  "safetyLegal": "安全と法的情報",
+  "ekyc": "eKYC本人確認の手順",
+  "privacy": "プライバシーポリシー",
+  "terms": "利用規約",
+  "community": "コミュニティガイドライン",
+  "supportTitle": "24時間年中無休のカスタマーサポート",
+  "supportDescription": "旅の間、サポートチームがいつでもお手伝いします。",
+  "hotline": "サポート窓口：{{number}}",
+  "copyright": "© 2026 Local Buddy Đà Nẵng. 地元の体験と人をつなぐプラットフォーム。",
+  "footerLinks": "利用規約 · プライバシー · ヘルプセンター"
+}

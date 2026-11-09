@@ -9,13 +9,12 @@ import {
   Compass,
   UserRound,
   Star,
-  Wallet,
-  QrCode,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
-import WalletTopUpModal from "../components/WalletTopUpModal";
 import ConversationList from "../components/ConversationList";
+import { useTranslation } from "react-i18next";
+import { useLocale } from "../contexts/LocaleContext";
 
 function todayString() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -60,16 +59,14 @@ function getProfileScore(user) {
 }
 
 export default function LocalDashboard() {
+  const { t } = useTranslation("localDashboard");
+  const { formatCurrency } = useLocale();
   const [profile, setProfile] = useState(null);
   const [availability, setAvailability] = useState([]);
   const [availabilityDirty, setAvailabilityDirty] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [bookingStatusFilter, setBookingStatusFilter] = useState("Pending");
   const [profileScore, setProfileScore] = useState(0);
-  const [walletBalance, setWalletBalance] = useState(
-    Number(getStoredUser().walletBalance || 0),
-  );
-  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [date, setDate] = useState(todayString());
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("17:00");
@@ -96,14 +93,13 @@ export default function LocalDashboard() {
       setBookings(bookingResponse.data || []);
       setProfileScore(getProfileScore(user));
       setCurrentLocalUser({ ...getStoredUser(), ...user });
-      setWalletBalance(Number(user.walletBalance || 0));
       localStorage.setItem(
         "lb_user",
         JSON.stringify({ ...getStoredUser(), ...user }),
       );
     } catch (error) {
       setMessage(
-        error.response?.data?.message || "Không tải được dữ liệu Local.",
+        error.response?.data?.message || t("errors.load"),
       );
     }
   }
@@ -129,26 +125,26 @@ export default function LocalDashboard() {
         }
       } catch (error) {
         setMessage(
-          error.response?.data?.message || "Không thể cập nhật lịch rảnh.",
+          error.response?.data?.message || t("errors.refreshAvailability"),
         );
       }
     }, 60_000);
 
     return () => window.clearInterval(interval);
-  }, [availabilityDirty]);
+  }, [availabilityDirty, t]);
 
   function addAvailability() {
     setMessage("");
 
     if (!date || endTime <= startTime) {
-      setMessage("Vui lòng chọn ngày và khung giờ hợp lệ.");
+      setMessage(t("errors.invalidSlot"));
       return;
     }
 
     if (
       new Date(`${date}T${startTime}:00+07:00`).getTime() <= Date.now()
     ) {
-      setMessage("Không thể thêm khung giờ đã bắt đầu hoặc trong quá khứ.");
+      setMessage(t("errors.pastSlot"));
       return;
     }
 
@@ -160,7 +156,7 @@ export default function LocalDashboard() {
     );
 
     if (overlap) {
-      setMessage("Khung giờ này bị trùng với lịch rảnh đã thêm.");
+      setMessage(t("errors.overlap"));
       return;
     }
 
@@ -185,9 +181,9 @@ export default function LocalDashboard() {
 
       setAvailability(data.availability || []);
       setAvailabilityDirty(false);
-      setMessage("Đã lưu lịch rảnh thành công.");
+      setMessage(t("messages.saved"));
     } catch (error) {
-      setMessage(error.response?.data?.message || "Không thể lưu lịch rảnh.");
+      setMessage(error.response?.data?.message || t("errors.save"));
     } finally {
       setLoading(false);
     }
@@ -200,21 +196,24 @@ export default function LocalDashboard() {
       await api.patch(`/bookings/${id}/local-status`, { status });
       window.dispatchEvent(new Event("lb-bookings-change"));
       setMessage(
-        status === "Confirmed" ? "Đã xác nhận yêu cầu." : "Đã từ chối yêu cầu.",
+        status === "Confirmed"
+          ? t("messages.confirmed")
+          : t("messages.rejected"),
       );
 
       await loadData();
     } catch (error) {
       setMessage(
-        error.response?.data?.message || "Không thể cập nhật yêu cầu.",
+        error.response?.data?.message || t("errors.updateBooking"),
       );
     }
   }
 
   const bookingStatusTabs = [
-    { status: "Pending", label: "Yêu cầu" },
-    { status: "Confirmed", label: "Đã xác nhận" },
-    { status: "Cancelled", label: "Đã từ chối" },
+    { status: "Pending", label: t("tabs.pending") },
+    { status: "Confirmed", label: t("tabs.confirmed") },
+    { status: "Completed", label: t("tabs.completed") },
+    { status: "Cancelled", label: t("tabs.cancelled") },
   ];
   const filteredBookings = bookings.filter(
     (booking) => booking.status === bookingStatusFilter,
@@ -224,19 +223,18 @@ export default function LocalDashboard() {
     <div className="container-page space-y-6 py-8">
       <section className="rounded-2xl bg-gradient-to-r from-[#e2f4ff] via-white to-[#e7fff5] p-6 sm:p-9">
         <span className="pill">
-          <MapPin size={13} /> KHÔNG GIAN LOCAL BUDDY
+          <MapPin size={13} /> {t("hero.eyebrow")}
         </span>
-        <h1 className="mt-4 text-3xl font-black text-navy">Xin chào, Local!</h1>
+        <h1 className="mt-4 text-3xl font-black text-navy">{t("hero.title")}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Quản lý lịch rảnh để Traveler tìm được thời gian phù hợp và gửi yêu
-          cầu trải nghiệm trực tiếp đến bạn.
+          {t("hero.subtitle")}
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link to="/" className="btn-primary">
-            <Compass size={15} /> Xem trang chủ
+            <Compass size={15} /> {t("hero.home")}
           </Link>
           <Link to="/profile" className="btn-light">
-            Hồ sơ của tôi
+            {t("hero.myProfile")}
           </Link>
         </div>
       </section>
@@ -244,31 +242,25 @@ export default function LocalDashboard() {
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
-            label: "Điểm hồ sơ",
+            label: t("stats.profileScore"),
             value: `${profileScore}%`,
-            sub: "Mức độ hoàn thiện hồ sơ Local",
+            sub: t("stats.profileScoreSub"),
             icon: UserRound,
           },
           {
-            label: "Đánh giá",
+            label: t("stats.rating"),
             value:
               profile?.rating == null
-                ? "Chưa có"
+                ? t("stats.noRating")
                 : `${Number(profile.rating).toFixed(1)}/5`,
-            sub: "Điểm đánh giá hồ sơ Buddy",
+            sub: t("stats.ratingSub"),
             icon: Star,
           },
           {
-            label: "Yêu cầu đặt lịch",
+            label: t("stats.bookings"),
             value: String(bookings.length),
-            sub: "Tất cả yêu cầu gửi đến bạn",
+            sub: t("stats.bookingsSub"),
             icon: CalendarDays,
-          },
-          {
-            label: "Số dư ví",
-            value: `${walletBalance.toLocaleString("vi-VN")}đ`,
-            sub: "Ví Local Buddy",
-            icon: Wallet,
           },
         ].map((item) => (
           <div key={item.label} className="panel p-5">
@@ -284,48 +276,20 @@ export default function LocalDashboard() {
         ))}
       </section>
 
-      <section className="rounded-2xl bg-gradient-to-br from-[#e3f5ff] via-sky-50 to-[#e7fff5] p-5 shadow-sm border border-sky-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wallet className="text-brand" size={19} />
-            <h2 className="font-extrabold text-navy">Ví Local Buddy</h2>
-          </div>
-          <span className="rounded-full bg-[#005baa]/10 px-2.5 py-0.5 text-[10px] font-extrabold text-[#005baa] flex items-center gap-1">
-            <QrCode size={11} /> VNPAY-QR
-          </span>
-        </div>
-        <p className="mt-4 text-xs font-medium text-slate-500">Số dư khả dụng</p>
-        <p className="mt-1 text-3xl font-black text-brand">
-          {walletBalance.toLocaleString("vi-VN")} đ
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            onClick={() => setIsTopUpOpen(true)}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-md shadow-blue-900/15 hover:opacity-95 transition-opacity cursor-pointer"
-          >
-            <QrCode size={15} />
-            <span>Nạp tiền qua VNPAY-QR</span>
-          </button>
-        </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-          Nạp tiền nhanh chóng qua cổng VNPAY-QR để sẵn sàng chi trả các dịch vụ và trải nghiệm.
-        </p>
-      </section>
-
       <section className="panel p-5 sm:p-7">
         <div className="flex items-center gap-3">
           <CalendarDays className="text-brand" size={25} />
           <div>
-            <h2 className="text-xl font-black text-navy">Lịch rảnh của tôi</h2>
+            <h2 className="text-xl font-black text-navy">{t("availability.title")}</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Thêm nhiều ngày và khung giờ bạn có thể nhận khách.
+              {t("availability.subtitle")}
             </p>
           </div>
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-3">
           <label className="text-sm font-bold">
-            Ngày rảnh
+            {t("availability.date")}
             <input
               type="date"
               className="field mt-2"
@@ -335,7 +299,7 @@ export default function LocalDashboard() {
             />
           </label>
           <label className="text-sm font-bold">
-            Từ giờ
+            {t("availability.from")}
             <input
               type="time"
               className="field mt-2"
@@ -344,7 +308,7 @@ export default function LocalDashboard() {
             />
           </label>
           <label className="text-sm font-bold">
-            Đến giờ
+            {t("availability.to")}
             <input
               type="time"
               className="field mt-2"
@@ -356,7 +320,7 @@ export default function LocalDashboard() {
 
         <div className="mt-4 flex flex-wrap gap-3">
           <button className="btn-light" onClick={addAvailability}>
-            <CalendarDays size={16} /> Thêm ngày và giờ
+            <CalendarDays size={16} /> {t("availability.add")}
           </button>
           <button
             className="btn-primary"
@@ -364,14 +328,14 @@ export default function LocalDashboard() {
             disabled={loading}
           >
             <Save size={16} />
-            {loading ? "Đang lưu..." : "Lưu lịch rảnh"}
+            {loading ? t("availability.saving") : t("availability.save")}
           </button>
         </div>
 
         <div className="mt-5 space-y-3">
           {availability.length === 0 && (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
-              Bạn chưa thêm lịch rảnh nào.
+              {t("availability.empty")}
             </p>
           )}
 
@@ -394,7 +358,7 @@ export default function LocalDashboard() {
                   setAvailabilityDirty(true);
                 }}
               >
-                Xóa
+                {t("availability.delete")}
               </button>
             </div>
           ))}
@@ -406,10 +370,10 @@ export default function LocalDashboard() {
           <CalendarDays className="text-brand" size={24} />
           <div>
             <h2 className="text-xl font-black text-navy">
-              Yêu cầu trải nghiệm
+              {t("requests.title")}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Các yêu cầu gửi đến hồ sơ Local của bạn.
+              {t("requests.subtitle")}
             </p>
           </div>
         </div>
@@ -417,7 +381,7 @@ export default function LocalDashboard() {
         <div
           className="mt-5 flex flex-wrap gap-2"
           role="tablist"
-          aria-label="Lọc yêu cầu trải nghiệm"
+          aria-label={t("requests.filterLabel")}
         >
           {bookingStatusTabs.map((tab) => {
             const count = bookings.filter(
@@ -454,10 +418,12 @@ export default function LocalDashboard() {
           {filteredBookings.length === 0 && (
             <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
               {bookingStatusFilter === "Pending"
-                ? "Chưa có yêu cầu trải nghiệm nào đang chờ xác nhận."
+                ? t("requests.emptyPending")
                 : bookingStatusFilter === "Confirmed"
-                  ? "Chưa có yêu cầu trải nghiệm nào đã xác nhận."
-                  : "Chưa có yêu cầu trải nghiệm nào đã từ chối."}
+                  ? t("requests.emptyConfirmed")
+                  : bookingStatusFilter === "Completed"
+                    ? t("requests.emptyCompleted")
+                    : t("requests.emptyCancelled")}
             </p>
           )}
 
@@ -475,40 +441,54 @@ export default function LocalDashboard() {
                     {booking.customer?.email || ""}
                   </p>
                   <p className="mt-3 text-sm">
-                    Ngày: {booking.date?.slice(0, 10)}
+                    {t("requests.date", { date: booking.date?.slice(0, 10) })}
                   </p>
                   <p className="mt-1 text-sm">
-                    Giờ: {booking.startTime} – {booking.endTime} (
-                    {booking.durationHours} giờ)
+                    {t("requests.time", {
+                      start: booking.startTime,
+                      end: booking.endTime,
+                      count: Number(booking.durationHours) || 0,
+                    })}
                   </p>
                   <p className="mt-1 text-sm">
-                    Số khách: {booking.guestCount || 1} người
+                    {t("requests.guests", { count: booking.guestCount || 1 })}
                   </p>
 
                   <p className="mt-1 text-sm">
-                    Ngôn ngữ: {booking.language || "Tiếng Việt"}
+                    {t("requests.language", {
+                      language: booking.language || t("requests.defaultLanguage"),
+                    })}
                   </p>
 
                   <p className="mt-1 text-sm">
-                    Ngân sách ăn uống/người:{" "}
-                    {Number(booking.foodBudget || 0).toLocaleString("vi-VN")}đ
+                    {t("requests.foodBudget", {
+                      amount: formatCurrency(booking.foodBudget || 0),
+                    })}
+                  </p>
+                  <p className="mt-1 text-sm">
+                    {t("requests.extraBudget", {
+                      amount: formatCurrency(booking.experienceBudget || 0),
+                    })}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {t("requests.extraNote")}
                   </p>
                   {booking.message && (
                     <p className="mt-2 text-sm text-slate-600">
-                      Lời nhắn: {booking.message}
+                      {t("requests.message", { message: booking.message })}
                     </p>
                   )}
                   <p className="mt-2 text-sm font-bold text-brand">
-                    {Number(booking.price || 0).toLocaleString("vi-VN")}đ
+                    {formatCurrency(booking.price || 0)}
                   </p>
                 </div>
                 <span className="pill">
                   {booking.status === "Cancelled"
-                    ? "Đã từ chối"
+                    ? t("status.rejected")
                     : booking.status === "Pending"
-                      ? "Chờ xác nhận"
+                      ? t("status.pending")
                       : booking.status === "Confirmed"
-                        ? "Đã xác nhận"
+                        ? t("status.confirmed")
                         : booking.status}
                 </span>
               </div>
@@ -519,22 +499,47 @@ export default function LocalDashboard() {
                     className="btn-primary"
                     onClick={() => updateBooking(booking._id, "Confirmed")}
                   >
-                    <CheckCircle2 size={16} /> Xác nhận
+                    <CheckCircle2 size={16} /> {t("actions.confirm")}
                   </button>
                   <button
                     className="btn-light"
                     onClick={() => updateBooking(booking._id, "Cancelled")}
                   >
-                    <XCircle size={16} /> Từ chối
+                    <XCircle size={16} /> {t("actions.reject")}
                   </button>
                 </div>
+              )}
+              {booking.status === "Confirmed" && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    className="btn-primary"
+                    onClick={() => updateBooking(booking._id, "Completed")}
+                  >
+                    <CheckCircle2 size={16} /> {t("actions.complete")}
+                  </button>
+                </div>
+              )}
+              {booking.customer?._id && (
+                <button
+                  className="btn-light mt-3"
+                  onClick={() => window.dispatchEvent(new CustomEvent("lb-open-chat", {
+                    detail: { otherUser: {
+                      _id: booking.customer._id,
+                      fullName: booking.customer.fullName,
+                      avatar: booking.customer.avatar,
+                      role: "traveler",
+                    } },
+                  }))}
+                >
+                  {t("actions.messageTraveler")}
+                </button>
               )}
             </article>
           ))}
         </div>
       </section>
 
-      {profile && (
+      {/* {profile && (
         <section className="panel flex flex-wrap items-center gap-4 p-5">
           <img
             src={profile.coverImage}
@@ -549,7 +554,7 @@ export default function LocalDashboard() {
             Xem hồ sơ
           </Link>
         </section>
-      )}
+      )} */}
 
       {message && (
         <p className="rounded-xl bg-blue-50 p-4 text-sm text-brand">
@@ -562,18 +567,6 @@ export default function LocalDashboard() {
         <ConversationList currentUser={currentLocalUser} />
       </div>
 
-      <WalletTopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        currentBalance={walletBalance}
-        onSuccess={(newBal) => {
-          setWalletBalance(newBal);
-          const u = getStoredUser();
-          const updated = { ...u, walletBalance: newBal };
-          localStorage.setItem("lb_user", JSON.stringify(updated));
-          window.dispatchEvent(new Event("lb-auth-change"));
-        }}
-      />
     </div>
   );
 }

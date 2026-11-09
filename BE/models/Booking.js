@@ -56,6 +56,7 @@ const schema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    experienceBudget: { type: Number, default: 0, min: 0 },
 
     message: {
       type: String,
@@ -84,6 +85,11 @@ const schema = new mongoose.Schema(
     },
     paidAt: {
       type: Date,
+    },
+    escrowStatus: {
+      type: String,
+      enum: ["None", "Processing", "Held", "Released", "Refunded"],
+      default: "None",
     },
   },
   { timestamps: true }

@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { protect } = require("../middleware/auth");
+const { allowRoles } = require("../middleware/auth");
 const walletController = require("../controllers/walletController");
 
 // Tạo liên kết thanh toán VNPay QR
@@ -20,5 +21,20 @@ router.post("/confirm-deposit", protect, walletController.confirmDeposit);
 
 // Mô phỏng nạp tiền trong môi trường test/sandbox
 router.post("/simulate-topup", protect, walletController.simulateTopUp);
+router.get("/exchange-rates", walletController.getExchangeRates);
+router.get("/overview", protect, walletController.getOverview);
+router.post("/withdraw", protect, walletController.requestWithdrawal);
+router.patch(
+  "/withdrawals/:id",
+  protect,
+  allowRoles("admin"),
+  walletController.resolveWithdrawal,
+);
+router.patch(
+  "/commission",
+  protect,
+  allowRoles("admin"),
+  walletController.updateCommission,
+);
 
 module.exports = router;

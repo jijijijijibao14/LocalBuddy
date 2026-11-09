@@ -1,0 +1,81 @@
+{
+  "errors": {
+    "load": "Local のデータを読み込めませんでした。",
+    "refreshAvailability": "空き時間を更新できませんでした。",
+    "invalidSlot": "有効な日付と時間帯を選択してください。",
+    "pastSlot": "すでに開始している、または過去の時間帯は追加できません。",
+    "overlap": "この時間帯は追加済みの空き時間と重複しています。",
+    "save": "空き時間を保存できませんでした。",
+    "updateBooking": "リクエストを更新できませんでした。"
+  },
+  "messages": {
+    "saved": "空き時間を保存しました。",
+    "confirmed": "リクエストを承認しました。",
+    "rejected": "リクエストを辞退しました。"
+  },
+  "tabs": {
+    "pending": "新規リクエスト",
+    "confirmed": "確認済み",
+    "completed": "完了",
+    "cancelled": "キャンセル済み"
+  },
+  "hero": {
+    "eyebrow": "LOCAL BUDDY スペース",
+    "title": "こんにちは、Local さん！",
+    "subtitle": "空き時間を管理して、Traveler が都合の良い時間を見つけ、体験リクエストを直接送れるようにしましょう。",
+    "home": "ホームを見る",
+    "myProfile": "マイプロフィール"
+  },
+  "stats": {
+    "profileScore": "プロフィールスコア",
+    "profileScoreSub": "Local プロフィールの完成度",
+    "rating": "評価",
+    "noRating": "まだありません",
+    "ratingSub": "Buddy プロフィールの評価",
+    "bookings": "予約リクエスト",
+    "bookingsSub": "あなたに届いたすべてのリクエスト"
+  },
+  "availability": {
+    "title": "私の空き時間",
+    "subtitle": "ゲストを受け入れられる日付と時間帯を追加してください。",
+    "date": "空き日",
+    "from": "開始時刻",
+    "to": "終了時刻",
+    "add": "日付と時間を追加",
+    "saving": "保存中...",
+    "save": "空き時間を保存",
+    "empty": "空き時間はまだ追加されていません。",
+    "delete": "削除"
+  },
+  "requests": {
+    "title": "体験リクエスト",
+    "subtitle": "あなたの Local プロフィールに届いたリクエスト。",
+    "filterLabel": "体験リクエストを絞り込む",
+    "emptyPending": "確認待ちの体験リクエストはありません。",
+    "emptyConfirmed": "確認済みの体験リクエストはありません。",
+    "emptyCompleted": "完了した体験はありません。",
+    "emptyCancelled": "キャンセルされた体験リクエストはありません。",
+    "date": "日付：{{date}}",
+    "time_one": "時間：{{start}} – {{end}}（{{count}}時間）",
+    "time_other": "時間：{{start}} – {{end}}（{{count}}時間）",
+    "guests_one": "ゲスト数：{{count}}名",
+    "guests_other": "ゲスト数：{{count}}名",
+    "language": "言語：{{language}}",
+    "defaultLanguage": "ベトナム語",
+    "foodBudget": "1人あたりの飲食予算：{{amount}}",
+    "extraBudget": "想定される追加予算：{{amount}}",
+    "extraNote": "追加費用は Traveler が直接支払います。",
+    "message": "メッセージ：{{message}}"
+  },
+  "status": {
+    "rejected": "辞退済み",
+    "pending": "確認待ち",
+    "confirmed": "確認済み"
+  },
+  "actions": {
+    "confirm": "承認",
+    "reject": "辞退",
+    "complete": "体験を完了",
+    "messageTraveler": "Traveler にメッセージを送る"
+  }
+}

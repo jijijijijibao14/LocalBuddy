@@ -1,0 +1,81 @@
+{
+  "errors": {
+    "load": "Impossible de charger les données Local.",
+    "refreshAvailability": "Impossible de mettre à jour vos disponibilités.",
+    "invalidSlot": "Veuillez choisir une date et une plage horaire valides.",
+    "pastSlot": "Impossible d'ajouter une plage horaire déjà commencée ou passée.",
+    "overlap": "Cette plage horaire chevauche une disponibilité déjà ajoutée.",
+    "save": "Impossible d'enregistrer vos disponibilités.",
+    "updateBooking": "Impossible de mettre à jour la demande."
+  },
+  "messages": {
+    "saved": "Disponibilités enregistrées avec succès.",
+    "confirmed": "Demande confirmée.",
+    "rejected": "Demande refusée."
+  },
+  "tabs": {
+    "pending": "Nouvelles demandes",
+    "confirmed": "Confirmées",
+    "completed": "Terminées",
+    "cancelled": "Annulées"
+  },
+  "hero": {
+    "eyebrow": "ESPACE LOCAL BUDDY",
+    "title": "Bonjour, Local !",
+    "subtitle": "Gérez vos disponibilités pour que les Travelers trouvent un créneau adapté et vous envoient directement leurs demandes d'expérience.",
+    "home": "Voir la page d'accueil",
+    "myProfile": "Mon profil"
+  },
+  "stats": {
+    "profileScore": "Score du profil",
+    "profileScoreSub": "Niveau de complétion du profil Local",
+    "rating": "Évaluation",
+    "noRating": "Aucune",
+    "ratingSub": "Note du profil Buddy",
+    "bookings": "Demandes de réservation",
+    "bookingsSub": "Toutes les demandes qui vous sont envoyées"
+  },
+  "availability": {
+    "title": "Mes disponibilités",
+    "subtitle": "Ajoutez les jours et les créneaux où vous pouvez accueillir des clients.",
+    "date": "Date disponible",
+    "from": "De",
+    "to": "À",
+    "add": "Ajouter une date et une heure",
+    "saving": "Enregistrement...",
+    "save": "Enregistrer les disponibilités",
+    "empty": "Vous n'avez pas encore ajouté de disponibilité.",
+    "delete": "Supprimer"
+  },
+  "requests": {
+    "title": "Demandes d'expérience",
+    "subtitle": "Les demandes envoyées à votre profil Local.",
+    "filterLabel": "Filtrer les demandes d'expérience",
+    "emptyPending": "Aucune demande d'expérience en attente de confirmation.",
+    "emptyConfirmed": "Aucune demande d'expérience confirmée.",
+    "emptyCompleted": "Aucune expérience terminée.",
+    "emptyCancelled": "Aucune demande d'expérience annulée.",
+    "date": "Date : {{date}}",
+    "time_one": "Heure : {{start}} – {{end}} ({{count}} heure)",
+    "time_other": "Heure : {{start}} – {{end}} ({{count}} heures)",
+    "guests_one": "Nombre d'invités : {{count}} personne",
+    "guests_other": "Nombre d'invités : {{count}} personnes",
+    "language": "Langue : {{language}}",
+    "defaultLanguage": "Vietnamien",
+    "foodBudget": "Budget repas/personne : {{amount}}",
+    "extraBudget": "Budget supplémentaire estimé : {{amount}}",
+    "extraNote": "Les frais supplémentaires sont payés directement par le Traveler.",
+    "message": "Message : {{message}}"
+  },
+  "status": {
+    "rejected": "Refusée",
+    "pending": "En attente de confirmation",
+    "confirmed": "Confirmée"
+  },
+  "actions": {
+    "confirm": "Confirmer",
+    "reject": "Refuser",
+    "complete": "Terminer l'expérience",
+    "messageTraveler": "Envoyer un message au Traveler"
+  }
+}

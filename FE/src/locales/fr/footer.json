@@ -1,0 +1,19 @@
+{
+  "description": "Découvrez Đà Nẵng avec un habitant. Vivez des expériences authentiques, sûres et inoubliables.",
+  "localExperiences": "100 % d’expériences locales",
+  "districts": "Zones desservies",
+  "districtHaiChau": "Hải Châu et Thanh Khê",
+  "districtSonTra": "Sơn Trà et Ngũ Hành Sơn",
+  "districtLienChieu": "Liên Chiểu et Hòa Vang",
+  "districtHoiAn": "Hội An et ses environs",
+  "safetyLegal": "Sécurité et juridique",
+  "ekyc": "Procédure de vérification eKYC",
+  "privacy": "Politique de confidentialité",
+  "terms": "Conditions d’utilisation",
+  "community": "Règles de la communauté",
+  "supportTitle": "Assistance clientèle 24 h/24, 7 j/7",
+  "supportDescription": "Notre équipe d’assistance vous accompagne tout au long de votre voyage.",
+  "hotline": "ASSISTANCE TÉLÉPHONIQUE : {{number}}",
+  "copyright": "© 2026 Local Buddy Đà Nẵng. Une plateforme qui connecte aux expériences locales.",
+  "footerLinks": "Conditions d’utilisation · Confidentialité · Centre d’aide"
+}

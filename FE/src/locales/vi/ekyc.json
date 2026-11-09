@@ -1,0 +1,72 @@
+{
+  "loadError": "Không tải được trạng thái eKYC.",
+  "finishSuccess": "Hoàn thành quy trình eKYC demo! Trạng thái tài khoản đã được cập nhật.",
+  "finishError": "Không thể hoàn thành eKYC demo.",
+  "backLocal": "Quay lại trang Local",
+  "eyebrow": "LOCAL BUDDY · TRUST & SAFETY",
+  "title": "An toàn và xác minh eKYC",
+  "intro": "Hoàn thành các bước xác minh demo để trải nghiệm quy trình bảo vệ danh tính dành cho Local trên nền tảng.",
+  "status": "Trạng thái: {{status}}",
+  "demoNoteLabel": "Lưu ý về bản demo:",
+  "demoNote": "Các bước bên dưới chỉ mô phỏng thao tác và kết quả. Không tải hoặc gửi CCCD thật, không đọc chip NFC thật, không đối chiếu dữ liệu với Bộ Công an/VNeID, không phân tích khuôn mặt và không tạo chữ ký số có giá trị pháp lý.",
+  "stepN": "Bước {{n}}",
+  "doneTitle": "Demo eKYC đã hoàn thành",
+  "doneDesc": "Tài khoản đang có trạng thái Verified. Đây là trạng thái demo, không phải kết quả xác minh danh tính thực tế.",
+  "goLocal": "Về trang Local",
+  "stepProgress": "BƯỚC {{current}}/{{total}}",
+  "simContent": "Nội dung mô phỏng",
+  "consent": "Tôi xác nhận đồng ý hoàn tất quy trình eKYC demo và hiểu rằng các thao tác xác minh ở đây chỉ là mô phỏng.",
+  "back": "Quay lại",
+  "finishing": "Đang hoàn thành...",
+  "finish": "Hoàn thành xác minh",
+  "confirmLast": "Xác nhận bước cuối",
+  "confirmContinue": "Xác nhận & tiếp tục",
+  "privacyNote": "Bản demo không lưu ảnh CCCD, dữ liệu chip, ảnh khuôn mặt hoặc chữ ký. Chỉ trạng thái hoàn thành demo được cập nhật trên tài khoản.",
+  "steps": {
+    "ocr": {
+      "title": "Nhận dạng ký tự quang học (OCR)",
+      "shortTitle": "OCR CCCD",
+      "description": "Demo đọc và số hóa thông tin trên ảnh CCCD mặt trước và mặt sau.",
+      "d1": "Đọc họ tên, ngày sinh và số định danh.",
+      "d2": "Đọc thông tin quê quán, nơi thường trú và đặc điểm nhận dạng.",
+      "d3": "Kiểm tra thông tin minh họa giữa hai mặt giấy tờ.",
+      "demo": "Đã mô phỏng trích xuất thông tin từ hai mặt CCCD."
+    },
+    "nfc": {
+      "title": "Đọc chip NFC",
+      "shortTitle": "NFC",
+      "description": "Demo quy trình đọc thông tin từ chip gắn trên thẻ căn cước.",
+      "d1": "Đưa thẻ căn cước đến gần thiết bị có hỗ trợ NFC.",
+      "d2": "Mô phỏng đọc dữ liệu chip và thông tin được mã hóa.",
+      "d3": "Mô phỏng bước đối chiếu thông tin định danh.",
+      "demo": "Đã mô phỏng quy trình đọc chip NFC."
+    },
+    "face": {
+      "title": "Nhận diện khuôn mặt (Face Matching)",
+      "shortTitle": "So khớp khuôn mặt",
+      "description": "Demo đối chiếu khuôn mặt với ảnh chân dung trên giấy tờ tùy thân.",
+      "d1": "Mô phỏng lấy ảnh khuôn mặt từ camera.",
+      "d2": "Mô phỏng so sánh khuôn mặt với ảnh trên giấy tờ.",
+      "d3": "Hiển thị kết quả so khớp minh họa.",
+      "demo": "Đã mô phỏng quy trình so khớp khuôn mặt."
+    },
+    "liveness": {
+      "title": "Phát hiện thể sống (Liveness Detection)",
+      "shortTitle": "Kiểm tra người thật",
+      "description": "Demo kiểm tra sự hiện diện của người thật trước camera.",
+      "d1": "Mô phỏng yêu cầu chớp mắt.",
+      "d2": "Mô phỏng yêu cầu mỉm cười hoặc quay đầu.",
+      "d3": "Mô phỏng kiểm tra ảnh tĩnh và video phát lại.",
+      "demo": "Đã mô phỏng bước kiểm tra thể sống."
+    },
+    "sign": {
+      "title": "Ký điện tử (E-Signature)",
+      "shortTitle": "Ký điện tử",
+      "description": "Demo xác nhận đồng ý với biểu mẫu và điều khoản trên nền tảng.",
+      "d1": "Đọc nội dung xác nhận và điều khoản demo.",
+      "d2": "Xác nhận đồng ý hoàn tất quy trình.",
+      "d3": "Ghi nhận bước ký điện tử mô phỏng.",
+      "demo": "Đã mô phỏng xác nhận ký điện tử."
+    }
+  }
+}

@@ -17,6 +17,7 @@ const schema = new mongoose.Schema(
       type: String, 
       default: "Sơn Trà, Đà Nẵng" 
     },
+    areas: { type: [String], default: [] },
     bio: { 
       type: String, 
       default: "" 
@@ -26,6 +27,7 @@ const schema = new mongoose.Schema(
       default:
         "https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=900&q=80",
     },
+    photos: { type: [String], default: [] },
     rating: { 
       type: Number, 
       default: 5, 

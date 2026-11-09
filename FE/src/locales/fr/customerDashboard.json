@@ -1,0 +1,66 @@
+{
+  "errors": {
+    "bookings": "Impossible de charger vos demandes de réservation. Vous pouvez toujours consulter les informations de votre profil.",
+    "profile": "Impossible de charger les dernières informations de votre profil."
+  },
+  "eyebrow": "Espace personnel",
+  "welcome": "Content de vous revoir, {{name}} ! 👋",
+  "defaultName": "cher voyageur",
+  "subtitle": "Gérez votre profil et vos prochaines expériences.",
+  "accountPill": "Compte Local Buddy",
+  "stats": {
+    "profileScore": "Score du profil",
+    "profileScoreSub": "Informations à jour",
+    "rating": "Évaluation",
+    "ratingSub": "De la communauté",
+    "bookings": "Demandes de réservation",
+    "bookingsSub": "Toutes les demandes"
+  },
+  "profile": {
+    "title": "Profil personnel",
+    "update": "Mettre à jour le profil",
+    "defaultUser": "Utilisateur Local Buddy",
+    "noEmail": "Aucun e-mail",
+    "kycDefault": "eKYC non vérifié",
+    "phone": "Numéro de téléphone",
+    "notUpdated": "Non renseigné",
+    "role": "Rôle du compte"
+  },
+  "bookings": {
+    "title": "Vos demandes d'expérience",
+    "refresh": "Actualiser",
+    "defaultBuddy": "Local Buddy",
+    "paid": "Payé ({{method}})",
+    "methodWallet": "Portefeuille Local",
+    "unpaid": "Frais non payés",
+    "guests_one": "{{count}} invité",
+    "guests_other": "{{count}} invités",
+    "defaultLanguage": "Vietnamien",
+    "service": "Service",
+    "foodBudget": "Budget repas estimé : {{amount}} VND/personne",
+    "payTitle": "Payez les frais de service avec votre portefeuille ou VNPAY-QR",
+    "payNow": "Payer maintenant"
+  },
+  "status": {
+    "pending": "En attente de confirmation",
+    "confirmed": "Confirmée",
+    "completed": "Terminée",
+    "cancelled": "Annulée"
+  },
+  "empty": {
+    "title": "Vous n'avez pas encore de demande d'expérience",
+    "desc": "Découvrez un ami local qui vous correspond.",
+    "cta": "Trouver un Local Buddy"
+  },
+  "explore": {
+    "title": "Commencer l'exploration",
+    "coffee": "Cafés et coins de vie tranquille",
+    "food": "Saveurs locales",
+    "travel": "Mers, montagnes et destinations"
+  },
+  "support": {
+    "title": "Assistance et sécurité",
+    "body": "Ne partagez jamais votre mot de passe ni vos informations de paiement. Contactez l'assistance en cas de problème avec une réservation.",
+    "hotline": "Assistance client 24h/24 et 7j/7"
+  }
+}

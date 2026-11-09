@@ -5,6 +5,7 @@ router.use(protect, allowRoles("admin"));
 router.get("/stats", c.stats);
 router.get("/users", c.users);
 router.patch("/users/:id/status", c.updateUser);
+router.patch("/users/:id/premium", c.updateLocalPremium);
 router.get("/buddies", c.buddies);
 router.patch("/buddies/:id/verification", c.updateBuddyVerification);
 router.get("/bookings", c.bookings);

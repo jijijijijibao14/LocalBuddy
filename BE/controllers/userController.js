@@ -23,13 +23,16 @@ function safeUser(user) {
     walletBalance: user.walletBalance,
     bio: user.bio || "",
     city: user.city || "",
+    areas: user.areas?.length ? user.areas : [user.city].filter(Boolean),
     languages: user.languages || [],
     interests: user.interests || [],
     avatar: user.avatar || "",
+    profilePhotos: user.profilePhotos || [],
     languageCertificates: user.languageCertificates || [],
     pricePerHour: user.pricePerHour || 100000,
     profileComplete: Boolean(user.profileComplete),
     kycStatus: user.kycStatus,
+    isPremium: Boolean(user.isPremium),
     status: user.status,
   };
 }
@@ -68,9 +71,11 @@ async function syncBuddyProfile(user) {
     {
       $set: {
         fullName: user.fullName,
-        area: user.city || "Sơn Trà",
+        area: `${(user.areas?.length ? user.areas : [user.city].filter(Boolean)).join(", ") || "Sơn Trà"}, Đà Nẵng`,
+        areas: user.areas?.length ? user.areas : [user.city].filter(Boolean),
         bio: user.bio || "",
         coverImage: user.avatar || "",
+        photos: user.profilePhotos || [],
         languages: user.languages || ["Tiếng Việt"],
         languageCertificates: user.languageCertificates || [],
         interests,
@@ -138,9 +143,11 @@ exports.updateMyProfile = async (req, res) => {
       "phone",
       "bio",
       "city",
+      "areas",
       "languages",
       "interests",
       "avatar",
+      "profilePhotos",
       "languageCertificates",
       "pricePerHour",
     ];
@@ -148,7 +155,7 @@ exports.updateMyProfile = async (req, res) => {
       if (req.body[field] !== undefined) {
         let value = req.body[field];
         if (
-          ["languages", "interests", "languageCertificates"].includes(field) &&
+          ["areas", "languages", "interests", "languageCertificates", "profilePhotos"].includes(field) &&
           typeof value === "string"
         ) {
           try {
@@ -167,6 +174,14 @@ exports.updateMyProfile = async (req, res) => {
     for (const file of req.files || []) {
       const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
       if (file.fieldname === "avatarFile") user.avatar = fileUrl;
+      if (file.fieldname === "profilePhotoFiles") {
+        if (!/\.(jpe?g|png|webp)$/i.test(file.originalname)) {
+          return res.status(400).json({
+            message: "Ảnh hồ sơ chỉ chấp nhận JPG, PNG hoặc WEBP.",
+          });
+        }
+        user.profilePhotos = [...(user.profilePhotos || []), fileUrl].slice(-10);
+      }
       const match = file.fieldname.match(/^certificate_(\d+)$/);
       if (match) {
         const index = Number(match[1]);
@@ -192,6 +207,16 @@ exports.updateMyProfile = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Ngôn ngữ và sở thích phải ở dạng danh sách." });
+    }
+    if (!Array.isArray(user.areas) || user.areas.some((area) => typeof area !== "string")) {
+      return res.status(400).json({ message: "Khu vực hoạt động không hợp lệ." });
+    }
+    if (user.role === "local") {
+      user.areas = [...new Set(user.areas.map((area) => area.trim()).filter(Boolean))];
+      if (!user.areas.length && user.city) user.areas = [user.city];
+      user.city = user.areas[0] || "";
+    } else {
+      user.areas = user.city ? [user.city] : [];
     }
     user.interests =
       user.role === "local"
@@ -232,6 +257,16 @@ exports.completeDemoKyc = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         message: "Không tìm thấy tài khoản.",
+      });
+    }
+
+    const requiredSteps = [0, 1, 2, 3, 4];
+    if (
+      !Array.isArray(req.body.completedSteps) ||
+      !requiredSteps.every((step) => req.body.completedSteps.includes(step))
+    ) {
+      return res.status(400).json({
+        message: "Vui lòng hoàn tất toàn bộ các bước eKYC demo trước.",
       });
     }
 

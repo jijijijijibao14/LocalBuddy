@@ -1,0 +1,81 @@
+{
+  "errors": {
+    "load": "Không tải được dữ liệu Local.",
+    "refreshAvailability": "Không thể cập nhật lịch rảnh.",
+    "invalidSlot": "Vui lòng chọn ngày và khung giờ hợp lệ.",
+    "pastSlot": "Không thể thêm khung giờ đã bắt đầu hoặc trong quá khứ.",
+    "overlap": "Khung giờ này bị trùng với lịch rảnh đã thêm.",
+    "save": "Không thể lưu lịch rảnh.",
+    "updateBooking": "Không thể cập nhật yêu cầu."
+  },
+  "messages": {
+    "saved": "Đã lưu lịch rảnh thành công.",
+    "confirmed": "Đã xác nhận yêu cầu.",
+    "rejected": "Đã từ chối yêu cầu."
+  },
+  "tabs": {
+    "pending": "Yêu cầu mới",
+    "confirmed": "Đã xác nhận",
+    "completed": "Đã hoàn thành",
+    "cancelled": "Đã hủy"
+  },
+  "hero": {
+    "eyebrow": "KHÔNG GIAN LOCAL BUDDY",
+    "title": "Xin chào, Local!",
+    "subtitle": "Quản lý lịch rảnh để Traveler tìm được thời gian phù hợp và gửi yêu cầu trải nghiệm trực tiếp đến bạn.",
+    "home": "Xem trang chủ",
+    "myProfile": "Hồ sơ của tôi"
+  },
+  "stats": {
+    "profileScore": "Điểm hồ sơ",
+    "profileScoreSub": "Mức độ hoàn thiện hồ sơ Local",
+    "rating": "Đánh giá",
+    "noRating": "Chưa có",
+    "ratingSub": "Điểm đánh giá hồ sơ Buddy",
+    "bookings": "Yêu cầu đặt lịch",
+    "bookingsSub": "Tất cả yêu cầu gửi đến bạn"
+  },
+  "availability": {
+    "title": "Lịch rảnh của tôi",
+    "subtitle": "Thêm nhiều ngày và khung giờ bạn có thể nhận khách.",
+    "date": "Ngày rảnh",
+    "from": "Từ giờ",
+    "to": "Đến giờ",
+    "add": "Thêm ngày và giờ",
+    "saving": "Đang lưu...",
+    "save": "Lưu lịch rảnh",
+    "empty": "Bạn chưa thêm lịch rảnh nào.",
+    "delete": "Xóa"
+  },
+  "requests": {
+    "title": "Yêu cầu trải nghiệm",
+    "subtitle": "Các yêu cầu gửi đến hồ sơ Local của bạn.",
+    "filterLabel": "Lọc yêu cầu trải nghiệm",
+    "emptyPending": "Chưa có yêu cầu trải nghiệm nào đang chờ xác nhận.",
+    "emptyConfirmed": "Chưa có yêu cầu trải nghiệm nào đã xác nhận.",
+    "emptyCompleted": "Chưa có trải nghiệm nào hoàn thành.",
+    "emptyCancelled": "Chưa có yêu cầu trải nghiệm nào đã hủy.",
+    "date": "Ngày: {{date}}",
+    "time_one": "Giờ: {{start}} – {{end}} ({{count}} giờ)",
+    "time_other": "Giờ: {{start}} – {{end}} ({{count}} giờ)",
+    "guests_one": "Số khách: {{count}} người",
+    "guests_other": "Số khách: {{count}} người",
+    "language": "Ngôn ngữ: {{language}}",
+    "defaultLanguage": "Tiếng Việt",
+    "foodBudget": "Ngân sách ăn uống/người: {{amount}}",
+    "extraBudget": "Ngân sách phát sinh dự kiến: {{amount}}",
+    "extraNote": "Chi phí phát sinh do Traveler thanh toán trực tiếp.",
+    "message": "Lời nhắn: {{message}}"
+  },
+  "status": {
+    "rejected": "Đã từ chối",
+    "pending": "Chờ xác nhận",
+    "confirmed": "Đã xác nhận"
+  },
+  "actions": {
+    "confirm": "Xác nhận",
+    "reject": "Từ chối",
+    "complete": "Hoàn thành trải nghiệm",
+    "messageTraveler": "Nhắn tin cho Traveler"
+  }
+}

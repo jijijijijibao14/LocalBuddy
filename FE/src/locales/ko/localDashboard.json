@@ -1,0 +1,81 @@
+{
+  "errors": {
+    "load": "Local 데이터를 불러오지 못했습니다.",
+    "refreshAvailability": "가능 시간을 업데이트하지 못했습니다.",
+    "invalidSlot": "올바른 날짜와 시간대를 선택해 주세요.",
+    "pastSlot": "이미 시작되었거나 과거인 시간대는 추가할 수 없습니다.",
+    "overlap": "이 시간대는 이미 추가한 가능 시간과 겹칩니다.",
+    "save": "가능 시간을 저장하지 못했습니다.",
+    "updateBooking": "요청을 업데이트하지 못했습니다."
+  },
+  "messages": {
+    "saved": "가능 시간이 저장되었습니다.",
+    "confirmed": "요청을 확인했습니다.",
+    "rejected": "요청을 거절했습니다."
+  },
+  "tabs": {
+    "pending": "새 요청",
+    "confirmed": "확인됨",
+    "completed": "완료됨",
+    "cancelled": "취소됨"
+  },
+  "hero": {
+    "eyebrow": "LOCAL BUDDY 공간",
+    "title": "안녕하세요, Local님!",
+    "subtitle": "가능 시간을 관리하면 Traveler가 알맞은 시간을 찾아 체험 요청을 직접 보낼 수 있습니다.",
+    "home": "홈 보기",
+    "myProfile": "내 프로필"
+  },
+  "stats": {
+    "profileScore": "프로필 점수",
+    "profileScoreSub": "Local 프로필 완성도",
+    "rating": "평점",
+    "noRating": "아직 없음",
+    "ratingSub": "Buddy 프로필 평점",
+    "bookings": "예약 요청",
+    "bookingsSub": "나에게 온 모든 요청"
+  },
+  "availability": {
+    "title": "내 가능 시간",
+    "subtitle": "손님을 맞을 수 있는 날짜와 시간대를 추가하세요.",
+    "date": "가능한 날짜",
+    "from": "시작 시간",
+    "to": "종료 시간",
+    "add": "날짜 및 시간 추가",
+    "saving": "저장 중...",
+    "save": "가능 시간 저장",
+    "empty": "아직 추가한 가능 시간이 없습니다.",
+    "delete": "삭제"
+  },
+  "requests": {
+    "title": "체험 요청",
+    "subtitle": "내 Local 프로필로 온 요청입니다.",
+    "filterLabel": "체험 요청 필터",
+    "emptyPending": "확인 대기 중인 체험 요청이 없습니다.",
+    "emptyConfirmed": "확인된 체험 요청이 없습니다.",
+    "emptyCompleted": "완료된 체험이 없습니다.",
+    "emptyCancelled": "취소된 체험 요청이 없습니다.",
+    "date": "날짜: {{date}}",
+    "time_one": "시간: {{start}} – {{end}} ({{count}}시간)",
+    "time_other": "시간: {{start}} – {{end}} ({{count}}시간)",
+    "guests_one": "인원: {{count}}명",
+    "guests_other": "인원: {{count}}명",
+    "language": "언어: {{language}}",
+    "defaultLanguage": "베트남어",
+    "foodBudget": "1인당 식비 예산: {{amount}}",
+    "extraBudget": "예상 추가 예산: {{amount}}",
+    "extraNote": "추가 비용은 Traveler가 직접 지불합니다.",
+    "message": "메시지: {{message}}"
+  },
+  "status": {
+    "rejected": "거절됨",
+    "pending": "확인 대기",
+    "confirmed": "확인됨"
+  },
+  "actions": {
+    "confirm": "확인",
+    "reject": "거절",
+    "complete": "체험 완료",
+    "messageTraveler": "Traveler에게 메시지 보내기"
+  }
+}

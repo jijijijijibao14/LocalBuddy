@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  Wallet,
   ShieldCheck,
   CalendarDays,
   MapPin,
@@ -8,15 +7,15 @@ import {
   ArrowUpRight,
   UserRound,
   RefreshCw,
-  QrCode,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
 import api from "../services/api";
 import { Link } from "react-router-dom";
-import WalletTopUpModal from "../components/WalletTopUpModal";
 import BookingPaymentModal from "../components/BookingPaymentModal";
 import ConversationList from "../components/ConversationList";
+import { useTranslation } from "react-i18next";
+import { useLocale } from "../contexts/LocaleContext";
 
 function getStoredUser() {
   try {
@@ -30,12 +29,13 @@ function getStoredUser() {
 }
 
 export default function CustomerDashboard() {
+  const { t } = useTranslation("customerDashboard");
+  const { formatCurrency, language, languages } = useLocale();
+  const locale = languages.find((l) => l.code === language)?.locale || "vi-VN";
   const [user, setUser] = useState(getStoredUser);
   const [bookings, setBookings] = useState([]);
-  const [balance, setBalance] = useState(user.walletBalance || 0);
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
-  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [selectedBookingForPay, setSelectedBookingForPay] = useState(null);
   const [isBookingPayOpen, setIsBookingPayOpen] = useState(false);
   useEffect(() => {
@@ -43,9 +43,7 @@ export default function CustomerDashboard() {
       .get("/bookings/mine")
       .then((r) => setBookings(r.data))
       .catch(() =>
-        setError(
-          "Chưa tải được yêu cầu đặt lịch. Bạn vẫn có thể xem thông tin hồ sơ.",
-        ),
+        setError(t("errors.bookings")),
       );
     api
       .get("/users/me")
@@ -53,56 +51,50 @@ export default function CustomerDashboard() {
         const profile = data.user;
         const updatedUser = { ...getStoredUser(), ...profile };
         setUser(updatedUser);
-        setBalance(profile.walletBalance || 0);
         localStorage.setItem("lb_user", JSON.stringify(updatedUser));
       })
       .catch(() =>
-        setProfileError("Chưa tải được thông tin hồ sơ mới nhất của bạn."),
+        setProfileError(t("errors.profile")),
       );
-  }, []);
+  }, [t]);
   return (
     <div className="container-page py-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Không gian cá nhân</p>
+          <p className="eyebrow">{t("eyebrow")}</p>
           <h1 className="mt-1 text-2xl font-black text-navy sm:text-3xl">
-            Chào mừng trở lại, {user.fullName?.split(" ").slice(-1)[0] || "bạn"}
-            ! 👋
+            {t("welcome", {
+              name: user.fullName?.split(" ").slice(-1)[0] || t("defaultName"),
+            })}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Quản lý hồ sơ, ví và những trải nghiệm sắp tới của bạn.
+            {t("subtitle")}
           </p>
         </div>
         <span className="pill">
           <ShieldCheck size={12} />
-          Tài khoản Local Buddy
+          {t("accountPill")}
         </span>
       </div>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
-            label: "Điểm hồ sơ",
+            label: t("stats.profileScore"),
             value: "98.5%",
-            sub: "Thông tin đã cập nhật",
+            sub: t("stats.profileScoreSub"),
             icon: UserRound,
           },
           {
-            label: "Đánh giá",
+            label: t("stats.rating"),
             value: "4.96/5",
-            sub: "Từ cộng đồng",
+            sub: t("stats.ratingSub"),
             icon: ShieldCheck,
           },
           {
-            label: "Yêu cầu đặt lịch",
+            label: t("stats.bookings"),
             value: String(bookings.length),
-            sub: "Tất cả yêu cầu",
+            sub: t("stats.bookingsSub"),
             icon: CalendarDays,
-          },
-          {
-            label: "Số dư ví",
-            value: `${Number(balance).toLocaleString("vi-VN")}đ`,
-            sub: "Ví Local Buddy",
-            icon: Wallet,
           },
         ].map((x) => (
           <div key={x.label} className="panel p-5">
@@ -121,9 +113,9 @@ export default function CustomerDashboard() {
         <div className="space-y-5">
           <section className="panel p-5 sm:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-extrabold">Hồ sơ cá nhân</h2>
+              <h2 className="font-extrabold">{t("profile.title")}</h2>
               <Link to="/profile" className="btn-light !py-2">
-                Cập nhật hồ sơ
+                {t("profile.update")}
               </Link>
             </div>
             {profileError && (
@@ -137,26 +129,26 @@ export default function CustomerDashboard() {
               </div>
               <div>
                 <p className="font-extrabold">
-                  {user.fullName || "Người dùng Local Buddy"}
+                  {user.fullName || t("profile.defaultUser")}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {user.email || "Chưa có email"}
+                  {user.email || t("profile.noEmail")}
                 </p>
                 <span className="pill mt-2">
                   <ShieldCheck size={11} />
-                  {user.kycStatus || "Chưa xác minh eKYC"}
+                  {user.kycStatus || t("profile.kycDefault")}
                 </span>
               </div>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-[10px] text-slate-500">Số điện thoại</p>
+                <p className="text-[10px] text-slate-500">{t("profile.phone")}</p>
                 <p className="mt-1 text-sm font-bold">
-                  {user.phone || "Chưa cập nhật"}
+                  {user.phone || t("profile.notUpdated")}
                 </p>
               </div>
               <div className="rounded-xl bg-slate-50 p-3">
-                <p className="text-[10px] text-slate-500">Vai trò tài khoản</p>
+                <p className="text-[10px] text-slate-500">{t("profile.role")}</p>
                 <p className="mt-1 text-sm font-bold">
                   {user.role === "traveler"
                     ? "Traveler"
@@ -171,7 +163,7 @@ export default function CustomerDashboard() {
           </section>
           <section className="panel p-5 sm:p-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-extrabold">Yêu cầu trải nghiệm của bạn</h2>
+              <h2 className="font-extrabold">{t("bookings.title")}</h2>
               <button
                 className="btn-light !py-2"
                 onClick={() =>
@@ -181,7 +173,7 @@ export default function CustomerDashboard() {
                     .catch(() => {})
                 }
               >
-                <RefreshCw size={13} /> Làm mới
+                <RefreshCw size={13} /> {t("bookings.refresh")}
               </button>
             </div>
             {error && <p className="mt-3 text-xs text-amber-700">{error}</p>}
@@ -195,46 +187,54 @@ export default function CustomerDashboard() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-extrabold text-navy">
-                          {b.buddy?.fullName || "Local Buddy"}
+                          {b.buddy?.fullName || t("bookings.defaultBuddy")}
                         </p>
                         {b.paymentStatus === "Paid" ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 size={11} /> Đã thanh toán ({b.paymentMethod === "Wallet" ? "Ví Local" : "VNPAY-QR"})
+                            <CheckCircle2 size={11} />{" "}
+                            {t("bookings.paid", {
+                              method:
+                                b.paymentMethod === "Wallet"
+                                  ? t("bookings.methodWallet")
+                                  : "VNPAY-QR",
+                            })}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800 border border-amber-200">
-                            <AlertCircle size={11} /> Chưa thanh toán phí
+                            <AlertCircle size={11} /> {t("bookings.unpaid")}
                           </span>
                         )}
                       </div>
                       <p className="mt-1 text-xs text-slate-500">
                         <CalendarDays size={12} className="mr-1 inline" />
-                        {new Date(b.date).toLocaleDateString("vi-VN")} ·{" "}
+                        {new Date(b.date).toLocaleDateString(locale)} ·{" "}
                         {b.time}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
-                        {b.guestCount || 1} khách · {b.language || "Tiếng Việt"}{" "}
-                        · Dịch vụ{" "}
+                        {t("bookings.guests", { count: b.guestCount || 1 })} ·{" "}
+                        {b.language || t("bookings.defaultLanguage")} ·{" "}
+                        {t("bookings.service")}{" "}
                         <b className="text-slate-800 font-bold">
-                          {Number(b.price || 0).toLocaleString("vi-VN")} đ
+                          {formatCurrency(b.price || 0)}
                         </b>
                       </p>
                       {b.foodBudget > 0 && (
                         <p className="mt-1 text-xs text-slate-500">
-                          Ngân sách ăn uống dự kiến:{" "}
-                          {Number(b.foodBudget).toLocaleString("vi-VN")}đ/người
+                          {t("bookings.foodBudget", {
+                            amount: Number(b.foodBudget).toLocaleString(locale),
+                          })}
                         </p>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="pill">
                         {b.status === "Pending"
-                          ? "Chờ xác nhận"
+                          ? t("status.pending")
                           : b.status === "Confirmed"
-                            ? "Đã xác nhận"
+                            ? t("status.confirmed")
                             : b.status === "Completed"
-                              ? "Hoàn thành"
-                              : "Đã hủy"}
+                              ? t("status.completed")
+                              : t("status.cancelled")}
                       </span>
 
                       {b.paymentStatus !== "Paid" && b.status !== "Cancelled" && (
@@ -244,10 +244,10 @@ export default function CustomerDashboard() {
                             setIsBookingPayOpen(true);
                           }}
                           className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:opacity-95 transition-all cursor-pointer"
-                          title="Thanh toán phí dịch vụ bằng Ví hoặc VNPAY-QR"
+                          title={t("bookings.payTitle")}
                         >
                           <QrCode size={13} />
-                          <span>Thanh toán ngay</span>
+                          <span>{t("bookings.payNow")}</span>
                         </button>
                       )}
                     </div>
@@ -258,61 +258,36 @@ export default function CustomerDashboard() {
               <div className="mt-4 rounded-xl bg-blue-50 p-6 text-center">
                 <CalendarDays className="mx-auto text-brand" size={25} />
                 <p className="mt-2 text-sm font-bold">
-                  Bạn chưa có yêu cầu trải nghiệm
+                  {t("empty.title")}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Khám phá người bạn địa phương phù hợp với mình.
+                  {t("empty.desc")}
                 </p>
                 <Link to="/" className="btn-primary mt-4">
-                  Tìm Local Buddy <ArrowUpRight size={14} />
+                  {t("empty.cta")} <ArrowUpRight size={14} />
                 </Link>
               </div>
             )}
           </section>
         </div>
         <div className="space-y-5">
-          <section className="rounded-2xl bg-gradient-to-br from-[#e3f5ff] via-sky-50 to-[#e7fff5] p-5 shadow-sm border border-sky-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Wallet className="text-brand" size={19} />
-                <h2 className="font-extrabold text-navy">Ví Local Buddy</h2>
-              </div>
-              <span className="rounded-full bg-[#005baa]/10 px-2.5 py-0.5 text-[10px] font-extrabold text-[#005baa] flex items-center gap-1">
-                <QrCode size={11} /> VNPAY-QR
-              </span>
-            </div>
-            <p className="mt-4 text-xs text-slate-500 font-medium">Số dư khả dụng</p>
-            <p className="mt-1 text-3xl font-black text-brand">
-              {Number(balance).toLocaleString("vi-VN")} đ
-            </p>
-            <button
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-4 py-3 text-sm font-black text-white shadow-md shadow-blue-900/15 hover:opacity-95 transition-opacity cursor-pointer"
-              onClick={() => setIsTopUpOpen(true)}
-            >
-              <QrCode size={16} />
-              <span>Nạp tiền qua VNPAY-QR</span>
-            </button>
-            <p className="mt-3 text-[10px] leading-4 text-slate-500">
-              Hỗ trợ quét QR mọi ngân hàng & ví VNPAY. Xác nhận tức thì.
-            </p>
-          </section>
           <section className="panel p-5">
-            <h2 className="font-extrabold">Bắt đầu khám phá</h2>
+            <h2 className="font-extrabold">{t("explore.title")}</h2>
             <div className="mt-4 space-y-3">
               {[
                 {
                   title: "Coffee & Chill",
-                  sub: "Quán cà phê, góc sống chậm",
+                  sub: t("explore.coffee"),
                   emoji: "☕",
                 },
                 {
                   title: "Food & Street Food",
-                  sub: "Hương vị địa phương",
+                  sub: t("explore.food"),
                   emoji: "🍜",
                 },
                 {
                   title: "Travel & Danh Lam",
-                  sub: "Biển, núi và điểm đến",
+                  sub: t("explore.travel"),
                   emoji: "🏝",
                 },
               ].map((x) => (
@@ -336,31 +311,17 @@ export default function CustomerDashboard() {
             </div>
           </section>
           <section className="panel p-5">
-            <h2 className="font-extrabold">Hỗ trợ & an toàn</h2>
+            <h2 className="font-extrabold">{t("support.title")}</h2>
             <p className="mt-2 text-xs leading-5 text-slate-500">
-              Không chia sẻ mật khẩu hoặc thông tin thanh toán. Liên hệ hỗ trợ
-              nếu bạn gặp vấn đề với đặt lịch.
+              {t("support.body")}
             </p>
             <p className="mt-3 flex items-center gap-2 text-xs font-bold text-brand">
               <Clock size={14} />
-              Hỗ trợ khách hàng 24/7
+              {t("support.hotline")}
             </p>
           </section>
         </div>
       </div>
-
-      <WalletTopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        currentBalance={balance}
-        onSuccess={(newBal) => {
-          setBalance(newBal);
-          const updated = { ...user, walletBalance: newBal };
-          setUser(updated);
-          localStorage.setItem("lb_user", JSON.stringify(updated));
-          window.dispatchEvent(new Event("lb-auth-change"));
-        }}
-      />
 
       <BookingPaymentModal
         isOpen={isBookingPayOpen}

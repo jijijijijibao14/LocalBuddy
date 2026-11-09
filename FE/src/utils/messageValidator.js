@@ -1,3 +1,5 @@
+import i18n from "../i18n";
+
 /**
  * Utility: validate tin nhắn trên client trước khi gửi.
  * Logic phải khớp với chatUtils.js phía backend.
@@ -17,12 +19,12 @@ const MAPS_WHITELIST_RE =
  */
 export function validateMessage(content) {
   if (!content || !content.trim()) {
-    return { valid: false, reason: "Tin nhắn không được để trống." };
+    return { valid: false, reason: i18n.t("chat:validation.empty") };
   }
   if (content.trim().length > 2000) {
     return {
       valid: false,
-      reason: "Tin nhắn không được vượt quá 2000 ký tự.",
+      reason: i18n.t("chat:validation.tooLong", { max: 2000 }),
     };
   }
 
@@ -31,7 +33,7 @@ export function validateMessage(content) {
     return {
       valid: false,
       reason:
-        "Không được chia sẻ số điện thoại. Vui lòng liên lạc qua nền tảng.",
+        i18n.t("chat:validation.phone"),
     };
   }
   PHONE_RE.lastIndex = 0;
@@ -40,7 +42,7 @@ export function validateMessage(content) {
     ZALO_RE.lastIndex = 0;
     return {
       valid: false,
-      reason: "Không được chia sẻ thông tin Zalo trong chat.",
+      reason: i18n.t("chat:validation.zalo"),
     };
   }
   ZALO_RE.lastIndex = 0;
@@ -49,7 +51,7 @@ export function validateMessage(content) {
     DEP_LAO_RE.lastIndex = 0;
     return {
       valid: false,
-      reason: "Tin nhắn chứa từ ngữ không phù hợp.",
+      reason: i18n.t("chat:validation.inappropriate"),
     };
   }
   DEP_LAO_RE.lastIndex = 0;
@@ -60,7 +62,7 @@ export function validateMessage(content) {
       return {
         valid: false,
         reason:
-          "Chỉ được chia sẻ liên kết Google Maps. Các link khác không được phép.",
+          i18n.t("chat:validation.link"),
       };
     }
   }

@@ -30,6 +30,17 @@ const messageSchema = new mongoose.Schema(
       maxlength: 2000,
       trim: true,
     },
+    participants: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      default: [],
+    },
+    replyTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
+    },
+    edited: { type: Boolean, default: false },
+    deleted: { type: Boolean, default: false },
     read: {
       type: Boolean,
       default: false,
@@ -42,4 +53,3 @@ const messageSchema = new mongoose.Schema(
 messageSchema.index({ roomId: 1, createdAt: 1 });
 
 module.exports = mongoose.model("Message", messageSchema);
-

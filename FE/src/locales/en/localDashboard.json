@@ -1,0 +1,81 @@
+{
+  "errors": {
+    "load": "Couldn't load Local data.",
+    "refreshAvailability": "Couldn't refresh your availability.",
+    "invalidSlot": "Please choose a valid date and time range.",
+    "pastSlot": "You can't add a time slot that has already started or is in the past.",
+    "overlap": "This time slot overlaps with an availability you already added.",
+    "save": "Couldn't save your availability.",
+    "updateBooking": "Couldn't update the request."
+  },
+  "messages": {
+    "saved": "Availability saved successfully.",
+    "confirmed": "Request confirmed.",
+    "rejected": "Request declined."
+  },
+  "tabs": {
+    "pending": "New requests",
+    "confirmed": "Confirmed",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "hero": {
+    "eyebrow": "LOCAL BUDDY SPACE",
+    "title": "Hello, Local!",
+    "subtitle": "Manage your availability so Travelers can find a suitable time and send experience requests directly to you.",
+    "home": "View home page",
+    "myProfile": "My profile"
+  },
+  "stats": {
+    "profileScore": "Profile score",
+    "profileScoreSub": "Local profile completeness",
+    "rating": "Rating",
+    "noRating": "None yet",
+    "ratingSub": "Buddy profile rating",
+    "bookings": "Booking requests",
+    "bookingsSub": "All requests sent to you"
+  },
+  "availability": {
+    "title": "My availability",
+    "subtitle": "Add the days and time slots when you can host guests.",
+    "date": "Available date",
+    "from": "From",
+    "to": "To",
+    "add": "Add date and time",
+    "saving": "Saving...",
+    "save": "Save availability",
+    "empty": "You haven't added any availability yet.",
+    "delete": "Delete"
+  },
+  "requests": {
+    "title": "Experience requests",
+    "subtitle": "Requests sent to your Local profile.",
+    "filterLabel": "Filter experience requests",
+    "emptyPending": "No experience requests are awaiting confirmation.",
+    "emptyConfirmed": "No experience requests have been confirmed.",
+    "emptyCompleted": "No experiences have been completed.",
+    "emptyCancelled": "No experience requests have been cancelled.",
+    "date": "Date: {{date}}",
+    "time_one": "Time: {{start}} – {{end}} ({{count}} hour)",
+    "time_other": "Time: {{start}} – {{end}} ({{count}} hours)",
+    "guests_one": "Guests: {{count}} person",
+    "guests_other": "Guests: {{count}} people",
+    "language": "Language: {{language}}",
+    "defaultLanguage": "Vietnamese",
+    "foodBudget": "Food budget/person: {{amount}}",
+    "extraBudget": "Estimated extra budget: {{amount}}",
+    "extraNote": "Extra costs are paid directly by the Traveler.",
+    "message": "Message: {{message}}"
+  },
+  "status": {
+    "rejected": "Declined",
+    "pending": "Pending confirmation",
+    "confirmed": "Confirmed"
+  },
+  "actions": {
+    "confirm": "Confirm",
+    "reject": "Decline",
+    "complete": "Complete experience",
+    "messageTraveler": "Message Traveler"
+  }
+}

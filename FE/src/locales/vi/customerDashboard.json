@@ -1,0 +1,66 @@
+{
+  "errors": {
+    "bookings": "Chưa tải được yêu cầu đặt lịch. Bạn vẫn có thể xem thông tin hồ sơ.",
+    "profile": "Chưa tải được thông tin hồ sơ mới nhất của bạn."
+  },
+  "eyebrow": "Không gian cá nhân",
+  "welcome": "Chào mừng trở lại, {{name}}! 👋",
+  "defaultName": "bạn",
+  "subtitle": "Quản lý hồ sơ và những trải nghiệm sắp tới của bạn.",
+  "accountPill": "Tài khoản Local Buddy",
+  "stats": {
+    "profileScore": "Điểm hồ sơ",
+    "profileScoreSub": "Thông tin đã cập nhật",
+    "rating": "Đánh giá",
+    "ratingSub": "Từ cộng đồng",
+    "bookings": "Yêu cầu đặt lịch",
+    "bookingsSub": "Tất cả yêu cầu"
+  },
+  "profile": {
+    "title": "Hồ sơ cá nhân",
+    "update": "Cập nhật hồ sơ",
+    "defaultUser": "Người dùng Local Buddy",
+    "noEmail": "Chưa có email",
+    "kycDefault": "Chưa xác minh eKYC",
+    "phone": "Số điện thoại",
+    "notUpdated": "Chưa cập nhật",
+    "role": "Vai trò tài khoản"
+  },
+  "bookings": {
+    "title": "Yêu cầu trải nghiệm của bạn",
+    "refresh": "Làm mới",
+    "defaultBuddy": "Local Buddy",
+    "paid": "Đã thanh toán ({{method}})",
+    "methodWallet": "Ví Local",
+    "unpaid": "Chưa thanh toán phí",
+    "guests_one": "{{count}} khách",
+    "guests_other": "{{count}} khách",
+    "defaultLanguage": "Tiếng Việt",
+    "service": "Dịch vụ",
+    "foodBudget": "Ngân sách ăn uống dự kiến: {{amount}}đ/người",
+    "payTitle": "Thanh toán phí dịch vụ bằng Ví hoặc VNPAY-QR",
+    "payNow": "Thanh toán ngay"
+  },
+  "status": {
+    "pending": "Chờ xác nhận",
+    "confirmed": "Đã xác nhận",
+    "completed": "Hoàn thành",
+    "cancelled": "Đã hủy"
+  },
+  "empty": {
+    "title": "Bạn chưa có yêu cầu trải nghiệm",
+    "desc": "Khám phá người bạn địa phương phù hợp với mình.",
+    "cta": "Tìm Local Buddy"
+  },
+  "explore": {
+    "title": "Bắt đầu khám phá",
+    "coffee": "Quán cà phê, góc sống chậm",
+    "food": "Hương vị địa phương",
+    "travel": "Biển, núi và điểm đến"
+  },
+  "support": {
+    "title": "Hỗ trợ & an toàn",
+    "body": "Không chia sẻ mật khẩu hoặc thông tin thanh toán. Liên hệ hỗ trợ nếu bạn gặp vấn đề với đặt lịch.",
+    "hotline": "Hỗ trợ khách hàng 24/7"
+  }
+}

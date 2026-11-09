@@ -1,0 +1,90 @@
+{
+  "errors": {
+    "load": "Couldn't load Admin data. Please sign in with the seeded Admin account.",
+    "status": "Couldn't update the status",
+    "tier": "Couldn't update the Local tier.",
+    "verification": "Couldn't update Buddy verification.",
+    "booking": "Couldn't update the booking"
+  },
+  "messages": {
+    "verified": "Buddy profile verified.",
+    "unverified": "Buddy profile verification removed."
+  },
+  "header": {
+    "eyebrow": "ADMIN COMMAND CENTER",
+    "title": "Admin dashboard",
+    "subtitle": "Monitor users, Local Buddy profiles and experience requests.",
+    "refresh": "Refresh data"
+  },
+  "stats": {
+    "users": "Total users",
+    "buddies": "Local Buddy",
+    "bookings": "Booking requests",
+    "transactions": "Transactions",
+    "current": "Current data"
+  },
+  "banner": {
+    "eyebrow": "SAFE ADMINISTRATION",
+    "title": "Stay in control of the community",
+    "subtitle": "Manage account statuses and experience requests in one place.",
+    "verifyTitle": "Verify",
+    "verifyDesc": "Review profiles",
+    "coordinateTitle": "Coordinate",
+    "coordinateDesc": "Track requests",
+    "protectTitle": "Protect",
+    "protectDesc": "Manage accounts"
+  },
+  "accounts": {
+    "title": "Account management",
+    "subtitle": "Approve, suspend or activate accounts.",
+    "count_one": "{{count}} account",
+    "count_other": "{{count}} accounts",
+    "roleLabel": "Account role",
+    "colUser": "User",
+    "colRole": "Role",
+    "colStatus": "Status",
+    "colCreated": "Created",
+    "colActions": "Actions",
+    "chatWith": "Chat with {{name}}",
+    "empty": "No account data yet."
+  },
+  "buddies": {
+    "title": "Review Food Buddy profiles",
+    "subtitle": "Only verified profiles appear in the public list.",
+    "verifiedCount": "{{verified}}/{{total}} verified",
+    "colInterests": "Interests",
+    "colArea": "Area",
+    "colKyc": "eKYC status",
+    "colVerification": "Verification status",
+    "noEmail": "No email yet",
+    "noInterests": "Not provided",
+    "verified": "Verified",
+    "pending": "Pending verification",
+    "needKyc": "The Local must complete eKYC first",
+    "unverify": "Remove verification",
+    "verify": "Verify profile",
+    "empty": "No Local service profiles yet. A Local must save their profile to create a public profile."
+  },
+  "requests": {
+    "title": "Recent experience requests",
+    "subtitle": "Update booking request statuses.",
+    "statusLabel": "Request status",
+    "tabNew": "New requests",
+    "tabCompleted": "Completed",
+    "tabCancelled": "Cancelled",
+    "colCustomer": "Customer",
+    "colBuddy": "Local Buddy",
+    "colDateTime": "Date / time",
+    "colDetails": "Request details",
+    "defaultCustomer": "Customer",
+    "defaultBuddy": "Local Buddy",
+    "defaultLanguage": "Vietnamese",
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "service": "Service: {{amount}}",
+    "food": "Food/person: {{amount}}",
+    "extra": "Estimated extra budget: {{amount}}",
+    "note": "Note: {{message}}",
+    "empty": "No booking requests yet."
+  }
+}

@@ -5,16 +5,26 @@ const schema = new mongoose.Schema(
     booking: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
     type: {
       type: String,
-      enum: ["TopUp", "Booking", "Refund"],
+      enum: ["TopUp", "Booking", "Refund", "Escrow", "Earning", "Commission", "Withdrawal"],
       required: true,
     },
     amount: { type: Number, required: true },
     status: {
       type: String,
-      enum: ["Pending", "Completed", "Failed"],
+      enum: ["Pending", "Held", "Completed", "Failed", "Refunded"],
       default: "Pending",
     },
+    walletOwner: {
+      type: String,
+      enum: ["User", "System", "Admin"],
+      default: "User",
+    },
     description: { type: String, default: "" },
+    withdrawalDetails: {
+      bankName: { type: String, default: "" },
+      accountNumber: { type: String, default: "" },
+      accountName: { type: String, default: "" },
+    },
     orderId: { type: String, unique: true, sparse: true },
     paymentMethod: { type: String, default: "VNPAY" },
     vnpTransactionNo: { type: String, default: "" },

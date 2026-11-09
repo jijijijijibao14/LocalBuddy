@@ -1,0 +1,19 @@
+{
+  "description": "현지인과 함께 다낭을 발견하세요. 진정성 있고 안전하며 기억에 남는 체험을 연결합니다.",
+  "localExperiences": "100% 현지 체험",
+  "districts": "서비스 지역",
+  "districtHaiChau": "Hải Châu & Thanh Khê",
+  "districtSonTra": "Sơn Trà & Ngũ Hành Sơn",
+  "districtLienChieu": "Liên Chiểu & Hòa Vang",
+  "districtHoiAn": "호이안 및 인근 지역",
+  "safetyLegal": "안전 및 법률",
+  "ekyc": "eKYC 인증 절차",
+  "privacy": "개인정보 처리방침",
+  "terms": "서비스 이용약관",
+  "community": "커뮤니티 가이드라인",
+  "supportTitle": "연중무휴 고객 지원",
+  "supportDescription": "여행하는 동안 지원팀이 함께합니다.",
+  "hotline": "고객 지원 전화: {{number}}",
+  "copyright": "© 2026 Local Buddy Đà Nẵng. 현지 체험을 연결하는 플랫폼.",
+  "footerLinks": "이용약관 · 개인정보 보호 · 도움말 센터"
+}

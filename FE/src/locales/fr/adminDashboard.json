@@ -1,0 +1,90 @@
+{
+  "errors": {
+    "load": "Impossible de charger les données Admin. Veuillez vous connecter avec le compte Admin initial.",
+    "status": "Impossible de mettre à jour le statut",
+    "tier": "Impossible de mettre à jour le niveau Local.",
+    "verification": "Impossible de mettre à jour la vérification du Buddy.",
+    "booking": "Impossible de mettre à jour la réservation"
+  },
+  "messages": {
+    "verified": "Profil Buddy vérifié.",
+    "unverified": "Vérification du profil Buddy retirée."
+  },
+  "header": {
+    "eyebrow": "CENTRE DE COMMANDE ADMIN",
+    "title": "Tableau de bord d'administration",
+    "subtitle": "Suivez les utilisateurs, les profils Local Buddy et les demandes d'expérience.",
+    "refresh": "Actualiser les données"
+  },
+  "stats": {
+    "users": "Total des utilisateurs",
+    "buddies": "Local Buddy",
+    "bookings": "Demandes de réservation",
+    "transactions": "Transactions",
+    "current": "Données actuelles"
+  },
+  "banner": {
+    "eyebrow": "ADMINISTRATION SÉCURISÉE",
+    "title": "Gardez le contrôle de la communauté",
+    "subtitle": "Gérez les statuts des comptes et les demandes d'expérience depuis un seul endroit.",
+    "verifyTitle": "Vérifier",
+    "verifyDesc": "Examiner les profils",
+    "coordinateTitle": "Coordonner",
+    "coordinateDesc": "Suivre les demandes",
+    "protectTitle": "Protéger",
+    "protectDesc": "Gérer les comptes"
+  },
+  "accounts": {
+    "title": "Gestion des comptes",
+    "subtitle": "Approuvez, suspendez ou activez des comptes.",
+    "count_one": "{{count}} compte",
+    "count_other": "{{count}} comptes",
+    "roleLabel": "Rôle du compte",
+    "colUser": "Utilisateur",
+    "colRole": "Rôle",
+    "colStatus": "Statut",
+    "colCreated": "Date de création",
+    "colActions": "Actions",
+    "chatWith": "Discuter avec {{name}}",
+    "empty": "Aucune donnée de compte."
+  },
+  "buddies": {
+    "title": "Examiner les profils Food Buddy",
+    "subtitle": "Seuls les profils vérifiés apparaissent dans la liste publique.",
+    "verifiedCount": "{{verified}}/{{total}} vérifiés",
+    "colInterests": "Centres d'intérêt",
+    "colArea": "Zone",
+    "colKyc": "Statut eKYC",
+    "colVerification": "Statut de vérification",
+    "noEmail": "Aucun e-mail",
+    "noInterests": "Non renseigné",
+    "verified": "Vérifié",
+    "pending": "En attente de vérification",
+    "needKyc": "Le Local doit d'abord terminer l'eKYC",
+    "unverify": "Retirer la vérification",
+    "verify": "Vérifier le profil",
+    "empty": "Aucun profil de service Local. Un Local doit enregistrer son profil pour créer un profil public."
+  },
+  "requests": {
+    "title": "Demandes d'expérience récentes",
+    "subtitle": "Mettez à jour le statut des demandes de réservation.",
+    "statusLabel": "Statut de la demande",
+    "tabNew": "Nouvelles demandes",
+    "tabCompleted": "Terminées",
+    "tabCancelled": "Annulées",
+    "colCustomer": "Client",
+    "colBuddy": "Local Buddy",
+    "colDateTime": "Date / heure",
+    "colDetails": "Détails de la demande",
+    "defaultCustomer": "Client",
+    "defaultBuddy": "Local Buddy",
+    "defaultLanguage": "Vietnamien",
+    "guests_one": "{{count}} invité",
+    "guests_other": "{{count}} invités",
+    "service": "Service : {{amount}}",
+    "food": "Repas/personne : {{amount}}",
+    "extra": "Budget supplémentaire estimé : {{amount}}",
+    "note": "Remarque : {{message}}",
+    "empty": "Aucune demande de réservation."
+  }
+}

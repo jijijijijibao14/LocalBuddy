@@ -1,0 +1,72 @@
+{
+  "loadError": "Could not load the eKYC status.",
+  "finishSuccess": "Demo eKYC process completed! Your account status has been updated.",
+  "finishError": "Unable to complete the eKYC demo.",
+  "backLocal": "Back to Local page",
+  "eyebrow": "LOCAL BUDDY · TRUST & SAFETY",
+  "title": "Safety and eKYC verification",
+  "intro": "Complete the demo verification steps to experience the identity protection process for Locals on the platform.",
+  "status": "Status: {{status}}",
+  "demoNoteLabel": "Demo notice:",
+  "demoNote": "The steps below only simulate actions and results. Do not upload or submit a real citizen ID, no real NFC chip is read, no data is checked against the Ministry of Public Security/VNeID, no face is analyzed, and no legally valid digital signature is created.",
+  "stepN": "Step {{n}}",
+  "doneTitle": "eKYC demo completed",
+  "doneDesc": "Your account has the Verified status. This is a demo status, not an actual identity verification result.",
+  "goLocal": "Go to Local page",
+  "stepProgress": "STEP {{current}}/{{total}}",
+  "simContent": "Simulated content",
+  "consent": "I confirm that I agree to complete the eKYC demo process and understand that the verification actions here are only simulated.",
+  "back": "Back",
+  "finishing": "Completing...",
+  "finish": "Complete verification",
+  "confirmLast": "Confirm final step",
+  "confirmContinue": "Confirm & continue",
+  "privacyNote": "The demo does not store ID card images, chip data, face images or signatures. Only the demo completion status is updated on your account.",
+  "steps": {
+    "ocr": {
+      "title": "Optical Character Recognition (OCR)",
+      "shortTitle": "ID card OCR",
+      "description": "Demo of reading and digitizing the information on the front and back images of the citizen ID card.",
+      "d1": "Read the full name, date of birth and ID number.",
+      "d2": "Read the place of origin, permanent residence and identifying features.",
+      "d3": "Check the sample information across both sides of the document.",
+      "demo": "Simulated extracting information from both sides of the ID card."
+    },
+    "nfc": {
+      "title": "NFC chip reading",
+      "shortTitle": "NFC",
+      "description": "Demo of the process of reading information from the chip embedded in the ID card.",
+      "d1": "Hold the ID card close to an NFC-enabled device.",
+      "d2": "Simulate reading the chip data and encrypted information.",
+      "d3": "Simulate the identity information matching step.",
+      "demo": "Simulated the NFC chip reading process."
+    },
+    "face": {
+      "title": "Face Matching",
+      "shortTitle": "Face matching",
+      "description": "Demo of matching your face against the portrait photo on your identity document.",
+      "d1": "Simulate capturing a face image from the camera.",
+      "d2": "Simulate comparing the face with the photo on the document.",
+      "d3": "Display a sample matching result.",
+      "demo": "Simulated the face matching process."
+    },
+    "liveness": {
+      "title": "Liveness Detection",
+      "shortTitle": "Liveness check",
+      "description": "Demo of checking that a real person is present in front of the camera.",
+      "d1": "Simulate a request to blink.",
+      "d2": "Simulate a request to smile or turn your head.",
+      "d3": "Simulate checking for still photos and replayed videos.",
+      "demo": "Simulated the liveness detection step."
+    },
+    "sign": {
+      "title": "E-Signature",
+      "shortTitle": "E-signature",
+      "description": "Demo of confirming agreement to the forms and terms on the platform.",
+      "d1": "Read the demo confirmation and terms.",
+      "d2": "Confirm your agreement to complete the process.",
+      "d3": "Record the simulated e-signature step.",
+      "demo": "Simulated the e-signature confirmation."
+    }
+  }
+}

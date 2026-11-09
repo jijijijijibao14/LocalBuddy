@@ -12,6 +12,8 @@ import {
   Hash,
 } from "lucide-react";
 import api from "../services/api";
+import { useTranslation, Trans } from "react-i18next";
+import { useLocale } from "../contexts/LocaleContext";
 
 function formatVnPayDate(dateStr) {
   if (!dateStr || dateStr.length !== 14) return dateStr || "";
@@ -26,6 +28,8 @@ function formatVnPayDate(dateStr) {
 }
 
 export default function VNPayReturnPage() {
+  const { formatCurrency } = useLocale();
+  const { t } = useTranslation("vnpayReturn");
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -35,7 +39,7 @@ export default function VNPayReturnPage() {
   useEffect(() => {
     async function verifyPayment() {
       if (!location.search) {
-        setError("Không tìm thấy thông tin phản hồi từ cổng thanh toán VNPAY.");
+        setError(t("errNoParams"));
         setLoading(false);
         return;
       }
@@ -59,7 +63,7 @@ export default function VNPayReturnPage() {
       } catch (err) {
         setError(
           err.response?.data?.message ||
-            "Xác thực thanh toán thất bại hoặc giao dịch đã bị hủy.",
+            t("errVerifyFailed"),
         );
         if (err.response?.data) {
           setResult(err.response.data);
@@ -70,7 +74,7 @@ export default function VNPayReturnPage() {
     }
 
     verifyPayment();
-  }, [location.search]);
+  }, [location.search]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Xác định đường dẫn dashboard theo role
   let dashboardLink = "/dashboard";
@@ -89,10 +93,10 @@ export default function VNPayReturnPage() {
               <RefreshCw size={28} />
             </div>
             <h2 className="mt-5 text-xl font-black text-navy">
-              Đang xác thực thanh toán với VNPAY...
+              {t("verifying")}
             </h2>
             <p className="mt-2 text-xs text-slate-500">
-              Vui lòng không tắt hoặc tải lại trang trong khi hệ thống đang xử lý.
+              {t("doNotClose")}
             </p>
           </div>
         ) : result?.success ? (
@@ -103,13 +107,13 @@ export default function VNPayReturnPage() {
                 <CheckCircle2 size={44} className="text-white" />
               </div>
               <span className="mt-4 inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold text-emerald-100">
-                Thanh toán VNPAY-QR thành công
+                {t("successBadge")}
               </span>
               <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
-                Nạp tiền thành công!
+                {t("successTitle")}
               </h1>
               <p className="mt-1 text-sm text-emerald-100">
-                Số tiền đã được cộng trực tiếp vào ví Local Buddy của bạn.
+                {t("successDesc")}
               </p>
             </div>
 
@@ -117,16 +121,16 @@ export default function VNPayReturnPage() {
               {/* Card số tiền */}
               <div className="rounded-2xl bg-emerald-50/80 p-5 border border-emerald-100 text-center">
                 <p className="text-xs font-bold text-emerald-800">
-                  Số tiền đã nạp
+                  {t("amountToppedUp")}
                 </p>
                 <p className="mt-1 text-3xl font-black text-emerald-700">
-                  +{Number(result.amount || 0).toLocaleString("vi-VN")} đ
+                  +{formatCurrency(result.amount || 0)}
                 </p>
                 <div className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-600">
                   <Wallet size={14} className="text-brand" />
-                  <span>Số dư ví hiện tại:</span>
+                  <span>{t("currentBalance")}</span>
                   <b className="font-extrabold text-navy">
-                    {Number(result.newBalance || 0).toLocaleString("vi-VN")} đ
+                    {formatCurrency(result.newBalance || 0)}
                   </b>
                 </div>
               </div>
@@ -135,7 +139,7 @@ export default function VNPayReturnPage() {
               <div className="mt-6 space-y-3 rounded-2xl border border-slate-100 bg-slate-50/50 p-5 text-xs">
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500 flex items-center gap-1.5">
-                    <Hash size={13} /> Mã giao dịch hệ thống:
+                    <Hash size={13} /> {t("systemOrderId")}
                   </span>
                   <span className="font-mono font-bold text-navy">
                     {result.orderId}
@@ -145,7 +149,7 @@ export default function VNPayReturnPage() {
                 {result.transactionNo && (
                   <div className="flex items-center justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-500 flex items-center gap-1.5">
-                      <QrCode size={13} /> Mã giao dịch VNPAY:
+                      <QrCode size={13} /> {t("vnpayTransactionId")}
                     </span>
                     <span className="font-mono font-bold text-navy">
                       {result.transactionNo}
@@ -155,19 +159,19 @@ export default function VNPayReturnPage() {
 
                 <div className="flex items-center justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-500 flex items-center gap-1.5">
-                    <ShieldCheck size={13} /> Phương thức:
+                    <ShieldCheck size={13} /> {t("method")}
                   </span>
                   <span className="font-bold text-navy">
                     {result.bankCode === "VNPAYQR"
-                      ? "Cổng VNPAY-QR"
-                      : `VNPAY (${result.bankCode || "Thẻ/Ví"})`}
+                                          ? t("methodQr")
+                                          : t("methodOther", { bank: result.bankCode || t("cardOrWallet") })}
                   </span>
                 </div>
 
                 {result.payDate && (
                   <div className="flex items-center justify-between py-1">
                     <span className="text-slate-500 flex items-center gap-1.5">
-                      <Calendar size={13} /> Thời gian giao dịch:
+                      <Calendar size={13} /> {t("transactionTime")}
                     </span>
                     <span className="font-bold text-slate-700">
                       {formatVnPayDate(result.payDate)}
@@ -182,14 +186,14 @@ export default function VNPayReturnPage() {
                   to={dashboardLink}
                   className="btn-primary flex-1 justify-center !py-3 text-sm font-black"
                 >
-                  <span>Quay về trang cá nhân</span>
+                  <span>{t("backToProfile")}</span>
                   <ArrowRight size={16} />
                 </Link>
                 <Link
                   to="/#discover"
                   className="btn-light flex-1 justify-center !py-3 text-sm font-bold"
                 >
-                  Tìm Local Buddy ngay
+                  {t("findBuddy")}
                 </Link>
               </div>
             </div>
@@ -202,26 +206,31 @@ export default function VNPayReturnPage() {
                 <XCircle size={44} className="text-white" />
               </div>
               <h1 className="mt-4 text-2xl font-black text-white sm:text-3xl">
-                Giao dịch chưa hoàn tất
+                {t("failedTitle")}
               </h1>
               <p className="mt-1 text-sm text-red-100">
-                Giao dịch nạp tiền qua VNPAY đã bị hủy hoặc không thành công.
+                {t("failedDesc")}
               </p>
             </div>
 
             <div className="p-6 sm:p-8">
               <div className="rounded-2xl bg-red-50 p-4 border border-red-100 text-xs text-red-800">
-                <p className="font-bold">Chi tiết lỗi:</p>
+                <p className="font-bold">{t("errorDetails")}</p>
                 <p className="mt-1 leading-relaxed">
                   {error ||
                     result?.message ||
-                    "Giao dịch không thành công hoặc bạn đã hủy trong quá trình thanh toán."}
+                    t("defaultFailure")}
                 </p>
               </div>
 
               {result?.orderId && (
                 <p className="mt-4 text-center text-xs text-slate-400">
-                  Mã giao dịch: <span className="font-mono">{result.orderId}</span>
+                  <Trans
+                    t={t}
+                    i18nKey="orderIdLine"
+                    values={{ id: result.orderId }}
+                    components={{ mono: <span className="font-mono" /> }}
+                  />
                 </p>
               )}
 
@@ -230,13 +239,13 @@ export default function VNPayReturnPage() {
                   to={dashboardLink}
                   className="btn-primary flex-1 justify-center !py-3 text-sm font-black"
                 >
-                  <span>Quay lại trang cá nhân</span>
+                  <span>{t("backToProfileAgain")}</span>
                 </Link>
                 <button
                   onClick={() => navigate(dashboardLink)}
                   className="btn-light flex-1 justify-center !py-3 text-sm font-bold"
                 >
-                  Thử nạp lại
+                  {t("retry")}
                 </button>
               </div>
             </div>

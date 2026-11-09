@@ -19,10 +19,14 @@ import api from "../services/api";
 import BookingPaymentModal from "../components/BookingPaymentModal";
 import WalletTopUpModal from "../components/WalletTopUpModal";
 import ChatModal from "../components/ChatModal";
+import { useLocale } from "../contexts/LocaleContext";
+import { useTranslation } from "react-i18next";
 
 const defaultTimes = ["09:00 - 12:00", "13:00 - 16:00", "15:00 - 18:00"];
 
 export default function BuddyDetailPage() {
+  const { formatCurrency } = useLocale();
+  const { t } = useTranslation("buddy");
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const [buddy, setBuddy] = useState(null);
@@ -41,6 +45,7 @@ export default function BuddyDetailPage() {
   const [guestCount, setGuestCount] = useState("1");
   const [language, setLanguage] = useState("Tiếng Việt");
   const [foodBudget, setFoodBudget] = useState("150000");
+  const [experienceBudget, setExperienceBudget] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -173,7 +178,7 @@ export default function BuddyDetailPage() {
         if (!cancelled)
           setNotice(
             error.response?.data?.message ||
-              "Không tải được hồ sơ Local Buddy.",
+              t("loadError"),
           );
       })
       .finally(() => {
@@ -187,22 +192,22 @@ export default function BuddyDetailPage() {
   async function book() {
     if (!localStorage.getItem("lb_token")) {
       setNotice(
-        "Vui lòng đăng nhập bằng tài khoản Traveler trước khi gửi yêu cầu.",
+        t("loginRequired"),
       );
       return;
     }
     if (!date) {
-      setNotice("Vui lòng chọn ngày trải nghiệm.");
+      setNotice(t("chooseDate"));
       return;
     }
     if (!endTime || endMinutes > 24 * 60) {
-      setNotice("Khung giờ trải nghiệm không hợp lệ.");
+      setNotice(t("invalidTime"));
       return;
     }
 
     if (paymentMethod === "Wallet" && !isBalanceEnough) {
       setNotice(
-        `Số dư ví Local Buddy không đủ (${walletBalance.toLocaleString("vi-VN")} đ < ${estimatedPrice.toLocaleString("vi-VN")} đ). Vui lòng nạp thêm tiền hoặc chọn thanh toán qua VNPAY-QR.`
+        t("insufficientWallet", { current: formatCurrency(walletBalance), required: formatCurrency(estimatedPrice) })
       );
       return;
     }
@@ -221,6 +226,7 @@ export default function BuddyDetailPage() {
         guestCount: Number(guestCount),
         language,
         foodBudget: Number(foodBudget),
+        experienceBudget: Number(experienceBudget || 0),
         message,
         paymentMethod,
       });
@@ -245,7 +251,7 @@ export default function BuddyDetailPage() {
         }
         setBookingSuccess(true);
         setNotice(
-          "🎉 Đặt lịch thành công! Khoản phí dịch vụ đã được thanh toán tự động qua Ví Local Buddy.",
+          t("bookingSuccessWallet"),
         );
       } else if (paymentMethod === "VNPAY_QR") {
         if (data?.qrData) {
@@ -255,19 +261,19 @@ export default function BuddyDetailPage() {
       } else {
         setBookingSuccess(true);
         setNotice(
-          "Đã gửi yêu cầu đến Local! Bạn có thể thanh toán khoản phí sau trong bảng điều khiển.",
+          t("requestSent"),
         );
       }
     } catch (error) {
       const errRes = error.response?.data;
       if (errRes?.insufficient) {
         setNotice(
-          `Số dư ví không đủ (${(errRes.currentBalance || walletBalance).toLocaleString("vi-VN")} đ). Cần ${estimatedPrice.toLocaleString("vi-VN")} đ. Vui lòng nạp thêm tiền hoặc chọn VNPAY-QR.`
+          t("insufficientWalletApi", { current: formatCurrency(errRes.currentBalance || walletBalance), required: formatCurrency(estimatedPrice) })
         );
       } else {
         setNotice(
           errRes?.message ||
-            "Không thể gửi yêu cầu lúc này. Vui lòng thử lại.",
+            t("submitFailure"),
         );
       }
     } finally {
@@ -277,16 +283,16 @@ export default function BuddyDetailPage() {
 
   if (loading)
     return (
-      <div className="container-page py-12">Đang tải hồ sơ Local Buddy...</div>
+      <div className="container-page py-12">{t("loading")}</div>
     );
   if (!buddy) {
     return (
       <div className="container-page py-12">
         <p className="panel p-8 text-center">
-          {notice || "Không tìm thấy hồ sơ Local Buddy."}
+          {notice || t("profileNotFound")}
         </p>
         <Link to="/" className="btn-primary mt-4">
-          Quay lại danh sách
+          {t("backToList")}
         </Link>
       </div>
     );
@@ -298,7 +304,7 @@ export default function BuddyDetailPage() {
         to="/"
         className="mb-4 inline-flex items-center gap-2 text-xs font-bold text-slate-500"
       >
-        <ArrowLeft size={14} /> Danh sách Local Buddy
+        <ArrowLeft size={14} /> {t("buddyList")}
       </Link>
       <div className="grid items-start gap-5 lg:grid-cols-[1fr_350px]">
         <div className="space-y-5">
@@ -313,8 +319,7 @@ export default function BuddyDetailPage() {
               <div className="absolute bottom-5 left-5 right-5 flex items-end gap-4 text-white">
                 <div>
                   <span className="pill">
-                    <ShieldCheck size={12} className="mr-1 inline" /> Đã xác
-                    minh
+                    <ShieldCheck size={12} className="mr-1 inline" /> {t("verified")}
                   </span>
                   <h1 className="mt-2 text-2xl font-black sm:text-3xl">
                     {buddy.fullName}
@@ -347,18 +352,18 @@ export default function BuddyDetailPage() {
               ))}
             </div>
             <div className="p-5 sm:p-7">
-              <p className="eyebrow">Lời giới thiệu</p>
+              <p className="eyebrow">{t("introduction")}</p>
               <h2 className="mt-2 text-xl font-extrabold">
-                Khám phá Đà Nẵng cùng người địa phương
+                {t("discoverDaNang")}
               </h2>
               <p className="mt-3 whitespace-pre-line text-sm leading-7 text-slate-600">
-                {buddy.bio || "Local Buddy đang cập nhật phần giới thiệu."}
+                {buddy.bio || t("bioFallbackDetail")}
               </p>
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl bg-blue-50 p-4">
                   <h3 className="flex items-center gap-2 text-sm font-extrabold">
                     <Languages size={16} className="text-brand" />
-                    Ngôn ngữ giao tiếp
+                    {t("communicationLanguages")}
                   </h3>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(buddy.languages || ["Tiếng Việt"]).map((item) => (
@@ -366,7 +371,7 @@ export default function BuddyDetailPage() {
                         key={item}
                         className="rounded-md bg-white px-2 py-1.5 text-xs"
                       >
-                        {item}
+                        {!buddy.languages && item === "Tiếng Việt" ? t("vietnamese") : item}
                       </span>
                     ))}
                   </div>
@@ -374,67 +379,82 @@ export default function BuddyDetailPage() {
                 <div className="rounded-xl bg-blue-50 p-4">
                   <h3 className="flex items-center gap-2 text-sm font-extrabold">
                     <CheckCircle2 size={16} className="text-emerald-600" />
-                    Thông tin gói
+                    {t("packageInfo")}
                   </h3>
                   <ul className="mt-3 space-y-2 text-xs text-slate-600">
-                    <li>✓ Thời lượng: 3 giờ</li>
-                    <li>✓ Lịch trình điều chỉnh theo sở thích</li>
-                    <li>✓ Nhóm vận hành xác nhận lịch thủ công</li>
+                    <li>✓ {t("includedDuration")}</li>
+                    <li>✓ {t("adjustedItinerary")}</li>
+                    <li>✓ {t("manualConfirmation")}</li>
                   </ul>
                 </div>
               </div>
+              {buddy.photos?.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-extrabold">{t("sharedPhotos")}</h3>
+                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {buddy.photos.map((photo, index) => (
+                      <img
+                        key={`${photo}-${index}`}
+                        src={photo}
+                        alt={t("photoAlt", { index: index + 1, name: buddy.fullName })}
+                        className="aspect-square w-full rounded-xl object-cover"
+                        loading="lazy"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </section>
           <section className="panel p-5 sm:p-7">
             <h2 className="font-extrabold">
-              Gói trải nghiệm: Khám phá địa phương trong 3 giờ
+              {t("experiencePackage")}
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              Buddy gợi ý quán ăn, quán cà phê hoặc điểm đến dựa trên sở thích
-              của bạn. Lịch trình cụ thể sẽ được trao đổi sau khi nhóm vận hành
-              kiểm tra yêu cầu.
+              {t("packageDescription")}
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl bg-emerald-50 p-4">
                 <p className="text-xs font-extrabold text-emerald-800">
-                  ĐÃ BAO GỒM
+                  {t("included")}
                 </p>
                 <ul className="mt-2 space-y-2 text-xs text-slate-700">
-                  <li>• Đồng hành cùng Local Buddy trong 3 giờ</li>
-                  <li>• Gợi ý lịch trình theo sở thích</li>
-                  <li>• Hỗ trợ khám phá địa phương</li>
+                  <li>• {t("buddyCompanion")}</li>
+                  <li>• {t("itinerarySuggestion")}</li>
+                  <li>• {t("localExplorationSupport")}</li>
                 </ul>
               </div>
               <div className="rounded-xl bg-amber-50 p-4">
                 <p className="text-xs font-extrabold text-amber-800">
-                  CHƯA BAO GỒM
+                  {t("notIncluded")}
                 </p>
                 <ul className="mt-2 space-y-2 text-xs text-slate-700">
-                  <li>• Đồ ăn và thức uống</li>
-                  <li>• Vé tham quan</li>
-                  <li>• Chi phí di chuyển cá nhân</li>
+                  <li>• {t("foodDrinksTickets")}</li>
+                  <li>• {t("transportAndExtras")}</li>
                 </ul>
+                <p className="mt-2 text-xs font-bold leading-5 text-amber-900">
+                  {t("travelerPaysExtras")}
+                </p>
               </div>
             </div>
           </section>
         </div>
         <aside className="panel p-5 lg:sticky lg:top-[88px]">
-          <p className="eyebrow">Mức chi phí đồng hành</p>
+          <p className="eyebrow">{t("companionRate")}</p>
           <p className="mt-1 text-3xl font-black text-brand">
-            {Number(
+            {formatCurrency(Number(
               buddy.pricePerHour ?? Math.round(Number(buddy.price || 0) / 3),
-            ).toLocaleString("vi-VN")}
-            đ <span className="text-xs font-medium text-slate-500">/ giờ</span>
+            ))} <span className="text-xs font-medium text-slate-500">{t("perHour")}</span>
           </p>
           <p className="mt-2 text-xs text-slate-500">
-            Giá dịch vụ Buddy, chưa bao gồm ăn uống và vé tham quan.
+            {t("priceExcludes")}
           </p>
           <div className="my-5 border-t border-slate-100" />
           <h1 className="text-xl font-bold to-blue-600">
-            Thông tin đặt lịch
+            {t("bookingInformation")}
           </h1>
           <label className="text-xs font-bold">
-            Ngày trải nghiệm
+            {t("experienceDate")}
             <input
               className="field mt-2"
               type="date"
@@ -447,17 +467,16 @@ export default function BuddyDetailPage() {
           <div className="mt-4 rounded-xl bg-blue-50 p-4">
             <h3 className="flex items-center gap-2 text-sm font-extrabold text-navy">
               <Clock size={16} className="text-brand" />
-              Thời gian Local đang rảnh
+              {t("localAvailability")}
             </h3>
 
             {!date ? (
               <p className="mt-2 text-xs text-slate-600">
-                Vui lòng chọn ngày để xem lịch rảnh của Local.
+                {t("selectDateForAvailability")}
               </p>
             ) : availableSlots.length === 0 ? (
               <p className="mt-2 text-xs leading-5 text-amber-800">
-                Chưa có khung giờ rảnh phù hợp với ngày và thời lượng bạn chọn.
-                Hãy chọn ngày hoặc thời lượng khác.
+                {t("noMatchingAvailability")}
               </p>
             ) : (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -479,12 +498,12 @@ export default function BuddyDetailPage() {
             )}
 
             <p className="mt-3 text-[11px] leading-5 text-slate-500">
-              Khung giờ thực tế sẽ được Backend kiểm tra lại khi bạn gửi yêu cầu.
+              {t("availabilityBackendCheck")}
             </p>
           </div>
           
           <label className="mt-4 block text-xs font-bold">
-            Thời lượng trải nghiệm
+            {t("experienceDuration")}
             <select
               className="field mt-2"
               value={durationHours}
@@ -492,14 +511,14 @@ export default function BuddyDetailPage() {
             >
               {[1, 2, 3, 4, 5, 6, 8, 12].map((hours) => (
                 <option key={hours} value={hours}>
-                  {hours} giờ
+                  {t("durationHours", { count: hours })}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="mt-4 block text-xs font-bold">
-            Từ (giờ)
+            {t("fromHour")}
             <select
               className="field mt-2"
               value={startTime}
@@ -519,18 +538,18 @@ export default function BuddyDetailPage() {
           </label>
 
           <label className="mt-4 block text-xs font-bold">
-            Đến (giờ)
+            {t("toHour")}
             <div className="field mt-2 flex items-center">
-              {endTime || "Không hợp lệ"}
+              {endTime || t("invalid")}
             </div>
             <p className="mt-1 text-xs font-normal text-slate-500">
-              Tự tính theo giờ bắt đầu và thời lượng đã chọn.
+              {t("autoCalculatedTime")}
             </p>
           </label>
 
           <label className="mt-4 block text-xs font-bold">
             <Users size={13} className="mr-1 inline" />
-            Số lượng khách
+            {t("guestCountLabel")}
             <select
               className="field mt-2"
               value={guestCount}
@@ -538,13 +557,13 @@ export default function BuddyDetailPage() {
             >
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                 <option key={n} value={n}>
-                  {n} người
+                  {t("guestCount", { count: n })}
                 </option>
               ))}
             </select>
           </label>
           <label className="mt-4 block text-xs font-bold">
-            Ngôn ngữ
+            {t("languageLabel")}
             <select
               className="field mt-2"
               value={language}
@@ -553,7 +572,7 @@ export default function BuddyDetailPage() {
               {(buddy.languages?.length ? buddy.languages : ["Tiếng Việt"]).map(
                 (item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {!buddy.languages?.length && item === "Tiếng Việt" ? t("vietnamese") : item}
                   </option>
                 ),
               )}
@@ -561,25 +580,40 @@ export default function BuddyDetailPage() {
           </label>
           <label className="mt-4 block text-xs font-bold">
             <Utensils size={13} className="mr-1 inline" />
-            Ngân sách ăn uống dự kiến / người
+            {t("foodBudgetLabel")}
             <select
               className="field mt-2"
               value={foodBudget}
               onChange={(e) => setFoodBudget(e.target.value)}
             >
-              <option value="0">Chưa xác định</option>
-              <option value="100000">100.000đ</option>
-              <option value="150000">150.000đ</option>
-              <option value="250000">250.000đ</option>
-              <option value="350000">350.000đ</option>
+              <option value="0">{t("unspecified")}</option>
+              <option value="100000">{formatCurrency(100000)}</option>
+              <option value="150000">{formatCurrency(150000)}</option>
+              <option value="250000">{formatCurrency(250000)}</option>
+              <option value="350000">{formatCurrency(350000)}</option>
             </select>
           </label>
           <label className="mt-4 block text-xs font-bold">
-            Lời nhắn / sở thích / yêu cầu
+            {t("extraBudgetLabel")}
+            <input
+              className="field mt-2"
+              type="number"
+              min="0"
+              step="10000"
+              value={experienceBudget}
+              onChange={(e) => setExperienceBudget(e.target.value)}
+              placeholder={t("amountExamplePlaceholder")}
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              {t("extraBudgetNote")}
+            </span>
+          </label>
+          <label className="mt-4 block text-xs font-bold">
+            {t("messageLabel")}
             <textarea
               className="field mt-2 min-h-20"
               maxLength={1000}
-              placeholder="Ví dụ: món chay, dị ứng thực phẩm, điểm muốn ghé..."
+              placeholder={t("messagePlaceholder")}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
             />
@@ -587,20 +621,23 @@ export default function BuddyDetailPage() {
           {/* Tổng phí và Lựa chọn phương thức thanh toán */}
           <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
             <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>Thời lượng ({durationHours} giờ):</span>
+              <span>{t("durationSummary", { count: durationHours })}</span>
               <span className="font-semibold text-slate-700">
-                {durationHours} × {Number(buddy.pricePerHour ?? Math.round(Number(buddy.price || 0) / 3)).toLocaleString("vi-VN")}đ
+                {durationHours} × {formatCurrency(Number(buddy.pricePerHour ?? Math.round(Number(buddy.price || 0) / 3)))}
               </span>
             </div>
             <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
-              <span className="text-xs font-bold text-navy">Tổng chi phí dịch vụ:</span>
+              <span className="text-xs font-bold text-navy">{t("totalServiceCost")}</span>
               <span className="text-base font-black text-brand">
-                {estimatedPrice.toLocaleString("vi-VN")} đ
+                {formatCurrency(estimatedPrice)}
               </span>
             </div>
+            <p className="mt-2 text-[11px] leading-5 text-slate-500">
+              {t("travelerPaysSeparate")}
+            </p>
 
             <p className="mt-4 text-xs font-bold text-slate-800">
-              Chọn phương thức thanh toán:
+              {t("choosePaymentMethod")}
             </p>
 
             <div className="mt-2 space-y-2">
@@ -618,17 +655,17 @@ export default function BuddyDetailPage() {
                     <Wallet size={16} />
                   </div>
                   <div>
-                    <span className="text-xs font-black text-navy block">Ví Local Buddy</span>
+                    <span className="text-xs font-black text-navy block">{t("buddyWallet")}</span>
                     <span className="text-[11px] text-slate-500">
-                      Số dư:{" "}
+                      {t("balance")}{" "}
                       <b className={isBalanceEnough ? "text-emerald-600" : "text-amber-600"}>
-                        {walletBalance.toLocaleString("vi-VN")} đ
+                        {formatCurrency(walletBalance)}
                       </b>
                     </span>
                     {!isBalanceEnough && (
                       <div className="mt-1 flex items-center gap-2">
                         <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
-                          Thiếu {(estimatedPrice - walletBalance).toLocaleString("vi-VN")} đ
+                          {t("shortfall", { amount: formatCurrency(estimatedPrice - walletBalance) })}
                         </span>
                         <button
                           type="button"
@@ -638,7 +675,7 @@ export default function BuddyDetailPage() {
                           }}
                           className="text-[10px] font-bold text-brand hover:underline cursor-pointer"
                         >
-                          + Nạp ví ngay
+                          {t("topUpNow")}
                         </button>
                       </div>
                     )}
@@ -667,9 +704,9 @@ export default function BuddyDetailPage() {
                     <QrCode size={16} />
                   </div>
                   <div>
-                    <span className="text-xs font-black text-navy block">Quét mã VNPAY-QR</span>
+                    <span className="text-xs font-black text-navy block">{t("scanVnpay")}</span>
                     <span className="text-[11px] text-slate-500">
-                      Quét qua mọi app ngân hàng & Ví VNPAY
+                      {t("scanWithApps")}
                     </span>
                   </div>
                 </div>
@@ -696,9 +733,9 @@ export default function BuddyDetailPage() {
                     <Clock size={16} />
                   </div>
                   <div>
-                    <span className="text-xs font-black text-navy block">Thanh toán sau</span>
+                    <span className="text-xs font-black text-navy block">{t("payLater")}</span>
                     <span className="text-[11px] text-slate-500">
-                      Giữ lịch trước, thanh toán sau trong bảng điều khiển
+                      {t("reservePayLater")}
                     </span>
                   </div>
                 </div>
@@ -726,12 +763,12 @@ export default function BuddyDetailPage() {
             {paymentMethod === "VNPAY_QR" && <QrCode size={16} />}
             {paymentMethod === "None" && <CalendarDays size={16} />}
             {submitting
-              ? "Đang xử lý..."
+              ? t("processing")
               : paymentMethod === "Wallet"
-                ? "Thanh toán bằng Ví & Đặt lịch"
+                ? t("payWithWalletBook")
                 : paymentMethod === "VNPAY_QR"
-                  ? "Quét mã VNPAY-QR & Đặt lịch"
-                  : "Gửi yêu cầu (Thanh toán sau)"}
+                  ? t("payWithQrBook")
+                  : t("sendRequestPayLater")}
           </button>
 
           {/* Nút Chat trực tiếp */}
@@ -748,10 +785,10 @@ export default function BuddyDetailPage() {
                     to={`/login?redirect=${redirectUrl}`}
                     className="btn-green w-full text-center flex items-center justify-center gap-2"
                   >
-                    <MessageCircle size={15} /> Chat trực tiếp với Local (Cần đăng nhập)
+                    <MessageCircle size={15} /> {t("chatLoginButton")}
                   </Link>
                   <p className="mt-1 text-[11px] text-center text-slate-500">
-                    Vui lòng đăng nhập tài khoản Traveler để gửi tin nhắn an toàn.
+                    {t("chatLoginNote")}
                   </p>
                 </div>
               );
@@ -760,7 +797,7 @@ export default function BuddyDetailPage() {
             if (currentUser?._id === currentBuddyUserId) {
               return (
                 <div className="mt-2 rounded-xl bg-slate-100 p-2.5 text-center text-xs text-slate-600 font-medium">
-                  Đây là trang hồ sơ của bạn
+                  {t("ownProfile")}
                 </div>
               );
             }
@@ -768,7 +805,7 @@ export default function BuddyDetailPage() {
             if (currentUser?.role !== "traveler") {
               return (
                 <div className="mt-2 rounded-xl bg-amber-50 p-2.5 text-center text-xs text-amber-700 font-medium">
-                  Tính năng chat trực tiếp dành cho tài khoản Traveler.
+                  {t("chatTravelerOnly")}
                 </div>
               );
             }
@@ -791,7 +828,7 @@ export default function BuddyDetailPage() {
                   );
                 }}
               >
-                <MessageCircle size={15} /> Chat trực tiếp với {buddy?.fullName || "Local"}
+                <MessageCircle size={15} /> {t("chatDirectWith", { name: buddy?.fullName || "Local" })}
               </button>
             );
           })()}
@@ -810,7 +847,7 @@ export default function BuddyDetailPage() {
                   to="/dashboard"
                   className="mt-2 inline-flex items-center gap-1 font-bold text-emerald-700 underline"
                 >
-                  Xem yêu cầu trong Không gian cá nhân →
+                  {t("viewRequestDashboard")}
                 </Link>
               )}
             </div>
@@ -818,11 +855,11 @@ export default function BuddyDetailPage() {
 
           <div className="mt-5 rounded-xl bg-emerald-50 p-3 text-xs leading-5 text-emerald-800">
             <ShieldCheck size={15} className="mr-1 inline" /> 
-            Khoản thanh toán được bảo vệ an toàn. Tiền chỉ được chuyển cho Buddy sau khi chuyến đi hoàn tất.
+            {t("protectedPayment")}
           </div>
           <p className="mt-4 flex items-center gap-2 text-[11px] text-slate-500">
             <Clock size={13} />
-            Phản hồi thường trong vòng 24 giờ
+            {t("responseTime")}
           </p>
         </aside>
       </div>
@@ -836,7 +873,7 @@ export default function BuddyDetailPage() {
         onSuccess={(updated) => {
           setCreatedBooking(updated);
           setBookingSuccess(true);
-          setNotice("🎉 Thanh toán phí dịch vụ đặt lịch qua VNPAY-QR thành công!");
+          setNotice(t("vnpaySuccess"));
           setIsPayModalOpen(false);
         }}
         onOpenTopUp={() => {

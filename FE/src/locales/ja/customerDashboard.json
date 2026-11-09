@@ -1,0 +1,66 @@
+{
+  "errors": {
+    "bookings": "予約リクエストを読み込めませんでした。プロフィール情報は引き続き確認できます。",
+    "profile": "最新のプロフィール情報を読み込めませんでした。"
+  },
+  "eyebrow": "パーソナルスペース",
+  "welcome": "おかえりなさい、{{name}}さん！👋",
+  "defaultName": "ゲスト",
+  "subtitle": "プロフィールと今後の体験を管理しましょう。",
+  "accountPill": "Local Buddy アカウント",
+  "stats": {
+    "profileScore": "プロフィールスコア",
+    "profileScoreSub": "情報は最新です",
+    "rating": "評価",
+    "ratingSub": "コミュニティから",
+    "bookings": "予約リクエスト",
+    "bookingsSub": "すべてのリクエスト"
+  },
+  "profile": {
+    "title": "個人プロフィール",
+    "update": "プロフィールを更新",
+    "defaultUser": "Local Buddy ユーザー",
+    "noEmail": "メールアドレス未登録",
+    "kycDefault": "eKYC 未認証",
+    "phone": "電話番号",
+    "notUpdated": "未更新",
+    "role": "アカウントの役割"
+  },
+  "bookings": {
+    "title": "あなたの体験リクエスト",
+    "refresh": "更新",
+    "defaultBuddy": "Local Buddy",
+    "paid": "支払い済み（{{method}}）",
+    "methodWallet": "Local ウォレット",
+    "unpaid": "料金未払い",
+    "guests_one": "{{count}}名",
+    "guests_other": "{{count}}名",
+    "defaultLanguage": "ベトナム語",
+    "service": "サービス",
+    "foodBudget": "想定の飲食予算：1人あたり {{amount}} VND",
+    "payTitle": "ウォレットまたは VNPAY-QR でサービス料金を支払う",
+    "payNow": "今すぐ支払う"
+  },
+  "status": {
+    "pending": "確認待ち",
+    "confirmed": "確認済み",
+    "completed": "完了",
+    "cancelled": "キャンセル済み"
+  },
+  "empty": {
+    "title": "体験リクエストはまだありません",
+    "desc": "あなたに合ったローカルバディを探しましょう。",
+    "cta": "Local Buddy を探す"
+  },
+  "explore": {
+    "title": "探索を始めよう",
+    "coffee": "カフェとスローライフの隠れ家",
+    "food": "地元の味",
+    "travel": "海、山、そして観光スポット"
+  },
+  "support": {
+    "title": "サポートと安全",
+    "body": "パスワードや支払い情報は共有しないでください。予約に問題がある場合はサポートにお問い合わせください。",
+    "hotline": "24時間365日のカスタマーサポート"
+  }
+}

@@ -9,9 +9,11 @@ import {
   UserRound,
   MapPin,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import api from "../services/api";
 
 export default function AuthPage({ mode = "login" }) {
+  const { t } = useTranslation("auth");
   const register = mode === "register";
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -24,6 +26,7 @@ export default function AuthPage({ mode = "login" }) {
   });
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   function change(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -31,6 +34,7 @@ export default function AuthPage({ mode = "login" }) {
   async function submit(e) {
     e.preventDefault();
     setError("");
+    setSuccess(false);
     setLoading(true);
     try {
       const payload = register
@@ -41,7 +45,8 @@ export default function AuthPage({ mode = "login" }) {
         payload,
       );
       if (register) {
-        setError("Đăng ký thành công! Vui lòng đăng nhập để tiếp tục.");
+        setSuccess(true);
+        setError(t("registerSuccess"));
         setTimeout(() => navigate("/login", { replace: true }), 900);
       } else {
         localStorage.setItem("lb_token", data.token);
@@ -54,7 +59,7 @@ export default function AuthPage({ mode = "login" }) {
     } catch (e) {
       setError(
         e.response?.data?.message ||
-          "Không thể kết nối máy chủ. Hãy kiểm tra backend và thử lại.",
+          t("connectError"),
       );
     } finally {
       setLoading(false);
@@ -67,7 +72,7 @@ export default function AuthPage({ mode = "login" }) {
           <img
             className="absolute inset-0 h-full w-full object-cover opacity-35"
             src="https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=1000&q=85"
-            alt="Đà Nẵng"
+            alt={t("heroAlt")}
           />
           <div className="relative flex h-full flex-col">
             <div className="flex items-center gap-2">
@@ -77,29 +82,28 @@ export default function AuthPage({ mode = "login" }) {
               <b>LOCAL BUDDY</b>
             </div>
             <span className="mt-16 w-fit rounded-full bg-emerald-300/20 px-3 py-1 text-[10px] font-extrabold text-emerald-100">
-              CỘNG ĐỒNG ĐỊA PHƯƠNG
+              {t("communityBadge")}
             </span>
             <h1 className="mt-4 text-4xl font-black leading-tight">
-              Khám phá Đà Nẵng
+              {t("heroTitleLine1")}
               <br />
-              cùng người bản địa.
+              {t("heroTitleLine2")}
             </h1>
             <p className="mt-4 max-w-sm text-sm leading-6 text-blue-100">
-              Kết nối với những người bạn địa phương để có trải nghiệm chân
-              thật, gần gũi và đáng nhớ.
+              {t("heroDesc")}
             </p>
             <div className="mt-auto grid grid-cols-3 gap-3 pt-12">
               {[
-                ["12.5K+", "Người dùng"],
-                ["98.5%", "Hài lòng"],
-                ["24/7", "Hỗ trợ"],
+                ["12.5K+", "statUsers"],
+                ["98.5%", "statSatisfied"],
+                ["24/7", "statSupport"],
               ].map((x) => (
                 <div
                   className="rounded-xl bg-white/15 p-3 backdrop-blur"
                   key={x[0]}
                 >
                   <b className="text-xl">{x[0]}</b>
-                  <p className="mt-1 text-[10px] text-blue-100">{x[1]}</p>
+                  <p className="mt-1 text-[10px] text-blue-100">{t(x[1])}</p>
                 </div>
               ))}
             </div>
@@ -107,16 +111,16 @@ export default function AuthPage({ mode = "login" }) {
         </section>
         <section className="panel mx-auto w-full max-w-2xl p-5 sm:p-8">
           <div className="text-center">
-            <span className="eyebrow">Bắt đầu hành trình</span>
+            <span className="eyebrow">{t("startJourney")}</span>
             <h2 className="mt-2 text-2xl font-black text-navy">
               {register
-                ? "Tạo tài khoản Local Buddy"
-                : "Chào mừng bạn quay trở lại"}
+                ? t("registerTitle")
+                : t("loginTitle")}
             </h2>
             <p className="mt-2 text-xs text-slate-500">
               {register
-                ? "Chọn vai trò phù hợp với nhu cầu của bạn."
-                : "Đăng nhập để tiếp tục với Local Buddy."}
+                ? t("registerSubtitle")
+                : t("loginSubtitle")}
             </p>
           </div>
           <div className="mt-6 grid grid-cols-2 rounded-xl bg-slate-100 p-1">
@@ -124,36 +128,35 @@ export default function AuthPage({ mode = "login" }) {
               className={`rounded-lg py-2.5 text-center text-xs font-bold ${!register ? "bg-white text-brand shadow-sm" : "text-slate-500"}`}
               to="/login"
             >
-              Đăng nhập
+              {t("tabLogin")}
             </Link>
             <Link
               className={`rounded-lg py-2.5 text-center text-xs font-bold ${register ? "bg-white text-brand shadow-sm" : "text-slate-500"}`}
               to="/register"
             >
-              Đăng ký tài khoản
+              {t("tabRegister")}
             </Link>
           </div>
           <div className="mt-5 rounded-xl bg-blue-50 p-3 text-xs text-slate-600">
             <ShieldCheck size={16} className="mr-2 inline text-brand" />
-            Admin sử dụng tài khoản riêng do hệ thống quản trị cấp; không thể
-            đăng ký Admin công khai.
+            {t("adminNotice")}
           </div>
           <form className="mt-5 space-y-4" onSubmit={submit}>
             {register && (
               <>
                 <label className="block text-xs font-bold">
-                  Họ và tên
+                  {t("fullName")}
                   <input
                     className="field mt-2"
                     name="fullName"
                     value={form.fullName}
                     onChange={change}
-                    placeholder="Nguyễn Văn An"
+                    placeholder={t("fullNamePlaceholder")}
                     required
                   />
                 </label>
                 <label className="block text-xs font-bold">
-                  Bạn muốn tham gia với vai trò nào?
+                  {t("rolePrompt")}
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
@@ -164,7 +167,7 @@ export default function AuthPage({ mode = "login" }) {
                     <UserRound className="text-brand" size={20} />
                     <b className="mt-2 block text-sm">Traveler</b>
                     <span className="mt-1 block text-[11px] leading-5 text-slate-500">
-                      Tìm kiếm và đặt trải nghiệm với người địa phương.
+                      {t("travelerDesc")}
                     </span>
                   </button>
                   <button
@@ -175,7 +178,7 @@ export default function AuthPage({ mode = "login" }) {
                     <MapPin className="text-emerald-600" size={20} />
                     <b className="mt-2 block text-sm">Local</b>
                     <span className="mt-1 block text-[11px] leading-5 text-slate-500">
-                      Tạo hồ sơ, giới thiệu trải nghiệm và nhận yêu cầu.
+                      {t("localDesc")}
                     </span>
                   </button>
                 </div>
@@ -195,7 +198,7 @@ export default function AuthPage({ mode = "login" }) {
             </label>
             {register && (
               <label className="block text-xs font-bold">
-                Số điện thoại
+                {t("phone")}
                 <input
                   className="field mt-2"
                   name="phone"
@@ -203,13 +206,13 @@ export default function AuthPage({ mode = "login" }) {
                   onChange={change}
                   placeholder="09xxxxxxxx"
                   pattern="0[0-9]{9}"
-                  title="Nhập số điện thoại Việt Nam gồm 10 chữ số"
+                  title={t("phoneTitle")}
                   required
                 />
               </label>
             )}
             <label className="block text-xs font-bold">
-              Mật khẩu
+              {t("password")}
               <span className="relative mt-2 block">
                 <input
                   className="field pr-10"
@@ -217,7 +220,7 @@ export default function AuthPage({ mode = "login" }) {
                   name="password"
                   value={form.password}
                   onChange={change}
-                  placeholder={register ? "Ít nhất 8 ký tự" : "Nhập mật khẩu"}
+                  placeholder={register ? t("passwordPlaceholderRegister") : t("passwordPlaceholderLogin")}
                   minLength={8}
                   required
                 />
@@ -236,13 +239,13 @@ export default function AuthPage({ mode = "login" }) {
                   size={13}
                   className="mr-1 inline text-emerald-600"
                 />
-                Mật khẩu tối thiểu 8 ký tự.
+                {t("passwordMin")}
               </p>
             )}
             {error && (
               <p
                 role="alert"
-                className={`rounded-lg p-3 text-xs leading-5 ${error.includes("thành công") ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}
+                className={`rounded-lg p-3 text-xs leading-5 ${success ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}
               >
                 {error}
               </p>
@@ -252,16 +255,15 @@ export default function AuthPage({ mode = "login" }) {
               className="btn-primary w-full disabled:opacity-60"
             >
               {loading
-                ? "Đang xử lý..."
+                ? t("processing")
                 : register
-                  ? "Tạo tài khoản"
-                  : "Đăng nhập"}{" "}
+                  ? t("createAccount")
+                  : t("login")}{" "}
               →
             </button>
           </form>
           <p className="mt-5 text-center text-[11px] leading-5 text-slate-500">
-            Bằng cách tiếp tục, bạn đồng ý với Điều khoản dịch vụ và Chính sách
-            bảo mật của Local Buddy.
+            {t("terms")}
           </p>
         </section>
       </div>

@@ -13,6 +13,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import api from "../services/api";
+import { useTranslation, Trans } from "react-i18next";
+import { useLocale } from "../contexts/LocaleContext";
 
 export default function BookingPaymentModal({
   isOpen,
@@ -23,6 +25,8 @@ export default function BookingPaymentModal({
   initialQrData = null,
   initialStep = "select",
 }) {
+  const { formatCurrency } = useLocale();
+  const { t } = useTranslation("payment");
   const [method, setMethod] = useState("Wallet"); // 'Wallet' | 'VNPAY_QR'
   const [step, setStep] = useState(initialStep); // 'select' | 'qr_view' | 'success'
   const [loading, setLoading] = useState(false);
@@ -68,7 +72,7 @@ export default function BookingPaymentModal({
   useEffect(() => {
     let timer;
     if (step === "qr_view" && timeLeft > 0) {
-      timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+      timer = setInterval(() => setTimeLeft((s) => s - 1), 1000);
     }
     return () => clearInterval(timer);
   }, [step, timeLeft]);
@@ -101,7 +105,7 @@ export default function BookingPaymentModal({
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || "Không thể thanh toán bằng ví lúc này.",
+        err.response?.data?.message || t("errWalletPay"),
       );
     } finally {
       setLoading(false);
@@ -121,7 +125,7 @@ export default function BookingPaymentModal({
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || "Không thể tạo mã VNPAY-QR thanh toán.",
+        err.response?.data?.message || t("errCreateBookingQr"),
       );
     } finally {
       setLoading(false);
@@ -144,7 +148,7 @@ export default function BookingPaymentModal({
       }
     } catch (err) {
       setError(
-        err.response?.data?.message || "Lỗi xác nhận thanh toán VNPAY-QR.",
+        err.response?.data?.message || t("errConfirmBookingQr"),
       );
     } finally {
       setConfirmLoading(false);
@@ -169,21 +173,25 @@ export default function BookingPaymentModal({
           <button
             onClick={onClose}
             className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer"
-            title="Đóng"
+            title={t("close")}
           >
             <X size={18} />
           </button>
 
-          <h2 className="text-xl font-black">Thanh toán phí đặt lịch</h2>
+          <h2 className="text-xl font-black">{t("bookingPayTitle")}</h2>
           <p className="mt-1 text-xs text-white/80">
-            Trải nghiệm cùng Local:{" "}
-            <b>{booking.buddy?.fullName || "Local Buddy"}</b>
+            <Trans
+              t={t}
+              i18nKey="experienceWith"
+              values={{ name: booking.buddy?.fullName || "Local Buddy" }}
+              components={{ bold: <b /> }}
+            />
           </p>
 
           <div className="mt-4 flex items-center justify-between rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-            <span className="text-xs text-white/90">Chi phí dịch vụ:</span>
+            <span className="text-xs text-white/90">{t("servicePrice")}</span>
             <span className="text-lg font-black text-amber-300">
-              {price.toLocaleString("vi-VN")} đ
+              {formatCurrency(price)}
             </span>
           </div>
         </div>
@@ -194,7 +202,7 @@ export default function BookingPaymentModal({
           {step === "select" && (
             <div className="space-y-4">
               <label className="block text-xs font-bold text-slate-700">
-                Chọn phương thức thanh toán:
+                {t("selectMethod")}
               </label>
 
               {/* Lựa chọn 1: Ví Local Buddy */}
@@ -212,23 +220,29 @@ export default function BookingPaymentModal({
                   </div>
                   <div>
                     <span className="text-sm font-extrabold text-navy">
-                      Ví Local Buddy
+                      {t("walletName")}
                     </span>
                     <p className="mt-1 text-xs text-slate-500">
-                      Số dư hiện có:{" "}
-                      <b
-                        className={
-                          isBalanceEnough
-                            ? "text-emerald-600 font-extrabold"
-                            : "text-amber-600 font-extrabold"
-                        }
-                      >
-                        {walletBalance.toLocaleString("vi-VN")} đ
-                      </b>
+                      <Trans
+                        t={t}
+                        i18nKey="currentBalanceIs"
+                        values={{ amount: formatCurrency(walletBalance) }}
+                        components={{
+                          bold: (
+                            <b
+                              className={
+                                isBalanceEnough
+                                  ? "text-emerald-600 font-extrabold"
+                                  : "text-amber-600 font-extrabold"
+                              }
+                            />
+                          ),
+                        }}
+                      />
                     </p>
                     {!isBalanceEnough && (
                       <span className="mt-1 inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
-                        Thiếu {(price - walletBalance).toLocaleString("vi-VN")} đ
+                        {t("shortBy", { amount: formatCurrency(price - walletBalance) })}
                       </span>
                     )}
                   </div>
@@ -258,14 +272,14 @@ export default function BookingPaymentModal({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-extrabold text-navy">
-                        Quét mã VNPAY-QR
+                        {t("scanQr")}
                       </span>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        Tức thì
+                        {t("instant")}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      Quét mã QR qua ứng dụng Ngân hàng (VCB, MB, Techcom, BIDV...) hoặc Ví VNPAY
+                      {t("scanQrHint")}
                     </p>
                   </div>
                 </div>
@@ -297,8 +311,8 @@ export default function BookingPaymentModal({
                       <Wallet size={16} />
                       <span>
                         {loading
-                          ? "Đang xử lý..."
-                          : `Xác nhận trừ ví ${price.toLocaleString("vi-VN")} đ`}
+                          ? t("processing")
+                          : t("confirmWalletPay", { amount: formatCurrency(price) })}
                       </span>
                     </button>
                   ) : (
@@ -312,14 +326,14 @@ export default function BookingPaymentModal({
                         className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-5 py-3.5 text-sm font-black text-white shadow-md hover:opacity-95 transition-opacity cursor-pointer"
                       >
                         <Wallet size={16} />
-                        <span>Nạp thêm tiền vào ví ngay</span>
+                        <span>{t("topUpNow")}</span>
                       </button>
                       <button
                         type="button"
                         onClick={() => setMethod("VNPAY_QR")}
                         className="w-full rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                       >
-                        Hoặc chuyển sang quét mã VNPAY-QR
+                        {t("switchToQr")}
                       </button>
                     </div>
                   )
@@ -333,8 +347,8 @@ export default function BookingPaymentModal({
                     <QrCode size={18} />
                     <span>
                       {loading
-                        ? "Đang tạo mã QR..."
-                        : `Tạo mã VNPAY-QR thanh toán ${price.toLocaleString("vi-VN")} đ`}
+                        ? t("creatingQr")
+                        : t("createQrPay", { amount: formatCurrency(price) })}
                     </span>
                   </button>
                 )}
@@ -350,11 +364,11 @@ export default function BookingPaymentModal({
                   onClick={() => setStep("select")}
                   className="text-xs font-bold text-slate-500 hover:text-navy cursor-pointer"
                 >
-                  ← Đổi phương thức
+                  {t("changeMethod")}
                 </button>
                 <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 border border-amber-200">
                   <Clock size={13} />
-                  <span>Hết hạn: {timeFormatted}</span>
+                  <span>{t("expiresIn", { time: timeFormatted })}</span>
                 </div>
               </div>
 
@@ -362,31 +376,31 @@ export default function BookingPaymentModal({
               <div className="mx-auto flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#005baa]/30 bg-white p-4 shadow-inner max-w-[270px]">
                 <img
                   src={qrData.qrCodeUrl}
-                  alt="Mã QR VNPAY"
+                  alt={t("qrAlt")}
                   className="h-52 w-52 rounded-xl object-contain shadow-sm"
                 />
                 <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-slate-500">
                   <ShieldCheck size={14} className="text-emerald-600" />
-                  <span>Mã QR thanh toán đặt lịch VNPAY</span>
+                  <span>{t("bookingQrCaption")}</span>
                 </div>
               </div>
 
               {/* Chi tiết thanh toán */}
               <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 text-left text-xs">
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500">Số tiền:</span>
+                  <span className="text-slate-500">{t("amountLabel")}</span>
                   <span className="text-sm font-black text-emerald-600">
-                    {price.toLocaleString("vi-VN")} đ
+                    {formatCurrency(price)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500">Mã giao dịch:</span>
+                  <span className="text-slate-500">{t("transactionId")}</span>
                   <span className="font-mono font-bold text-navy">
                     {qrData.orderId}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-slate-500">Nội dung:</span>
+                  <span className="text-slate-500">{t("contentLabel")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-bold text-[#005baa]">
                       LOCALBUDDY {qrData.orderId}
@@ -394,7 +408,7 @@ export default function BookingPaymentModal({
                     <button
                       onClick={() => handleCopy(`LOCALBUDDY ${qrData.orderId}`)}
                       className="rounded p-1 text-slate-500 hover:bg-slate-200 cursor-pointer"
-                      title="Sao chép nội dung"
+                      title={t("copyContent")}
                     >
                       {copied ? (
                         <Check size={13} className="text-emerald-600" />
@@ -415,7 +429,7 @@ export default function BookingPaymentModal({
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                 />
                 <span className="text-xs text-slate-700 select-none">
-                  Tôi đã mở app Ngân hàng / Ví VNPAY và <b>hoàn tất thanh toán</b> cho lịch đặt này.
+                  <Trans t={t} i18nKey="bookingTransferredConfirm" components={{ bold: <b /> }} />
                 </span>
               </label>
 
@@ -438,11 +452,11 @@ export default function BookingPaymentModal({
                   }`}
                 >
                   {confirmLoading ? (
-                    <span>Đang kiểm tra giao dịch...</span>
+                    <span>{t("checkingTransaction")}</span>
                   ) : (
                     <>
                       <CheckCircle2 size={18} />
-                      <span>Đã chuyển tiền, xác nhận đặt lịch</span>
+                      <span>{t("confirmBooking")}</span>
                     </>
                   )}
                 </button>
@@ -459,25 +473,27 @@ export default function BookingPaymentModal({
 
               <div>
                 <h3 className="text-2xl font-black text-navy">
-                  Thanh toán thành công!
+                  {t("bookingSuccessTitle")}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Khoản phí đặt lịch đã được ghi nhận. Local Buddy sẽ liên hệ và chuẩn bị trải nghiệm cho bạn.
+                  {t("bookingSuccessDesc")}
                 </p>
               </div>
 
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                 <p className="text-xs font-bold text-emerald-800">
-                  Số tiền đã thanh toán
+                  {t("amountPaid")}
                 </p>
                 <p className="mt-1 text-3xl font-black text-emerald-700">
-                  {price.toLocaleString("vi-VN")} đ
+                  {formatCurrency(price)}
                 </p>
                 <p className="mt-2 text-xs text-slate-600">
-                  Phương thức:{" "}
-                  <b>
-                    {method === "Wallet" ? "Ví Local Buddy" : "Cổng VNPAY-QR"}
-                  </b>
+                  <Trans
+                    t={t}
+                    i18nKey="methodIs"
+                    values={{ method: method === "Wallet" ? t("walletName") : t("methodQrGateway") }}
+                    components={{ bold: <b /> }}
+                  />
                 </p>
               </div>
 
@@ -486,7 +502,7 @@ export default function BookingPaymentModal({
                 onClick={onClose}
                 className="w-full rounded-xl bg-brand py-3 text-sm font-black text-white shadow-md hover:bg-brand/90 transition-colors cursor-pointer"
               >
-                Hoàn tất
+                {t("done")}
               </button>
             </div>
           )}

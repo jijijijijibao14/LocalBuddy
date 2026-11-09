@@ -1,0 +1,90 @@
+{
+  "errors": {
+    "load": "管理者データを読み込めませんでした。シード済みの管理者アカウントでログインしてください。",
+    "status": "ステータスを更新できませんでした",
+    "tier": "Local のランクを更新できませんでした。",
+    "verification": "Buddy の認証を更新できませんでした。",
+    "booking": "予約を更新できませんでした"
+  },
+  "messages": {
+    "verified": "Buddy プロフィールを認証しました。",
+    "unverified": "Buddy プロフィールの認証を解除しました。"
+  },
+  "header": {
+    "eyebrow": "管理コマンドセンター",
+    "title": "管理ダッシュボード",
+    "subtitle": "ユーザー、Local Buddy プロフィール、体験リクエストを確認できます。",
+    "refresh": "データを更新"
+  },
+  "stats": {
+    "users": "総ユーザー数",
+    "buddies": "Local Buddy",
+    "bookings": "予約リクエスト",
+    "transactions": "取引",
+    "current": "現在のデータ"
+  },
+  "banner": {
+    "eyebrow": "安全な運営管理",
+    "title": "コミュニティを主体的に管理",
+    "subtitle": "アカウントの状態と体験リクエストを一か所で管理できます。",
+    "verifyTitle": "認証",
+    "verifyDesc": "プロフィールを確認",
+    "coordinateTitle": "調整",
+    "coordinateDesc": "リクエストを追跡",
+    "protectTitle": "保護",
+    "protectDesc": "アカウントを管理"
+  },
+  "accounts": {
+    "title": "アカウント管理",
+    "subtitle": "アカウントの承認、停止、有効化を行います。",
+    "count_one": "{{count}}件のアカウント",
+    "count_other": "{{count}}件のアカウント",
+    "roleLabel": "アカウントの役割",
+    "colUser": "ユーザー",
+    "colRole": "役割",
+    "colStatus": "ステータス",
+    "colCreated": "作成日",
+    "colActions": "操作",
+    "chatWith": "{{name}}さんとチャット",
+    "empty": "アカウントデータはまだありません。"
+  },
+  "buddies": {
+    "title": "Food Buddy プロフィールの審査",
+    "subtitle": "認証済みのプロフィールのみ公開リストに表示されます。",
+    "verifiedCount": "{{verified}}/{{total}}件が認証済み",
+    "colInterests": "興味",
+    "colArea": "エリア",
+    "colKyc": "eKYC ステータス",
+    "colVerification": "認証ステータス",
+    "noEmail": "メールアドレス未登録",
+    "noInterests": "未入力",
+    "verified": "認証済み",
+    "pending": "認証待ち",
+    "needKyc": "先に Local が eKYC を完了する必要があります",
+    "unverify": "認証を解除",
+    "verify": "プロフィールを認証",
+    "empty": "Local のサービスプロフィールはまだありません。公開プロフィールを作成するには、Local がプロフィールを保存する必要があります。"
+  },
+  "requests": {
+    "title": "最近の体験リクエスト",
+    "subtitle": "予約リクエストのステータスを更新します。",
+    "statusLabel": "リクエストのステータス",
+    "tabNew": "新規リクエスト",
+    "tabCompleted": "完了",
+    "tabCancelled": "キャンセル済み",
+    "colCustomer": "お客様",
+    "colBuddy": "Local Buddy",
+    "colDateTime": "日付 / 時間",
+    "colDetails": "リクエストの詳細",
+    "defaultCustomer": "お客様",
+    "defaultBuddy": "Local Buddy",
+    "defaultLanguage": "ベトナム語",
+    "guests_one": "{{count}}名",
+    "guests_other": "{{count}}名",
+    "service": "サービス：{{amount}}",
+    "food": "1人あたりの飲食：{{amount}}",
+    "extra": "想定される追加予算：{{amount}}",
+    "note": "メモ：{{message}}",
+    "empty": "予約リクエストはまだありません。"
+  }
+}

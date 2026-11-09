@@ -6,11 +6,11 @@ import {
   Compass,
   MapPin,
   Search,
-  SlidersHorizontal,
   Sparkles,
   Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import BuddyCard from "../components/BuddyCard";
 import api from "../services/api";
 import {
@@ -19,31 +19,32 @@ import {
 } from "../utils/buddyFilters";
 
 const LANGUAGES = [
-  "Tiếng Việt",
-  "Tiếng Anh",
-  "Tiếng Pháp",
-  "Tiếng Đức",
-  "Tiếng Nhật",
-  "Tiếng Hàn",
-  "Tiếng Trung",
-  "Tiếng Tây Ban Nha",
-  "Tiếng Ý",
-  "Tiếng Nga",
-  "Tiếng Thái",
-  "Tiếng Indonesia",
+  { value: "Tiếng Việt", key: "languageVietnamese" },
+  { value: "Tiếng Anh", key: "languageEnglish" },
+  { value: "Tiếng Pháp", key: "languageFrench" },
+  { value: "Tiếng Đức", key: "languageGerman" },
+  { value: "Tiếng Nhật", key: "languageJapanese" },
+  { value: "Tiếng Hàn", key: "languageKorean" },
+  { value: "Tiếng Trung", key: "languageChinese" },
+  { value: "Tiếng Tây Ban Nha", key: "languageSpanish" },
+  { value: "Tiếng Ý", key: "languageItalian" },
+  { value: "Tiếng Nga", key: "languageRussian" },
+  { value: "Tiếng Thái", key: "languageThai" },
+  { value: "Tiếng Indonesia", key: "languageIndonesian" },
 ];
 const AREAS = [
-  "Hải Châu",
-  "Thanh Khê",
-  "Sơn Trà",
-  "Ngũ Hành Sơn",
-  "Liên Chiểu",
-  "Cẩm Lệ",
-  "Hòa Vang",
-  "Hoàng Sa",
+  { value: "Hải Châu", key: "areaHaiChau" },
+  { value: "Thanh Khê", key: "areaThanhKhe" },
+  { value: "Sơn Trà", key: "areaSonTra" },
+  { value: "Ngũ Hành Sơn", key: "areaNguHanhSon" },
+  { value: "Liên Chiểu", key: "areaLienChieu" },
+  { value: "Cẩm Lệ", key: "areaCamLe" },
+  { value: "Hòa Vang", key: "areaHoaVang" },
+  { value: "Hoàng Sa", key: "areaHoangSa" },
 ];
 
 export default function HomePage() {
+  const { t } = useTranslation("home");
   let currentUser = null;
   try {
     currentUser = JSON.parse(localStorage.getItem("lb_user") || "null");
@@ -102,8 +103,7 @@ export default function HomePage() {
         if (!cancelled) {
           setBuddies([]);
           setBuddyError(
-            error.response?.data?.message ||
-              "Không thể tải danh sách Local. Vui lòng thử lại.",
+            error.response?.data?.message || "loadLocalsError",
           );
         }
       } finally {
@@ -125,7 +125,7 @@ export default function HomePage() {
     () => {
       const languages = new Map();
       for (const item of [
-        ...LANGUAGES,
+        ...LANGUAGES.map(({ value }) => value),
         ...buddies.flatMap((buddy) =>
           Array.isArray(buddy.languages) ? buddy.languages : [],
         ),
@@ -168,32 +168,30 @@ export default function HomePage() {
             <div>
               <span className="pill">
                 <Sparkles size={12} />
-                100% LOCAL BUDDY ĐỊA PHƯƠNG
+                {t("heroBadge")}
               </span>
               <h1 className="mt-4 max-w-xl text-3xl font-black leading-tight tracking-tight text-navy sm:text-5xl">
-                Tìm <span className="text-brand">“Bạn Đồng Hành”</span> bản địa
-                khám phá Đà Nẵng
+                <Trans ns="home" i18nKey="heroTitle" components={[<span className="text-brand" />]} />
               </h1>
               <p className="mt-4 max-w-lg text-sm leading-6 text-slate-600">
-                Chạm vào nhịp sống địa phương, thưởng thức món ngon và khám phá
-                những góc thành phố theo cách riêng của bạn.
+                {t("heroDescription")}
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a href="#discover" className="btn-primary">
-                  Khám phá Local Buddy <ArrowRight size={16} />
+                  {t("exploreLocal")} <ArrowRight size={16} />
                 </a>
                 <a href="#how" className="btn-light">
-                  Cách hoạt động
+                  {t("howItWorks")}
                 </a>
               </div>
               <div className="mt-6 flex flex-wrap gap-4 text-xs text-slate-600">
                 <span className="flex items-center gap-1">
                   <CheckCircle2 size={15} className="text-emerald-600" />
-                  Hồ sơ xác minh
+                  {t("verifiedProfiles")}
                 </span>
                 <span className="flex items-center gap-1">
                   <Users size={15} className="text-emerald-600" />
-                  Cộng đồng thân thiện
+                  {t("friendlyCommunity")}
                 </span>
               </div>
             </div>
@@ -201,14 +199,14 @@ export default function HomePage() {
               <img
                 className="h-64 w-full rounded-2xl object-cover shadow-soft sm:h-80"
                 src="https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?auto=format&fit=crop&w=1100&q=85"
-                alt="Khám phá thành phố Đà Nẵng"
+                alt={t("cityImageAlt")}
               />
               <div className="absolute -bottom-3 left-3 rounded-xl bg-white p-3 shadow-soft sm:left-5">
                 <p className="text-xs font-bold text-navy">
-                  Trải nghiệm như người bản địa
+                  {t("localLike")}
                 </p>
                 <p className="mt-1 text-[10px] text-slate-500">
-                  An toàn · Gần gũi · Đáng nhớ
+                  {t("safeCloseMemorable")}
                 </p>
               </div>
             </div>
@@ -221,18 +219,18 @@ export default function HomePage() {
           {[
             {
               n: "01",
-              title: "Khám phá",
-              desc: "Tìm người bạn địa phương theo sở thích, khu vực và ngân sách.",
+              titleKey: "stepDiscover",
+              descKey: "stepDiscoverDescription",
             },
             {
               n: "02",
-              title: "Kết nối",
-              desc: "Xem hồ sơ, đọc đánh giá và gửi yêu cầu trải nghiệm.",
+              titleKey: "stepConnect",
+              descKey: "stepConnectDescription",
             },
             {
               n: "03",
-              title: "Tận hưởng",
-              desc: "Gặp gỡ an toàn, khám phá Đà Nẵng theo cách của riêng bạn.",
+              titleKey: "stepEnjoy",
+              descKey: "stepEnjoyDescription",
             },
           ].map((x) => (
             <div key={x.n} className="flex gap-4">
@@ -240,9 +238,9 @@ export default function HomePage() {
                 {x.n}
               </span>
               <div>
-                <h3 className="font-extrabold">{x.title}</h3>
+                <h3 className="font-extrabold">{t(x.titleKey)}</h3>
                 <p className="mt-2 text-xs leading-5 text-slate-500">
-                  {x.desc}
+                  {t(x.descKey)}
                 </p>
               </div>
             </div>
@@ -256,19 +254,18 @@ export default function HomePage() {
             <div>
               <span className="pill">TRAVELER SPACE</span>
               <h2 className="mt-2 text-lg font-black text-navy">
-                Sẵn sàng cho trải nghiệm tiếp theo?
+                {t("travelerReady")}
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Tìm Local phù hợp, gửi yêu cầu đặt lịch và theo dõi chuyến đi
-                của bạn.
+                {t("travelerDescription")}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link to="/profile" className="btn-light">
-                Hồ sơ của tôi
+                {t("myProfile")}
               </Link>
               <Link to="/dashboard" className="btn-primary">
-                Lịch đặt & ví của tôi <ArrowRight size={15} />
+                {t("myBookingsWallet")} <ArrowRight size={15} />
               </Link>
             </div>
           </div>
@@ -281,17 +278,15 @@ export default function HomePage() {
             <div>
               <span className="pill">LOCAL SPACE</span>
               <h2 className="mt-2 text-lg font-black text-navy">
-                Chào mừng đến với LocalBuddy, Bước đầu bạn hãy hoàn thiện
-                profile nha!
+                {t("welcomeLocal")}
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Hoàn thiện thông tin cá nhân để khách hàng hiểu bạn hơn và có
-                thể tìm thấy bạn.
+                {t("completeProfileDescription")}
               </p>
             </div>
 
             <Link to="/profile" className="btn-green">
-              Hoàn thiện profile <ArrowRight size={15} />
+              {t("completeProfile")} <ArrowRight size={15} />
             </Link>
           </div>
         </section>
@@ -303,15 +298,14 @@ export default function HomePage() {
             <div>
               <span className="pill">ADMIN COMMAND CENTER</span>
               <h2 className="mt-2 text-lg font-black text-navy">
-                Xin chào quản trị viên, {currentUser?.fullName || "Admin"}
+                {t("helloAdmin", { name: currentUser?.fullName || "Admin" })}
               </h2>
               <p className="mt-1 text-xs text-slate-500">
-                Quản lý tài khoản, Local Buddy và yêu cầu đặt lịch từ khu vực
-                quản trị.
+                {t("manageAdmin")}
               </p>
             </div>
             <Link to="/admin" className="btn-primary">
-              Mở bảng quản trị <ArrowRight size={15} />
+              {t("openAdmin")} <ArrowRight size={15} />
             </Link>
           </div>
         </section>
@@ -321,21 +315,21 @@ export default function HomePage() {
           <section className="container-page -mt-1">
             <div className="panel grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
               <label className="text-xs font-bold text-slate-600">
-                Bạn muốn khám phá gì?
+                {t("categoryPrompt")}
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm"
                 >
-                  <option value="Tất cả">Tất cả</option>
-                  <option value="Ẩm thực">Ẩm thực</option>
-                  <option value="cà phê">Cà phê</option>
-                  <option value="du lịch">Du lịch</option>
+                  <option value="Tất cả">{t("allCategories")}</option>
+                  <option value="Ẩm thực">{t("food")}</option>
+                  <option value="cà phê">{t("coffee")}</option>
+                  <option value="du lịch">{t("travel")}</option>
                 </select>
               </label>
 
               <label className="text-xs font-bold text-slate-600">
-                Khu vực trải nghiệm
+                {t("areaLabel")}
                 <span className="mt-2 flex items-center gap-2">
                   <MapPin size={15} className="text-brand" />
                   <select
@@ -343,10 +337,10 @@ export default function HomePage() {
                     value={area}
                     onChange={(e) => setArea(e.target.value)}
                   >
-                    <option>Tất cả khu vực</option>
+                    <option value="Tất cả khu vực">{t("allAreas")}</option>
                     {AREAS.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
+                      <option key={item.value} value={item.value}>
+                        {t(item.key)}
                       </option>
                     ))}
                   </select>
@@ -354,39 +348,42 @@ export default function HomePage() {
               </label>
 
               <label className="text-xs font-bold text-slate-600">
-                Ngôn ngữ
+                {t("languageLabel")}
                 <select
                   className="field mt-2"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
                 >
-                  <option>Tất cả ngôn ngữ</option>
-                  {availableLanguages.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
+                  <option value="Tất cả ngôn ngữ">{t("allLanguages")}</option>
+                  {availableLanguages.map((item) => {
+                    const language = LANGUAGES.find((option) => option.value === item);
+                    return (
+                      <option key={item} value={item}>
+                        {language ? t(language.key) : item}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
 
               <label className="text-xs font-bold text-slate-600">
-                Ngân sách tối đa / giờ
+                {t("budgetLabel")}
                 <select
                   className="field mt-2"
                   value={maxPrice}
                   onChange={(e) => setMaxPrice(e.target.value)}
                 >
-                  <option value="">Không giới hạn</option>
-                  <option value="50000">50.000đ/giờ</option>
-                  <option value="100000">100.000đ/giờ</option>
-                  <option value="150000">150.000đ/giờ</option>
-                  <option value="200000">200.000đ/giờ</option>
-                  <option value="300000">300.000đ/giờ</option>
+                  <option value="">{t("unlimited")}</option>
+                  <option value="50000">{t("hourlyRate", { amount: "50.000đ" })}</option>
+                  <option value="100000">{t("hourlyRate", { amount: "100.000đ" })}</option>
+                  <option value="150000">{t("hourlyRate", { amount: "150.000đ" })}</option>
+                  <option value="200000">{t("hourlyRate", { amount: "200.000đ" })}</option>
+                  <option value="300000">{t("hourlyRate", { amount: "300.000đ" })}</option>
                 </select>
               </label>
             
               <label className="text-xs font-bold text-slate-600">
-                Ngày trải nghiệm
+                {t("experienceDate")}
                 <input
                   type="date"
                   className="field mt-2"
@@ -397,7 +394,7 @@ export default function HomePage() {
               </label>
 
               <label className="text-xs font-bold text-slate-600">
-                Giờ bắt đầu
+                {t("startTime")}
                 <select
                   className="field mt-2"
                   value={experienceStart}
@@ -413,7 +410,7 @@ export default function HomePage() {
               </label>
 
               <label className="text-xs font-bold text-slate-600">
-                Thời lượng
+                {t("duration")}
                 <select
                   className="field mt-2"
                   value={durationHours}
@@ -421,7 +418,7 @@ export default function HomePage() {
                 >
                   {[1, 2, 3, 4, 5, 6, 8, 12].map((hours) => (
                     <option key={hours} value={hours}>
-                      {hours} giờ
+                      {t("durationHours", { count: hours })}
                     </option>
                   ))}
                 </select>
@@ -436,68 +433,40 @@ export default function HomePage() {
                     ?.scrollIntoView({ behavior: "smooth" })
                 }
               >
-                <Search size={15} /> Xem Local phù hợp
+                <Search size={15} /> {t("viewMatches")}
               </button>
             </div>
           </section>
-          {/* <section id="categories" className="container-page pt-8">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="eyebrow">Trải nghiệm theo sở thích</p>
-                <h2 className="section-title mt-1">Chọn phong cách của bạn</h2>
-              </div>
-              <SlidersHorizontal size={19} className="text-slate-400" />
-            </div>
-            <div className="mt-4 max-w-md">
-              <label className="block text-xs font-bold text-slate-600">
-                Chọn sở thích trải nghiệm
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="field mt-2"
-                >
-                  <option value="Tất cả">Tất cả sở thích</option>
-                  <option value="Ẩm thực">Ẩm thực (Food)</option>
-                  <option value="cà phê">Cà phê</option>
-                  <option value="du lịch">Du lịch</option>
-                </select>
-              </label>
-            </div>
-          </section> */}
           <section id="discover" className="container-page pt-10">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className="eyebrow">Kết nối với người địa phương</p>
+                <p className="eyebrow">{t("discoverEyebrow")}</p>
                 <h2 className="section-title mt-1">
-                  Tìm thấy {filtered.length} Local Buddy phù hợp · Bạn muốn trải
-                  nghiệm {durationHours} giờ
+                  {t("resultsTitle", { count: filtered.length, duration: t("durationHours", { count: Number(durationHours) }) })}
                 </h2>
                 <p className="mt-2 text-xs text-slate-500">
-                  Kết quả dựa trên sở thích, khu vực, ngôn ngữ, ngân sách và
-                  lịch rảnh tại ngày/giờ bạn chọn. Thời lượng chỉ dùng để tính
-                  giá khi đặt trải nghiệm. Danh sách chỉ hiển thị Local đang
-                  hoạt động và đã được Admin xác minh.
+                  {t("resultDescription")}
                 </p>
               </div>
               <span className="btn-light">
-                <ShieldCheckIcon /> Hồ sơ đã xác minh
+                <ShieldCheckIcon /> {t("verifiedProfilesBadge")}
               </span>
             </div>
             {loadingBuddies && (
               <div className="panel mt-5 p-8 text-center text-sm text-slate-500">
-                Đang tìm Local phù hợp...
+                {t("loadingLocals")}
               </div>
             )}
 
             {buddyError && (
               <div className="panel mt-5 p-8 text-center">
-                <p className="font-bold text-red-600">{buddyError}</p>
+                <p className="font-bold text-red-600">{buddyError === "loadLocalsError" ? t(buddyError) : buddyError}</p>
                 <button
                   type="button"
                   className="btn-primary mt-3"
                   onClick={() => window.location.reload()}
                 >
-                  Thử tải lại
+                  {t("retry")}
                 </button>
               </div>
             )}
@@ -519,13 +488,13 @@ export default function HomePage() {
               <div className="panel mt-5 p-10 text-center">
                 <p className="font-bold">
                   {buddies.length === 0
-                    ? "Hiện chưa có hồ sơ Local đang hoạt động và đã xác minh"
-                    : "Chưa tìm thấy Local Buddy phù hợp"}
+                    ? t("noActiveProfiles")
+                    : t("noMatches")}
                 </p>
                 <p className="mt-2 text-sm text-slate-500">
                 {buddies.length === 0
-                  ? "Local cần được quản trị viên xác minh và kích hoạt thì mới xuất hiện."
-                  : "Hãy thử đổi sở thích, khu vực, ngôn ngữ, ngày/giờ bắt đầu hoặc mở rộng ngân sách. Hồ sơ Local mới chỉ xuất hiện sau khi Admin xác minh."}
+                  ? t("localsApproval")
+                  : t("broadenSearch")}
                 </p>
                 {buddies.length > 0 && (
                   <button
@@ -538,7 +507,7 @@ export default function HomePage() {
                       setMaxPrice("");
                     }}
                   >
-                    Xóa bộ lọc
+                    {t("clearFilters")}
                   </button>
                 )}
               </div>
@@ -549,64 +518,61 @@ export default function HomePage() {
 
       <section id="experiences" className="container-page pt-10">
         <div className="mb-5">
-          <p className="eyebrow">GÓI TRẢI NGHIỆM MVP</p>
-          <h2 className="section-title mt-1">Chọn trải nghiệm theo sở thích</h2>
+          <p className="eyebrow">{t("packagesEyebrow")}</p>
+          <h2 className="section-title mt-1">{t("chooseExperience")}</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-            Các gói được thiết kế cho nhóm nhỏ. Giá dịch vụ cụ thể hiển thị trên
-            hồ sơ từng Buddy; chi phí ăn uống, vé tham quan và di chuyển cá nhân
-            chưa bao gồm.
+            {t("packagesDescription")}
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {[
             {
-              title: "Food Buddy",
-              category: "Ẩm thực",
+              titleKey: "foodBuddyTitle",
+              categoryValue: "Ẩm thực",
               emoji: "🍜",
-              desc: "Khám phá món ngon địa phương, quán ăn gia đình và chợ truyền thống.",
-              plan: "3 giờ · lịch trình theo khẩu vị",
+              descKey: "foodDescription",
+              planKey: "foodPlan",
             },
             {
-              title: "Cà phê địa phương",
-              category: "cà phê",
+              titleKey: "coffeeTitle",
+              categoryValue: "cà phê",
               emoji: "☕",
-              desc: "Ghé quán cà phê bản địa, tìm góc thư giãn và trò chuyện cùng người địa phương.",
-              plan: "3 giờ · linh hoạt điểm dừng",
+              descKey: "coffeeDescription",
+              planKey: "coffeePlan",
             },
             {
-              title: "Dạo quanh Đà Nẵng",
-              category: "du lịch",
+              titleKey: "cityTourTitle",
+              categoryValue: "du lịch",
               emoji: "🏝️",
-              desc: "Khám phá khu vực, điểm tham quan và các góc thành phố theo sở thích.",
-              plan: "3 giờ · điều chỉnh lịch trình",
+              descKey: "cityTourDescription",
+              planKey: "cityTourPlan",
             },
           ].map((item) => (
-            <article key={item.category} className="panel p-5">
+            <article key={item.categoryValue} className="panel p-5">
               <span className="grid h-12 w-12 place-items-center rounded-xl bg-blue-50 text-2xl">
                 {item.emoji}
               </span>
               <h3 className="mt-4 text-lg font-extrabold text-navy">
-                {item.title}
+                {t(item.titleKey)}
               </h3>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                {item.desc}
+                {t(item.descKey)}
               </p>
-              <p className="mt-3 text-xs font-bold text-brand">{item.plan}</p>
+              <p className="mt-3 text-xs font-bold text-brand">{t(item.planKey)}</p>
               <p className="mt-2 text-xs text-slate-500">
-                Bao gồm: đồng hành cùng Buddy và gợi ý lịch trình. Chưa bao gồm:
-                đồ ăn, thức uống, vé tham quan và chi phí cá nhân.
+                {t("packageInclusions")}
               </p>
               <button
                 type="button"
                 className="btn-light mt-4"
                 onClick={() => {
-                  setCategory(item.category);
+                  setCategory(item.categoryValue);
                   document
                     .getElementById("discover")
                     ?.scrollIntoView({ behavior: "smooth" });
                 }}
               >
-                Tìm Buddy phù hợp <ArrowRight size={14} />
+                {t("findBuddy")} <ArrowRight size={14} />
               </button>
             </article>
           ))}
@@ -616,21 +582,20 @@ export default function HomePage() {
         <div className="flex flex-col justify-between gap-4 rounded-2xl bg-[#075f88] p-6 text-white sm:flex-row sm:items-center sm:p-8">
           <div>
             <p className="text-xs font-bold text-emerald-200">
-              LOCAL BUDDY · AN TOÀN LÀ ƯU TIÊN
+              {t("safetyEyebrow")}
             </p>
             <h2 className="mt-2 text-2xl font-black">
-              Gặp gỡ địa phương, an tâm trải nghiệm
+              {t("safetyTitle")}
             </h2>
             <p className="mt-2 max-w-2xl text-xs leading-5 text-blue-100">
-              Hồ sơ, đánh giá cộng đồng và quy trình xác minh giúp bạn lựa chọn
-              người đồng hành phù hợp hơn.
+              {t("safetyDescription")}
             </p>
           </div>
           <Link
             to="/register"
             className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-xs font-extrabold text-brand"
           >
-            Tham gia Local Buddy <ArrowRight size={15} />
+            {t("joinLocalBuddy")} <ArrowRight size={15} />
           </Link>
         </div>
       </section>

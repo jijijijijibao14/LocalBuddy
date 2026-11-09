@@ -18,6 +18,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import api from "../services/api";
+import { useTranslation, Trans } from "react-i18next";
+import { useLocale } from "../contexts/LocaleContext";
 
 const PRESET_AMOUNTS = [
   50000, 100000, 200000, 500000, 1000000, 2000000,
@@ -29,6 +31,8 @@ export default function WalletTopUpModal({
   currentBalance = 0,
   onSuccess,
 }) {
+  const { formatCurrency } = useLocale();
+  const { t } = useTranslation("payment");
   const [step, setStep] = useState("input"); // 'input' | 'qr_view' | 'success'
   const [amount, setAmount] = useState(100000);
   const [customAmount, setCustomAmount] = useState("100000");
@@ -41,6 +45,7 @@ export default function WalletTopUpModal({
   const [transactions, setTransactions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [qrData, setQrData] = useState(null);
+  const [balanceAfterTopUp, setBalanceAfterTopUp] = useState(null);
   const [copied, setCopied] = useState(false);
   const [hasTransferred, setHasTransferred] = useState(false);
   const [timeLeft, setTimeLeft] = useState(900); // 15 phút
@@ -54,7 +59,7 @@ export default function WalletTopUpModal({
   useEffect(() => {
     let timer;
     if (step === "qr_view" && timeLeft > 0) {
-      timer = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+      timer = setInterval(() => setTimeLeft((s) => s - 1), 1000);
     }
     return () => clearInterval(timer);
   }, [step, timeLeft]);
@@ -64,6 +69,7 @@ export default function WalletTopUpModal({
   function resetModal() {
     setStep("input");
     setQrData(null);
+    setBalanceAfterTopUp(null);
     setError("");
     setCopied(false);
     setHasTransferred(false);
@@ -99,9 +105,9 @@ export default function WalletTopUpModal({
     const num = Number(raw);
     setAmount(num);
     if (num < 10000) {
-      setError("Số tiền nạp tối thiểu là 10.000 đ");
+      setError(t("errMinAmount"));
     } else if (num > 50000000) {
-      setError("Số tiền nạp tối đa mỗi lần là 50.000.000 đ");
+      setError(t("errMaxAmount"));
     } else {
       setError("");
     }
@@ -109,7 +115,7 @@ export default function WalletTopUpModal({
 
   async function handleCreateVNPayQR() {
     if (amount < 10000) {
-      setError("Vui lòng nạp tối thiểu 10.000 đ");
+      setError(t("errPleaseMin"));
       return;
     }
     setError("");
@@ -126,12 +132,12 @@ export default function WalletTopUpModal({
         setStep("qr_view");
         setTimeLeft(900);
       } else {
-        setError("Không nhận được mã thanh toán từ máy chủ.");
+        setError(t("errNoOrder"));
       }
     } catch (e) {
       setError(
         e.response?.data?.message ||
-          "Không thể khởi tạo mã QR thanh toán. Vui lòng thử lại sau.",
+          t("errCreateTopUpQr"),
       );
     } finally {
       setLoading(false);
@@ -149,12 +155,13 @@ export default function WalletTopUpModal({
       });
 
       if (data?.success) {
-        if (onSuccess) onSuccess(data.newBalance);
+        setBalanceAfterTopUp(Number(data.newBalance));
+        if (onSuccess) await onSuccess(data.newBalance);
         setStep("success");
       }
     } catch (e) {
       setError(
-        e.response?.data?.message || "Không thể xác nhận giao dịch. Vui lòng thử lại.",
+        e.response?.data?.message || t("errConfirmTopUp"),
       );
     } finally {
       setConfirmLoading(false);
@@ -163,7 +170,7 @@ export default function WalletTopUpModal({
 
   async function handleSimulateTopUp() {
     if (amount < 10000) {
-      setError("Vui lòng nạp tối thiểu 10.000 đ");
+      setError(t("errPleaseMin"));
       return;
     }
     setError("");
@@ -172,14 +179,18 @@ export default function WalletTopUpModal({
     try {
       const { data } = await api.post("/wallet/simulate-topup", { amount });
       if (data?.success) {
-        if (onSuccess) onSuccess(data.newBalance);
+        setBalanceAfterTopUp(Number(data.newBalance));
+        if (onSuccess) await onSuccess(data.newBalance);
         handleClose();
         alert(
-          `🎉 ${data.message}\nSố dư ví mới: ${Number(data.newBalance).toLocaleString("vi-VN")} đ`,
+          t("simulateAlert", {
+            message: data.message,
+            amount: formatCurrency(data.newBalance),
+          }),
         );
       }
     } catch (e) {
-      setError(e.response?.data?.message || "Lỗi mô phỏng nạp tiền.");
+      setError(e.response?.data?.message || t("errSimulate"));
     } finally {
       setSimulateLoading(false);
     }
@@ -203,7 +214,7 @@ export default function WalletTopUpModal({
           <button
             onClick={handleClose}
             className="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30 transition-colors cursor-pointer"
-            title="Đóng"
+            title={t("close")}
           >
             <X size={18} />
           </button>
@@ -213,17 +224,17 @@ export default function WalletTopUpModal({
               <QrCode size={22} className="text-white" />
             </span>
             <div>
-              <h2 className="text-xl font-black">Nạp tiền vào Ví Local Buddy</h2>
+              <h2 className="text-xl font-black">{t("topUpTitle")}</h2>
               <p className="text-xs text-white/80">
-                Thanh toán an toàn, tức thì qua cổng VNPAY-QR
+                {t("topUpSubtitle")}
               </p>
             </div>
           </div>
 
           <div className="mt-4 flex items-center justify-between rounded-xl bg-white/10 px-4 py-2.5 backdrop-blur-sm">
-            <span className="text-xs text-white/90">Số dư hiện tại</span>
+            <span className="text-xs text-white/90">{t("currentBalanceLabel")}</span>
             <span className="text-lg font-black text-amber-300">
-              {Number(currentBalance).toLocaleString("vi-VN")} đ
+              {formatCurrency(currentBalance)}
             </span>
           </div>
 
@@ -237,7 +248,7 @@ export default function WalletTopUpModal({
                     : "text-white/70 hover:text-white"
                 }`}
               >
-                <QrCode size={14} /> Nạp tiền qua VNPAY-QR
+                <QrCode size={14} /> {t("tabTopUp")}
               </button>
               <button
                 onClick={() => setTab("history")}
@@ -247,7 +258,7 @@ export default function WalletTopUpModal({
                     : "text-white/70 hover:text-white"
                 }`}
               >
-                <History size={14} /> Lịch sử giao dịch ví
+                <History size={14} /> {t("tabHistory")}
               </button>
             </div>
           )}
@@ -261,7 +272,7 @@ export default function WalletTopUpModal({
               {/* Preset buttons */}
               <div>
                 <label className="block text-xs font-bold text-slate-700">
-                  Chọn nhanh số tiền nạp:
+                  {t("quickPick")}
                 </label>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {PRESET_AMOUNTS.map((val) => {
@@ -277,7 +288,7 @@ export default function WalletTopUpModal({
                             : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100"
                         }`}
                       >
-                        {val.toLocaleString("vi-VN")} đ
+                        {formatCurrency(val)}
                       </button>
                     );
                   })}
@@ -287,7 +298,7 @@ export default function WalletTopUpModal({
               {/* Custom input */}
               <div>
                 <label className="block text-xs font-bold text-slate-700">
-                  Hoặc nhập số tiền tùy chọn:
+                  {t("customAmount")}
                 </label>
                 <div className="relative mt-1.5">
                   <input
@@ -298,7 +309,7 @@ export default function WalletTopUpModal({
                         : ""
                     }
                     onChange={handleCustomChange}
-                    placeholder="VD: 500.000"
+                    placeholder={t("customPlaceholder")}
                     className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base font-extrabold text-navy outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -306,14 +317,14 @@ export default function WalletTopUpModal({
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-400">
-                  Tối thiểu: 10.000 đ · Tối đa: 50.000.000 đ
+                  {t("amountLimits")}
                 </p>
               </div>
 
               {/* Payment Method Selector */}
               <div>
                 <label className="block text-xs font-bold text-slate-700">
-                  Phương thức thanh toán:
+                  {t("paymentMethodLabel")}
                 </label>
                 <div className="mt-2 space-y-2">
                   <label
@@ -331,14 +342,14 @@ export default function WalletTopUpModal({
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-extrabold text-navy">
-                            Quét mã VNPAY-QR / VietQR
+                            {t("qrOrVietqr")}
                           </span>
                           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                            Khuyên dùng
+                            {t("recommended")}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500">
-                          Mở app Ngân hàng (VCB, MB, BIDV, Techcombank...) hoặc Ví VNPAY quét mã tức thì
+                          {t("qrOrVietqrHint")}
                         </p>
                       </div>
                     </div>
@@ -365,10 +376,10 @@ export default function WalletTopUpModal({
                       </div>
                       <div>
                         <span className="text-sm font-extrabold text-navy">
-                          Cổng VNPAY Đa phương thức (Web)
+                          {t("gatewayAll")}
                         </span>
                         <p className="text-[11px] text-slate-500">
-                          Chuyển sang trang VNPAY (Thẻ ATM nội địa, Visa/Mastercard)
+                          {t("gatewayAllHint")}
                         </p>
                       </div>
                     </div>
@@ -399,11 +410,11 @@ export default function WalletTopUpModal({
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#005baa] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-900/20 hover:bg-[#004a8b] disabled:opacity-50 transition-all cursor-pointer"
                 >
                   {loading ? (
-                    <span>Đang tạo mã QR thanh toán...</span>
+                    <span>{t("creatingQrPayment")}</span>
                   ) : (
                     <>
                       <QrCode size={18} />
-                      <span>Tạo mã VNPAY-QR nạp {amount.toLocaleString("vi-VN")} đ</span>
+                      <span>{t("createQrTopUp", { amount: formatCurrency(amount) })}</span>
                     </>
                   )}
                 </button>
@@ -413,13 +424,13 @@ export default function WalletTopUpModal({
                   disabled={loading || simulateLoading || !!error || amount < 10000}
                   onClick={handleSimulateTopUp}
                   className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 transition-colors cursor-pointer"
-                  title="Test nạp tiền ngay lập tức mà không cần quét mã thật"
+                  title={t("simulateHint")}
                 >
                   <Sparkles size={14} className="text-emerald-600" />
                   {simulateLoading ? (
-                    "Đang nạp thử nghiệm..."
+                    t("simulating")
                   ) : (
-                    "Nạp nhanh thử nghiệm (Sandbox Test 1s)"
+                    t("simulate")
                   )}
                 </button>
               </div>
@@ -434,21 +445,21 @@ export default function WalletTopUpModal({
                   onClick={() => setStep("input")}
                   className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-navy cursor-pointer"
                 >
-                  <ArrowLeft size={14} /> Quay lại
+                  <ArrowLeft size={14} /> {t("back")}
                 </button>
                 <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-extrabold text-amber-700 border border-amber-200">
                   <Clock size={13} />
-                  <span>Hết hạn sau: {timeFormatted}</span>
+                  <span>{t("expiresAfter", { time: timeFormatted })}</span>
                 </div>
               </div>
 
               {/* VNPAY-QR Branding Header */}
               <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
                 <p className="text-xs font-extrabold text-[#005baa]">
-                  CỔNG THANH TOÁN VNPAY-QR
+                  {t("gatewayBanner")}
                 </p>
                 <p className="text-[11px] text-slate-600 mt-0.5">
-                  Mở app Ngân hàng hoặc Ví VNPAY để quét mã thanh toán
+                  {t("gatewayBannerHint")}
                 </p>
               </div>
 
@@ -456,31 +467,31 @@ export default function WalletTopUpModal({
               <div className="mx-auto flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#005baa]/30 bg-white p-4 shadow-inner max-w-[280px]">
                 <img
                   src={qrData.qrCodeUrl}
-                  alt="Mã QR VNPAY Local Buddy"
+                  alt={t("qrAltLocalBuddy")}
                   className="h-56 w-56 rounded-xl object-contain shadow-sm"
                 />
                 <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-slate-500">
                   <ShieldCheck size={14} className="text-emerald-600" />
-                  <span>Mã QR mã hóa chuẩn VNPAY-QR</span>
+                  <span>{t("qrEncrypted")}</span>
                 </div>
               </div>
 
               {/* Payment Details */}
               <div className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left text-xs">
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500">Số tiền nạp:</span>
+                  <span className="text-slate-500">{t("topUpAmountLabel")}</span>
                   <span className="text-base font-black text-emerald-600">
-                    {Number(qrData.amount).toLocaleString("vi-VN")} đ
+                    {formatCurrency(qrData.amount)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500">Mã đơn hàng:</span>
+                  <span className="text-slate-500">{t("orderId")}</span>
                   <span className="font-mono font-bold text-navy">
                     {qrData.orderId}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1">
-                  <span className="text-slate-500">Nội dung chuyển khoản:</span>
+                  <span className="text-slate-500">{t("transferContent")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-bold text-[#005baa]">
                       LOCALBUDDY {qrData.orderId}
@@ -488,7 +499,7 @@ export default function WalletTopUpModal({
                     <button
                       onClick={() => handleCopy(`LOCALBUDDY ${qrData.orderId}`)}
                       className="rounded p-1 text-slate-500 hover:bg-slate-200 cursor-pointer"
-                      title="Sao chép nội dung"
+                      title={t("copyContent")}
                     >
                       {copied ? (
                         <Check size={14} className="text-emerald-600" />
@@ -515,7 +526,7 @@ export default function WalletTopUpModal({
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                 />
                 <span className="text-xs text-slate-700 select-none">
-                  Tôi đã mở app Ngân hàng / Ví VNPAY và <b>hoàn tất chuyển khoản đúng số tiền và nội dung</b> ở trên.
+                  <Trans t={t} i18nKey="topUpTransferredConfirm" components={{ bold: <b /> }} />
                 </span>
               </label>
 
@@ -532,18 +543,18 @@ export default function WalletTopUpModal({
                   }`}
                 >
                   {confirmLoading ? (
-                    <span>Đang kiểm tra giao dịch...</span>
+                    <span>{t("checkingTransaction")}</span>
                   ) : (
                     <>
                       <CheckCircle2 size={18} />
-                      <span>Đã chuyển tiền, xác nhận nạp ví</span>
+                      <span>{t("confirmTopUp")}</span>
                     </>
                   )}
                 </button>
 
                 {!hasTransferred && (
                   <p className="text-[11px] text-slate-400">
-                    Vui lòng quét mã chuyển khoản trước khi nhấn xác nhận.
+                    {t("scanFirst")}
                   </p>
                 )}
 
@@ -554,7 +565,7 @@ export default function WalletTopUpModal({
                     rel="noreferrer"
                     className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
                   >
-                    <span>Mở cổng VNPAY trên trình duyệt</span>
+                    <span>{t("openGateway")}</span>
                     <ExternalLink size={13} />
                   </a>
                 )}
@@ -571,25 +582,33 @@ export default function WalletTopUpModal({
 
               <div>
                 <h3 className="text-2xl font-black text-navy">
-                  Nạp tiền thành công!
+                  {t("topUpSuccessTitle")}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Số tiền đã được cộng trực tiếp vào ví Local Buddy của bạn.
+                  {t("topUpSuccessDesc")}
                 </p>
               </div>
 
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
                 <p className="text-xs font-bold text-emerald-800">
-                  Số tiền vừa nạp
+                  {t("amountToppedUp")}
                 </p>
                 <p className="mt-1 text-3xl font-black text-emerald-700">
-                  +{Number(amount).toLocaleString("vi-VN")} đ
+                  +{formatCurrency(amount)}
                 </p>
                 <p className="mt-2 text-xs text-slate-600">
-                  Số dư ví mới:{" "}
-                  <b className="font-extrabold text-navy">
-                    {(Number(currentBalance) + Number(amount)).toLocaleString("vi-VN")} đ
-                  </b>
+                  <Trans
+                    t={t}
+                    i18nKey="newBalanceIs"
+                    values={{
+                      amount: formatCurrency(
+                        Number.isFinite(balanceAfterTopUp)
+                          ? balanceAfterTopUp
+                          : Number(currentBalance) + Number(amount),
+                      ),
+                    }}
+                    components={{ bold: <b className="font-extrabold text-navy" /> }}
+                  />
                 </p>
               </div>
 
@@ -598,7 +617,7 @@ export default function WalletTopUpModal({
                 onClick={handleClose}
                 className="w-full rounded-xl bg-brand py-3 text-sm font-black text-white shadow-md hover:bg-brand/90 transition-colors cursor-pointer"
               >
-                Hoàn tất
+                {t("done")}
               </button>
             </div>
           )}
@@ -608,7 +627,7 @@ export default function WalletTopUpModal({
             <div className="space-y-3">
               {loadingHistory ? (
                 <div className="py-8 text-center text-xs text-slate-500">
-                  Đang tải lịch sử giao dịch...
+                  {t("loadingHistory")}
                 </div>
               ) : transactions.length > 0 ? (
                 transactions.map((tx) => (
@@ -636,17 +655,24 @@ export default function WalletTopUpModal({
                       </div>
                       <div>
                         <p className="text-xs font-bold text-navy">
-                          {tx.description || "Nạp tiền ví"}
+                          {tx.description || t("defaultTxDescription")}
                         </p>
                         <p className="text-[10px] text-slate-400">
-                          {new Date(tx.createdAt).toLocaleString("vi-VN")} · Mã:{" "}
-                          <span className="font-mono">{tx.orderId || tx._id}</span>
+                          <Trans
+                            t={t}
+                            i18nKey="txMeta"
+                            values={{
+                              date: new Date(tx.createdAt).toLocaleString("vi-VN"),
+                              id: tx.orderId || tx._id,
+                            }}
+                            components={{ mono: <span className="font-mono" /> }}
+                          />
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-black text-emerald-600">
-                        +{Number(tx.amount).toLocaleString("vi-VN")} đ
+                        +{formatCurrency(tx.amount)}
                       </span>
                       <p
                         className={`text-[10px] font-bold ${
@@ -658,17 +684,17 @@ export default function WalletTopUpModal({
                         }`}
                       >
                         {tx.status === "Completed"
-                          ? "Thành công"
+                          ? t("statusSuccess")
                           : tx.status === "Pending"
-                            ? "Đang chờ"
-                            : "Thất bại"}
+                            ? t("statusPending")
+                            : t("statusFailed")}
                       </p>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="py-8 text-center text-xs text-slate-400">
-                  Chưa có giao dịch ví nào.
+                  {t("noWalletTx")}
                 </div>
               )}
             </div>

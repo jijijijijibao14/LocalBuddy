@@ -3,6 +3,11 @@ const BuddyProfile = require("../models/BuddyProfile");
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const { availabilityInstant } = require("../utils/availability");
+const {
+  holdBookingFunds,
+  refundBookingFunds,
+  releaseBookingFunds,
+} = require("../utils/walletLedger");
 
 function toMinutes(value) {
   if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) {
@@ -37,6 +42,7 @@ exports.create = async (req, res) => {
       guestCount = 1,
       language = "Tiếng Việt",
       foodBudget = 0,
+      experienceBudget = 0,
       message = "",
       paymentMethod = "None",
     } = req.body;
@@ -52,6 +58,13 @@ exports.create = async (req, res) => {
     const duration = Number(durationHours);
     const guests = Number(guestCount);
     const budget = Number(foodBudget);
+    const plannedSpend = Number(experienceBudget);
+
+    if (!["Wallet", "VNPAY_QR"].includes(paymentMethod)) {
+      return res.status(400).json({
+        message: "Vui lòng thanh toán trước bằng Ví Local Buddy hoặc VNPAY-QR.",
+      });
+    }
 
     if (!Number.isInteger(guests) || guests < 1 || guests > 10) {
       return res.status(400).json({
@@ -62,6 +75,11 @@ exports.create = async (req, res) => {
     if (!Number.isFinite(budget) || budget < 0) {
       return res.status(400).json({
         message: "Ngân sách ăn uống không hợp lệ.",
+      });
+    }
+    if (!Number.isFinite(plannedSpend) || plannedSpend < 0) {
+      return res.status(400).json({
+        message: "Ngân sách dự kiến không hợp lệ.",
       });
     }
 
@@ -181,27 +199,6 @@ exports.create = async (req, res) => {
 
     const calculatedPrice = Math.round((buddy.price / 3) * duration);
 
-    let paymentStatus = "Unpaid";
-    let paidAt = undefined;
-    let freshUser = null;
-
-    if (paymentMethod === "Wallet") {
-      freshUser = await User.findById(req.user._id);
-      if (!freshUser || freshUser.walletBalance < calculatedPrice) {
-        return res.status(400).json({
-          message: `Số dư ví không đủ (${(freshUser?.walletBalance || 0).toLocaleString("vi-VN")} đ). Cần ${calculatedPrice.toLocaleString("vi-VN")} đ để thanh toán. Vui lòng nạp thêm tiền vào ví hoặc chọn thanh toán qua VNPAY-QR.`,
-          insufficient: true,
-          required: calculatedPrice,
-          currentBalance: freshUser?.walletBalance || 0,
-        });
-      }
-
-      freshUser.walletBalance -= calculatedPrice;
-      await freshUser.save();
-      paymentStatus = "Paid";
-      paidAt = new Date();
-    }
-
     const booking = await Booking.create({
       customer: req.user._id,
       buddy: buddy._id,
@@ -213,26 +210,29 @@ exports.create = async (req, res) => {
       message: String(message).slice(0, 1000),
       price: calculatedPrice,
       status: "Pending",
-      paymentStatus,
+      paymentStatus: "Unpaid",
       paymentMethod,
-      paidAt,
       guestCount: guests,
       language: language.trim(),
       foodBudget: budget,
+      experienceBudget: plannedSpend,
     });
 
     let qrData = null;
+    let newBalance;
 
     if (paymentMethod === "Wallet") {
-      await Transaction.create({
-        user: req.user._id,
-        booking: booking._id,
-        type: "Booking",
-        amount: calculatedPrice,
-        status: "Completed",
-        paymentMethod: "Wallet",
-        description: `Thanh toán đặt lịch Local: ${buddy.fullName} (${duration}h)`,
-      });
+      const payment = await holdBookingFunds(booking, req.user._id, "Wallet");
+      if (!payment.ok) {
+        await Booking.deleteOne({ _id: booking._id });
+        return res.status(400).json({
+          message: `Số dư ví không đủ (${payment.currentBalance.toLocaleString("vi-VN")} đ). Cần ${calculatedPrice.toLocaleString("vi-VN")} đ để thanh toán.`,
+          insufficient: true,
+          required: calculatedPrice,
+          currentBalance: payment.currentBalance,
+        });
+      }
+      newBalance = payment.newBalance;
     } else if (paymentMethod === "VNPAY_QR") {
       const orderId = `BK${booking._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
       const qrCodeUrl = `https://api.vietqr.io/image/970419-0123456789-compact2.jpg?amount=${calculatedPrice}&addInfo=LOCALBUDDY%20${orderId}&accountName=LOCAL%20BUDDY`;
@@ -253,6 +253,7 @@ exports.create = async (req, res) => {
         bookingId: booking._id,
       };
     }
+    const paymentStatus = booking.paymentStatus;
 
     const populatedBooking = await booking.populate([
       { path: "buddy", select: "fullName area coverImage price" },
@@ -265,7 +266,7 @@ exports.create = async (req, res) => {
           ? "Đặt lịch và thanh toán bằng ví thành công!"
           : "Đã gửi yêu cầu đến Local.",
       booking: populatedBooking,
-      newBalance: freshUser ? freshUser.walletBalance : undefined,
+      newBalance,
       qrData,
     });
   } catch (error) {
@@ -314,7 +315,7 @@ exports.localMine = async (req, res) => {
       return res.json([]);
     }
 
-    const rows = await Booking.find({ buddy: profile._id })
+    const rows = await Booking.find({ buddy: profile._id, paymentStatus: "Paid" })
       .populate("customer", "fullName email")
       .populate("buddy", "fullName area")
       .sort({ createdAt: -1 });
@@ -343,9 +344,9 @@ exports.updateLocalStatus = async (req, res) => {
     // 2. Kiểm tra trạng thái mà frontend gửi lên.
     const { status } = req.body;
 
-    if (!["Confirmed", "Cancelled"].includes(status)) {
+    if (!["Confirmed", "Cancelled", "Completed"].includes(status)) {
       return res.status(400).json({
-        message: "Trạng thái không hợp lệ. Chọn Confirmed hoặc Cancelled.",
+        message: "Trạng thái không hợp lệ.",
       });
     }
 
@@ -368,15 +369,21 @@ exports.updateLocalStatus = async (req, res) => {
     }
 
     // 5. Chỉ lấy booking thuộc Local này và đang Pending.
+    const currentStatus = status === "Completed" ? "Confirmed" : "Pending";
     const booking = await Booking.findOne({
       _id: req.params.id,
       buddy: profile._id,
-      status: "Pending",
+      status: currentStatus,
     });
 
     if (!booking) {
       return res.status(404).json({
         message: "Không tìm thấy yêu cầu đang chờ xử lý.",
+      });
+    }
+    if (["Confirmed", "Completed"].includes(status) && booking.paymentStatus !== "Paid") {
+      return res.status(400).json({
+        message: "Traveler cần thanh toán trước khi Local xác nhận yêu cầu.",
       });
     }
 
@@ -476,7 +483,7 @@ exports.updateLocalStatus = async (req, res) => {
       {
         _id: booking._id,
         buddy: profile._id,
-        status: "Pending",
+        status: currentStatus,
       },
       {
         $set: { status },
@@ -493,18 +500,34 @@ exports.updateLocalStatus = async (req, res) => {
       });
     }
 
+    try {
+      if (status === "Cancelled" && booking.escrowStatus === "Held") {
+        await refundBookingFunds(booking, `Hoàn tiền do Local từ chối đặt lịch #${booking._id}`);
+      } else if (status === "Completed" && booking.escrowStatus === "Held") {
+        await releaseBookingFunds(booking);
+      }
+    } catch (error) {
+      await Booking.updateOne(
+        { _id: booking._id, status },
+        { $set: { status: currentStatus } },
+      );
+      throw error;
+    }
+
     // 10. Lấy thông tin Traveler và Local để trả về frontend.
-    await updatedBooking.populate([
+    const responseBooking = await Booking.findById(updatedBooking._id);
+    await responseBooking.populate([
       { path: "customer", select: "fullName email" },
       { path: "buddy", select: "fullName area coverImage price" },
     ]);
 
     return res.status(200).json({
-      message:
-        status === "Confirmed"
-          ? "Đã xác nhận yêu cầu trải nghiệm."
+      message: status === "Confirmed"
+        ? "Đã xác nhận yêu cầu trải nghiệm."
+        : status === "Completed"
+          ? "Đã hoàn thành trải nghiệm và quyết toán ví."
           : "Đã từ chối yêu cầu trải nghiệm.",
-      booking: updatedBooking,
+      booking: responseBooking,
     });
   } catch (error) {
     // In lỗi đầy đủ để xác định nguyên nhân thực sự trong terminal.
@@ -535,39 +558,21 @@ exports.payWithWallet = async (req, res) => {
       return res.status(400).json({ message: "Không thể thanh toán cho lịch đặt đã bị hủy." });
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user || user.walletBalance < booking.price) {
+    const payment = await holdBookingFunds(booking, req.user._id, "Wallet");
+    if (!payment.ok) {
       return res.status(400).json({
-        message: `Số dư ví không đủ. Cần ${booking.price.toLocaleString("vi-VN")} đ nhưng ví hiện chỉ có ${(user?.walletBalance || 0).toLocaleString("vi-VN")} đ. Vui lòng nạp thêm tiền.`,
+        message: `Số dư ví không đủ. Cần ${booking.price.toLocaleString("vi-VN")} đ nhưng ví hiện chỉ có ${payment.currentBalance.toLocaleString("vi-VN")} đ. Vui lòng nạp thêm tiền.`,
         insufficient: true,
         required: booking.price,
-        currentBalance: user?.walletBalance || 0,
+        currentBalance: payment.currentBalance,
       });
     }
-
-    user.walletBalance -= booking.price;
-    await user.save();
-
-    booking.paymentStatus = "Paid";
-    booking.paymentMethod = "Wallet";
-    booking.paidAt = new Date();
-    await booking.save();
-
-    await Transaction.create({
-      user: req.user._id,
-      booking: booking._id,
-      type: "Booking",
-      amount: booking.price,
-      status: "Completed",
-      paymentMethod: "Wallet",
-      description: `Thanh toán đặt lịch Local: ${booking.buddy?.fullName || "Local Buddy"}`,
-    });
 
     return res.json({
       success: true,
       message: "Thanh toán bằng ví Local Buddy thành công!",
       booking,
-      newBalance: user.walletBalance,
+      newBalance: payment.newBalance,
     });
   } catch (error) {
     console.error("Pay booking with wallet error:", error);
@@ -634,24 +639,27 @@ exports.confirmBookingVNPayQR = async (req, res) => {
       });
     }
 
-    booking.paymentStatus = "Paid";
-    booking.paymentMethod = "VNPAY_QR";
-    booking.paidAt = new Date();
-    await booking.save();
-
-    if (orderId) {
-      await Transaction.findOneAndUpdate(
-        { orderId },
-        {
-          $set: {
-            status: "Completed",
-            vnpTransactionNo: `QR${Date.now()}`,
-            vnpBankCode: "VNPAYQR",
-            vnpPayDate: new Date().toISOString(),
-          },
-        }
-      );
+    const transaction = await Transaction.findOne({
+      orderId,
+      booking: booking._id,
+      user: req.user._id,
+      status: "Pending",
+    });
+    if (!transaction) {
+      return res.status(404).json({ message: "Không tìm thấy giao dịch thanh toán đang chờ." });
     }
+    if (typeof orderId !== "string" || !orderId.trim()) {
+      return res.status(400).json({ message: "Thiếu mã giao dịch thanh toán." });
+    }
+    const payment = await holdBookingFunds(booking, req.user._id, "VNPAY_QR", false);
+    if (!payment.ok) {
+      return res.status(400).json({ message: "Không thể ghi nhận khoản thanh toán." });
+    }
+    transaction.status = "Completed";
+    transaction.vnpTransactionNo = `QR${Date.now()}`;
+    transaction.vnpBankCode = "VNPAYQR";
+    transaction.vnpPayDate = new Date().toISOString();
+    await transaction.save();
 
     return res.json({
       success: true,
@@ -663,4 +671,3 @@ exports.confirmBookingVNPayQR = async (req, res) => {
     return res.status(500).json({ message: "Lỗi xác nhận thanh toán." });
   }
 };
-

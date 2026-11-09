@@ -1,0 +1,72 @@
+{
+  "loadError": "Impossible de charger le statut eKYC.",
+  "finishSuccess": "Processus eKYC de démonstration terminé ! Le statut du compte a été mis à jour.",
+  "finishError": "Impossible de terminer la démonstration eKYC.",
+  "backLocal": "Retour à la page Local",
+  "eyebrow": "LOCAL BUDDY · TRUST & SAFETY",
+  "title": "Sécurité et vérification eKYC",
+  "intro": "Suivez les étapes de vérification de démonstration pour découvrir le processus de protection d'identité destiné aux Locals sur la plateforme.",
+  "status": "Statut : {{status}}",
+  "demoNoteLabel": "Remarque sur la démo :",
+  "demoNote": "Les étapes ci-dessous ne font que simuler les actions et les résultats. Ne téléversez ni n'envoyez de véritable carte d'identité, aucune véritable puce NFC n'est lue, aucune donnée n'est comparée avec le ministère de la Sécurité publique/VNeID, aucun visage n'est analysé et aucune signature numérique ayant valeur juridique n'est créée.",
+  "stepN": "Étape {{n}}",
+  "doneTitle": "Démo eKYC terminée",
+  "doneDesc": "Le compte a le statut Verified. Il s'agit d'un statut de démonstration, et non d'un véritable résultat de vérification d'identité.",
+  "goLocal": "Aller à la page Local",
+  "stepProgress": "ÉTAPE {{current}}/{{total}}",
+  "simContent": "Contenu simulé",
+  "consent": "Je confirme accepter de terminer le processus eKYC de démonstration et je comprends que les opérations de vérification ici ne sont que des simulations.",
+  "back": "Retour",
+  "finishing": "Finalisation...",
+  "finish": "Terminer la vérification",
+  "confirmLast": "Confirmer la dernière étape",
+  "confirmContinue": "Confirmer et continuer",
+  "privacyNote": "La démo n'enregistre ni les images de la carte d'identité, ni les données de la puce, ni les images du visage, ni les signatures. Seul le statut de fin de la démo est mis à jour sur le compte.",
+  "steps": {
+    "ocr": {
+      "title": "Reconnaissance optique de caractères (OCR)",
+      "shortTitle": "OCR carte d'identité",
+      "description": "Démo de lecture et de numérisation des informations figurant sur les images recto et verso de la carte d'identité.",
+      "d1": "Lire le nom complet, la date de naissance et le numéro d'identification.",
+      "d2": "Lire le lieu d'origine, le domicile permanent et les signes distinctifs.",
+      "d3": "Vérifier les informations d'exemple entre les deux faces du document.",
+      "demo": "Extraction des informations des deux faces de la carte d'identité simulée."
+    },
+    "nfc": {
+      "title": "Lecture de la puce NFC",
+      "shortTitle": "NFC",
+      "description": "Démo du processus de lecture des informations de la puce intégrée à la carte d'identité.",
+      "d1": "Approchez la carte d'identité d'un appareil compatible NFC.",
+      "d2": "Simuler la lecture des données de la puce et des informations chiffrées.",
+      "d3": "Simuler l'étape de rapprochement des informations d'identité.",
+      "demo": "Processus de lecture de la puce NFC simulé."
+    },
+    "face": {
+      "title": "Reconnaissance faciale (Face Matching)",
+      "shortTitle": "Comparaison faciale",
+      "description": "Démo de comparaison de votre visage avec la photo d'identité figurant sur votre pièce d'identité.",
+      "d1": "Simuler la capture d'une image du visage par la caméra.",
+      "d2": "Simuler la comparaison du visage avec la photo du document.",
+      "d3": "Afficher un résultat de comparaison d'exemple.",
+      "demo": "Processus de comparaison faciale simulé."
+    },
+    "liveness": {
+      "title": "Détection du vivant (Liveness Detection)",
+      "shortTitle": "Vérification de présence réelle",
+      "description": "Démo de vérification de la présence d'une personne réelle devant la caméra.",
+      "d1": "Simuler une demande de cligner des yeux.",
+      "d2": "Simuler une demande de sourire ou de tourner la tête.",
+      "d3": "Simuler la détection des photos fixes et des vidéos rejouées.",
+      "demo": "Étape de détection du vivant simulée."
+    },
+    "sign": {
+      "title": "Signature électronique (E-Signature)",
+      "shortTitle": "Signature électronique",
+      "description": "Démo de confirmation de l'accord avec les formulaires et conditions de la plateforme.",
+      "d1": "Lire le contenu de confirmation et les conditions de la démo.",
+      "d2": "Confirmer votre accord pour terminer le processus.",
+      "d3": "Enregistrer l'étape de signature électronique simulée.",
+      "demo": "Confirmation de signature électronique simulée."
+    }
+  }
+}

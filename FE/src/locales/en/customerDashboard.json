@@ -1,0 +1,66 @@
+{
+  "errors": {
+    "bookings": "We couldn't load your booking requests. You can still view your profile information.",
+    "profile": "We couldn't load your latest profile information."
+  },
+  "eyebrow": "Personal space",
+  "welcome": "Welcome back, {{name}}! 👋",
+  "defaultName": "friend",
+  "subtitle": "Manage your profile and your upcoming experiences.",
+  "accountPill": "Local Buddy account",
+  "stats": {
+    "profileScore": "Profile score",
+    "profileScoreSub": "Information up to date",
+    "rating": "Rating",
+    "ratingSub": "From the community",
+    "bookings": "Booking requests",
+    "bookingsSub": "All requests"
+  },
+  "profile": {
+    "title": "Personal profile",
+    "update": "Update profile",
+    "defaultUser": "Local Buddy user",
+    "noEmail": "No email yet",
+    "kycDefault": "eKYC not verified",
+    "phone": "Phone number",
+    "notUpdated": "Not updated",
+    "role": "Account role"
+  },
+  "bookings": {
+    "title": "Your experience requests",
+    "refresh": "Refresh",
+    "defaultBuddy": "Local Buddy",
+    "paid": "Paid ({{method}})",
+    "methodWallet": "Local Wallet",
+    "unpaid": "Fee not paid",
+    "guests_one": "{{count}} guest",
+    "guests_other": "{{count}} guests",
+    "defaultLanguage": "Vietnamese",
+    "service": "Service",
+    "foodBudget": "Estimated food budget: {{amount}} VND/person",
+    "payTitle": "Pay the service fee with your Wallet or VNPAY-QR",
+    "payNow": "Pay now"
+  },
+  "status": {
+    "pending": "Pending confirmation",
+    "confirmed": "Confirmed",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "empty": {
+    "title": "You have no experience requests yet",
+    "desc": "Discover a local buddy who suits you.",
+    "cta": "Find a Local Buddy"
+  },
+  "explore": {
+    "title": "Start exploring",
+    "coffee": "Cafés and slow-living corners",
+    "food": "Local flavors",
+    "travel": "Beaches, mountains and destinations"
+  },
+  "support": {
+    "title": "Support & safety",
+    "body": "Never share your password or payment information. Contact support if you have any problem with a booking.",
+    "hotline": "24/7 customer support"
+  }
+}

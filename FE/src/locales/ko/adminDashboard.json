@@ -1,0 +1,90 @@
+{
+  "errors": {
+    "load": "관리자 데이터를 불러오지 못했습니다. 시드된 관리자 계정으로 로그인해 주세요.",
+    "status": "상태를 업데이트하지 못했습니다",
+    "tier": "Local 등급을 업데이트하지 못했습니다.",
+    "verification": "Buddy 인증을 업데이트하지 못했습니다.",
+    "booking": "예약을 업데이트하지 못했습니다"
+  },
+  "messages": {
+    "verified": "Buddy 프로필을 인증했습니다.",
+    "unverified": "Buddy 프로필 인증을 해제했습니다."
+  },
+  "header": {
+    "eyebrow": "관리자 커맨드 센터",
+    "title": "관리자 대시보드",
+    "subtitle": "사용자, Local Buddy 프로필, 체험 요청을 모니터링하세요.",
+    "refresh": "데이터 새로고침"
+  },
+  "stats": {
+    "users": "전체 사용자",
+    "buddies": "Local Buddy",
+    "bookings": "예약 요청",
+    "transactions": "거래",
+    "current": "현재 데이터"
+  },
+  "banner": {
+    "eyebrow": "안전한 운영 관리",
+    "title": "커뮤니티를 주도적으로 관리",
+    "subtitle": "계정 상태와 체험 요청을 한 곳에서 관리하세요.",
+    "verifyTitle": "인증",
+    "verifyDesc": "프로필 검토",
+    "coordinateTitle": "조율",
+    "coordinateDesc": "요청 추적",
+    "protectTitle": "보호",
+    "protectDesc": "계정 관리"
+  },
+  "accounts": {
+    "title": "계정 관리",
+    "subtitle": "계정을 승인, 정지 또는 활성화합니다.",
+    "count_one": "계정 {{count}}개",
+    "count_other": "계정 {{count}}개",
+    "roleLabel": "계정 역할",
+    "colUser": "사용자",
+    "colRole": "역할",
+    "colStatus": "상태",
+    "colCreated": "생성일",
+    "colActions": "작업",
+    "chatWith": "{{name}}님과 채팅",
+    "empty": "계정 데이터가 아직 없습니다."
+  },
+  "buddies": {
+    "title": "Food Buddy 프로필 심사",
+    "subtitle": "인증된 프로필만 공개 목록에 표시됩니다.",
+    "verifiedCount": "{{verified}}/{{total}} 인증됨",
+    "colInterests": "관심사",
+    "colArea": "지역",
+    "colKyc": "eKYC 상태",
+    "colVerification": "인증 상태",
+    "noEmail": "이메일 없음",
+    "noInterests": "미입력",
+    "verified": "인증됨",
+    "pending": "인증 대기",
+    "needKyc": "먼저 Local이 eKYC를 완료해야 합니다",
+    "unverify": "인증 해제",
+    "verify": "프로필 인증",
+    "empty": "Local 서비스 프로필이 아직 없습니다. 공개 프로필을 만들려면 Local이 프로필을 저장해야 합니다."
+  },
+  "requests": {
+    "title": "최근 체험 요청",
+    "subtitle": "예약 요청 상태를 업데이트합니다.",
+    "statusLabel": "요청 상태",
+    "tabNew": "새 요청",
+    "tabCompleted": "완료됨",
+    "tabCancelled": "취소됨",
+    "colCustomer": "고객",
+    "colBuddy": "Local Buddy",
+    "colDateTime": "날짜 / 시간",
+    "colDetails": "요청 상세",
+    "defaultCustomer": "고객",
+    "defaultBuddy": "Local Buddy",
+    "defaultLanguage": "베트남어",
+    "guests_one": "{{count}}명",
+    "guests_other": "{{count}}명",
+    "service": "서비스: {{amount}}",
+    "food": "1인당 식비: {{amount}}",
+    "extra": "예상 추가 예산: {{amount}}",
+    "note": "메모: {{message}}",
+    "empty": "예약 요청이 아직 없습니다."
+  }
+}

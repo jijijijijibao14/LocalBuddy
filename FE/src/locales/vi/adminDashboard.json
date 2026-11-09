@@ -1,0 +1,90 @@
+{
+  "errors": {
+    "load": "Không tải được dữ liệu Admin. Hãy đăng nhập bằng tài khoản Admin được seed.",
+    "status": "Không cập nhật được trạng thái",
+    "tier": "Không cập nhật được hạng Local.",
+    "verification": "Không cập nhật được xác minh Buddy.",
+    "booking": "Không cập nhật được đặt lịch"
+  },
+  "messages": {
+    "verified": "Đã xác minh hồ sơ Buddy.",
+    "unverified": "Đã bỏ xác minh hồ sơ Buddy."
+  },
+  "header": {
+    "eyebrow": "ADMIN COMMAND CENTER",
+    "title": "Bảng điều khiển quản trị",
+    "subtitle": "Theo dõi người dùng, hồ sơ Local Buddy và yêu cầu trải nghiệm.",
+    "refresh": "Làm mới dữ liệu"
+  },
+  "stats": {
+    "users": "Tổng người dùng",
+    "buddies": "Local Buddy",
+    "bookings": "Yêu cầu đặt lịch",
+    "transactions": "Giao dịch",
+    "current": "Dữ liệu hiện tại"
+  },
+  "banner": {
+    "eyebrow": "QUẢN TRỊ AN TOÀN",
+    "title": "Chủ động kiểm soát cộng đồng",
+    "subtitle": "Quản lý trạng thái tài khoản và yêu cầu trải nghiệm từ một nơi.",
+    "verifyTitle": "Xác minh",
+    "verifyDesc": "Kiểm tra hồ sơ",
+    "coordinateTitle": "Điều phối",
+    "coordinateDesc": "Theo dõi yêu cầu",
+    "protectTitle": "Bảo vệ",
+    "protectDesc": "Quản lý tài khoản"
+  },
+  "accounts": {
+    "title": "Quản lý tài khoản",
+    "subtitle": "Duyệt, tạm khóa hoặc kích hoạt tài khoản.",
+    "count_one": "{{count}} tài khoản",
+    "count_other": "{{count}} tài khoản",
+    "roleLabel": "Vai trò tài khoản",
+    "colUser": "Người dùng",
+    "colRole": "Vai trò",
+    "colStatus": "Trạng thái",
+    "colCreated": "Ngày tạo",
+    "colActions": "Thao tác",
+    "chatWith": "Chat với {{name}}",
+    "empty": "Chưa có dữ liệu tài khoản."
+  },
+  "buddies": {
+    "title": "Duyệt hồ sơ Food Buddy",
+    "subtitle": "Chỉ hồ sơ đã xác minh mới xuất hiện trong danh sách công khai.",
+    "verifiedCount": "{{verified}}/{{total}} đã xác minh",
+    "colInterests": "Sở thích",
+    "colArea": "Khu vực",
+    "colKyc": "Trạng thái eKYC",
+    "colVerification": "Trạng thái xác minh",
+    "noEmail": "Chưa có email",
+    "noInterests": "Chưa khai báo",
+    "verified": "Đã xác minh",
+    "pending": "Chờ xác minh",
+    "needKyc": "Local cần hoàn thành eKYC trước",
+    "unverify": "Bỏ xác minh",
+    "verify": "Xác minh hồ sơ",
+    "empty": "Chưa có hồ sơ dịch vụ Local. Local cần lưu hồ sơ để tạo hồ sơ công khai."
+  },
+  "requests": {
+    "title": "Yêu cầu trải nghiệm gần đây",
+    "subtitle": "Cập nhật trạng thái yêu cầu đặt lịch.",
+    "statusLabel": "Trạng thái yêu cầu",
+    "tabNew": "Yêu cầu mới",
+    "tabCompleted": "Đã hoàn thành",
+    "tabCancelled": "Đã hủy",
+    "colCustomer": "Khách hàng",
+    "colBuddy": "Local Buddy",
+    "colDateTime": "Ngày / giờ",
+    "colDetails": "Chi tiết yêu cầu",
+    "defaultCustomer": "Khách hàng",
+    "defaultBuddy": "Local Buddy",
+    "defaultLanguage": "Tiếng Việt",
+    "guests_one": "{{count}} khách",
+    "guests_other": "{{count}} khách",
+    "service": "Dịch vụ: {{amount}}",
+    "food": "Ăn uống/người: {{amount}}",
+    "extra": "Ngân sách phát sinh dự kiến: {{amount}}",
+    "note": "Ghi chú: {{message}}",
+    "empty": "Chưa có yêu cầu đặt lịch."
+  }
+}

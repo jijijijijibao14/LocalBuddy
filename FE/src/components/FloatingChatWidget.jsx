@@ -9,10 +9,14 @@ import {
   AlertTriangle,
   Minus,
   ExternalLink,
+  MoreVertical,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api, { API_BASE_URL } from "../services/api";
 import { getSocket } from "../utils/socket";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
+import { useLocale } from "../contexts/LocaleContext";
 import { validateMessage } from "../utils/messageValidator";
 
 function getSocketUrl() {
@@ -32,25 +36,25 @@ function getStoredUser() {
   }
 }
 
-function formatTime(dateStr) {
+function formatTime(dateStr, locale) {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString("vi-VN", {
+  return d.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function formatDateGroup(dateStr) {
+function formatDateGroup(dateStr, locale) {
   const d = new Date(dateStr);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diff = (today - msgDay) / 86400000;
 
-  if (diff === 0) return "Hôm nay";
-  if (diff === 1) return "Hôm qua";
-  return d.toLocaleDateString("vi-VN", {
+  if (diff === 0) return i18n.t("chat:today");
+  if (diff === 1) return i18n.t("chat:yesterday");
+  return d.toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -60,15 +64,15 @@ function formatDateGroup(dateStr) {
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "vừa xong";
-  if (mins < 60) return `${mins}m`;
+  if (mins < 1) return i18n.t("chat:time.justNow");
+  if (mins < 60) return i18n.t("chat:time.minutesShort", { count: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h`;
-  return Math.floor(hrs / 24) + "d";
+  if (hrs < 24) return i18n.t("chat:time.hoursShort", { count: hrs });
+  return i18n.t("chat:time.daysShort", { count: Math.floor(hrs / 24) });
 }
 
 // Chuyển link Google Maps trong tin nhắn thành thẻ <a> click được
-function renderMessageContent(content) {
+export function renderMessageContent(content) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = content.split(urlRegex);
   return parts.map((part, i) => {
@@ -91,6 +95,9 @@ function renderMessageContent(content) {
 }
 
 export default function FloatingChatWidget() {
+  const { t } = useTranslation("chat");
+  const { language, languages } = useLocale();
+  const locale = languages.find((l) => l.code === language)?.locale || "vi-VN";
   const [user, setUser] = useState(getStoredUser);
   const [isOpen, setIsOpen] = useState(false);
   const [activeChatUser, setActiveChatUser] = useState(null);
@@ -108,6 +115,9 @@ export default function FloatingChatWidget() {
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -130,10 +140,14 @@ export default function FloatingChatWidget() {
   // Lắng nghe sự kiện toàn cục: khi nhấn vào chat bất kỳ đâu trên web thì mở ngay trong bong bóng
   useEffect(() => {
     function handleOpenChatEvent(e) {
-      const { otherUser } = e.detail || {};
+      const { otherUser, support } = e.detail || {};
       setIsOpen(true);
       if (otherUser) {
         setActiveChatUser(otherUser);
+      } else if (support) {
+        api.get("/chat/support")
+          .then(({ data }) => setActiveChatUser(data.user))
+          .catch((error) => setInputError(error.response?.data?.message || t("errors.openSupportFailed")));
       }
     }
     window.addEventListener("lb-open-chat", handleOpenChatEvent);
@@ -251,6 +265,17 @@ export default function FloatingChatWidget() {
         });
         setTimeout(() => scrollToBottom(true), 50);
       }
+
+    }
+
+    function onMessageUpdated(updated) {
+      setMessages((prev) => prev.map((msg) => String(msg._id) === String(updated._id) ? updated : msg));
+    }
+
+    function onMessageDeleted(deleted) {
+      setMessages((prev) => prev.map((msg) => String(msg._id) === String(deleted._id)
+        ? { ...msg, content: "", deleted: true }
+        : msg));
     }
 
     function onUserTyping({ userId, isTyping: typing }) {
@@ -263,6 +288,8 @@ export default function FloatingChatWidget() {
     sock.on("disconnect", onDisconnect);
     sock.on("new_message_notification", onNewMessageNotification);
     sock.on("new_message", onNewMessage);
+    sock.on("message_updated", onMessageUpdated);
+    sock.on("message_deleted", onMessageDeleted);
     sock.on("user_typing", onUserTyping);
 
     if (sock.connected) {
@@ -277,6 +304,8 @@ export default function FloatingChatWidget() {
       sock.off("disconnect", onDisconnect);
       sock.off("new_message_notification", onNewMessageNotification);
       sock.off("new_message", onNewMessage);
+      sock.off("message_updated", onMessageUpdated);
+      sock.off("message_deleted", onMessageDeleted);
       sock.off("user_typing", onUserTyping);
     };
   }, [token, user?._id, activeChatUser?._id, loadConversations, scrollToBottom]);
@@ -341,6 +370,35 @@ export default function FloatingChatWidget() {
       return;
     }
 
+    function startReply(message) {
+      setReplyTo(message);
+      setEditingMessageId(null);
+      setInputText("");
+      setOpenMenuId(null);
+      inputRef.current?.focus();
+    }
+
+    function startEdit(message) {
+      setEditingMessageId(message._id);
+      setReplyTo(null);
+      setInputText(message.content);
+      setOpenMenuId(null);
+      inputRef.current?.focus();
+    }
+
+    async function deleteMessage(message) {
+      if (!window.confirm(t("confirmDelete"))) return;
+      try {
+        await api.delete(`/chat/messages/${message._id}`);
+        setMessages((prev) => prev.map((item) => String(item._id) === String(message._id)
+          ? { ...item, content: "", deleted: true }
+          : item));
+        setOpenMenuId(null);
+      } catch (requestError) {
+        setInputError(requestError.response?.data?.message || t("errors.deleteFailed"));
+      }
+    }
+
     setSending(true);
     setInputError("");
 
@@ -350,16 +408,28 @@ export default function FloatingChatWidget() {
       isTyping: false,
     });
 
-    if (socketRef.current?.connected) {
+    if (editingMessageId) {
+      try {
+        const { data } = await api.patch(`/chat/messages/${editingMessageId}`, { content: text });
+        setMessages((prev) => prev.map((msg) => String(msg._id) === String(editingMessageId) ? data.message : msg));
+        setEditingMessageId(null);
+        setInputText("");
+      } catch (err) {
+        setInputError(err.response?.data?.message || t("errors.editFailed"));
+      } finally {
+        setSending(false);
+      }
+    } else if (socketRef.current?.connected) {
       socketRef.current.emit(
         "send_message",
-        { otherUserId: activeChatUser._id, content: text },
+        { otherUserId: activeChatUser._id, content: text, replyTo: replyTo?._id },
         (ack) => {
           setSending(false);
           if (ack?.error) {
             setInputError(ack.error);
           } else {
             setInputText("");
+            setReplyTo(null);
           }
         }
       );
@@ -368,12 +438,14 @@ export default function FloatingChatWidget() {
       try {
         const { data } = await api.post(`/chat/${activeChatUser._id}/messages`, {
           content: text,
+          replyTo: replyTo?._id,
         });
         setMessages((prev) => [...prev, data.message]);
         setInputText("");
+        setReplyTo(null);
         setTimeout(() => scrollToBottom(true), 50);
       } catch (err) {
-        setInputError(err.response?.data?.message || "Không thể gửi tin nhắn.");
+        setInputError(err.response?.data?.message || t("errors.sendFailed"));
       } finally {
         setSending(false);
       }
@@ -391,7 +463,7 @@ export default function FloatingChatWidget() {
   const grouped = [];
   let lastDate = null;
   for (const msg of messages) {
-    const dStr = formatDateGroup(msg.createdAt);
+    const dStr = formatDateGroup(msg.createdAt, locale);
     if (dStr !== lastDate) {
       grouped.push({ type: "date", label: dStr });
       lastDate = dStr;
@@ -402,7 +474,7 @@ export default function FloatingChatWidget() {
   const isMine = (msg) =>
     String(msg.sender?._id || msg.sender) === String(user?._id);
 
-  if (!token || !user || user.role === "admin") return null;
+  if (!token || !user) return null;
 
   return (
     <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end">
@@ -420,7 +492,7 @@ export default function FloatingChatWidget() {
                     loadConversations();
                   }}
                   className="rounded-lg p-1 hover:bg-white/20 transition-colors"
-                  title="Quay lại danh sách hội thoại"
+                  title={t("backToList")}
                 >
                   <ArrowLeft size={17} />
                 </button>
@@ -447,14 +519,14 @@ export default function FloatingChatWidget() {
                     {activeChatUser.fullName}
                   </p>
                   <p className="text-[10px] text-blue-200 truncate">
-                    {isTyping ? "đang soạn tin nhắn..." : connected ? "Đang trực tuyến" : "Mất kết nối..."}
+                    {isTyping ? t("typingComposing") : connected ? t("online") : t("connectionLost")}
                   </p>
                 </div>
               </>
             ) : (
               <div className="flex items-center gap-2 flex-1">
                 <MessageCircle size={18} />
-                <h3 className="font-extrabold text-sm">Tin nhắn</h3>
+                <h3 className="font-extrabold text-sm">{t("messageCapital")}</h3>
                 {totalUnread > 0 && (
                   <span className="rounded-full bg-red-500 px-2 py-0.2 text-[10px] font-bold text-white">
                     {totalUnread}
@@ -468,7 +540,7 @@ export default function FloatingChatWidget() {
                 type="button"
                 onClick={() => setIsOpen(false)}
                 className="rounded-lg p-1.5 hover:bg-white/20 transition-colors"
-                title="Thu nhỏ bong bóng chat"
+                title={t("minimize")}
               >
                 <Minus size={16} />
               </button>
@@ -479,7 +551,7 @@ export default function FloatingChatWidget() {
                   setActiveChatUser(null);
                 }}
                 className="rounded-lg p-1.5 hover:bg-white/20 transition-colors"
-                title="Đóng chat"
+                title={t("closeChat")}
               >
                 <X size={16} />
               </button>
@@ -494,7 +566,7 @@ export default function FloatingChatWidget() {
               <div className="flex items-center gap-1.5 bg-emerald-50 border-b border-emerald-100 px-3 py-1.5 text-[10px] text-emerald-800">
                 <ShieldCheck size={12} className="shrink-0 text-emerald-600" />
                 <span>
-                  Không chia sẻ SĐT, Zalo hoặc link ngoài (chỉ cho phép link Google Maps).
+                  {t("safetyNoticeWidget")}
                 </span>
               </div>
 
@@ -507,7 +579,7 @@ export default function FloatingChatWidget() {
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
                     <MessageCircle size={32} className="opacity-40" />
-                    <p className="text-xs">Hãy gửi lời chào đến {activeChatUser.fullName}!</p>
+                    <p className="text-xs">{t("sayHello", { name: activeChatUser.fullName })}</p>
                   </div>
                 ) : (
                   grouped.map((item, idx) => {
@@ -547,21 +619,50 @@ export default function FloatingChatWidget() {
                           </div>
                         )}
                         <div
-                          className={`max-w-[78%] rounded-2xl px-3 py-2 text-xs leading-relaxed break-words ${
+                          className={`group relative max-w-[78%] rounded-2xl px-3 py-2 text-xs leading-relaxed break-words ${
                             mine
                               ? "rounded-br-xs bg-blue-600 text-white shadow-xs"
                               : "rounded-bl-xs bg-white text-slate-800 border border-slate-200/80 shadow-2xs"
                           }`}
                         >
-                          <p className="whitespace-pre-wrap">{renderMessageContent(msg.content)}</p>
+                          {msg.replyTo && (
+                            <div className={`mb-2 rounded-lg border-l-2 px-2 py-1 text-[10px] ${mine ? "border-blue-200 bg-blue-500/60 text-blue-50" : "border-blue-400 bg-slate-50 text-slate-500"}`}>
+                              <b>{msg.replyTo.sender?.fullName || t("messageCapital")}</b>
+                              <p className="truncate">{msg.replyTo.deleted ? t("messageDeleted") : msg.replyTo.content}</p>
+                            </div>
+                          )}
+                          <p className={`whitespace-pre-wrap ${msg.deleted ? "italic opacity-70" : ""}`}>
+                            {msg.deleted ? t("messageDeleted") : <span translate="no">{renderMessageContent(msg.content)}</span>}
+                            {msg.edited && !msg.deleted && <span className="ml-1 text-[9px] opacity-70">{t("edited")}</span>}
+                          </p>
                           <p
                             className={`mt-1 text-[9px] ${
                               mine ? "text-blue-200 text-right" : "text-slate-400"
                             }`}
                           >
-                            {formatTime(msg.createdAt)}
+                            {formatTime(msg.createdAt, locale)}
                             {mine && msg.read && <span className="ml-1">✓✓</span>}
                           </p>
+                          {!msg.deleted && (
+                            <>
+                              <button type="button" className={`absolute -top-2 ${mine ? "-left-7" : "-right-7"} rounded-full bg-white p-1 text-slate-500 shadow hover:text-navy`}
+                                aria-label={t("messageOptions")} aria-expanded={openMenuId === msg._id}
+                                onClick={() => setOpenMenuId((openId) => openId === msg._id ? null : msg._id)}>
+                                <MoreVertical size={14} />
+                              </button>
+                              {openMenuId === msg._id && (
+                                <div className={`absolute z-20 top-5 ${mine ? "right-full mr-1" : "left-full ml-1"} min-w-28 rounded-lg border border-slate-200 bg-white p-1 text-slate-700 shadow-lg`}>
+                                  <button type="button" className="block w-full rounded px-2 py-1.5 text-left hover:bg-slate-100" onClick={() => startReply(msg)}>{t("reply")}</button>
+                                  {mine && (
+                                    <>
+                                      <button type="button" className="block w-full rounded px-2 py-1.5 text-left hover:bg-slate-100" onClick={() => startEdit(msg)}>{t("edit")}</button>
+                                      <button type="button" className="block w-full rounded px-2 py-1.5 text-left text-red-600 hover:bg-red-50" onClick={() => deleteMessage(msg)}>{t("delete")}</button>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )}
                         </div>
                       </div>
                     );
@@ -574,7 +675,7 @@ export default function FloatingChatWidget() {
                     <span className="animate-pulse">●</span>
                     <span className="animate-pulse [animation-delay:150ms]">●</span>
                     <span className="animate-pulse [animation-delay:300ms]">●</span>
-                    <span className="text-[10px] ml-1">{activeChatUser.fullName} đang soạn tin...</span>
+                    <span className="text-[10px] ml-1">{t("typingBubble", { name: activeChatUser.fullName })}</span>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
@@ -582,6 +683,18 @@ export default function FloatingChatWidget() {
 
               {/* Ô nhập tin nhắn */}
               <div className="p-2.5 bg-white border-t border-slate-200">
+                {(replyTo || editingMessageId) && (
+                  <div className="mb-2 flex items-center justify-between rounded-lg bg-blue-50 px-2.5 py-1.5 text-[10px] text-blue-800">
+                    <span className="truncate">
+                      {editingMessageId ? t("editingMessage") : t("replyingTo", { name: replyTo?.sender?.fullName || t("messageLower"), content: replyTo?.content })}
+                    </span>
+                    <button type="button" className="ml-2 font-bold" onClick={() => {
+                      setReplyTo(null);
+                      setEditingMessageId(null);
+                      setInputText("");
+                    }}>{t("cancel")}</button>
+                  </div>
+                )}
                 {inputError && (
                   <div className="mb-2 flex items-start gap-1.5 rounded-lg bg-red-50 border border-red-100 p-2 text-[10px] text-red-700">
                     <AlertTriangle size={12} className="shrink-0 mt-0.5" />
@@ -593,7 +706,7 @@ export default function FloatingChatWidget() {
                     ref={inputRef}
                     type="text"
                     className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-400 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all"
-                    placeholder="Nhập tin nhắn..."
+                    placeholder={t("placeholder")}
                     value={inputText}
                     onChange={(e) => handleTyping(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -605,7 +718,7 @@ export default function FloatingChatWidget() {
                     onClick={handleSend}
                     disabled={sending || !inputText.trim()}
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:opacity-40 transition-all"
-                    title="Gửi"
+                    title={editingMessageId ? t("saveChanges") : t("send")}
                   >
                     {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
                   </button>
@@ -623,7 +736,7 @@ export default function FloatingChatWidget() {
                 ) : conversations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 py-8">
                     <MessageCircle size={32} className="opacity-40" />
-                    <p className="text-xs">Chưa có cuộc trò chuyện nào.</p>
+                    <p className="text-xs">{t("conversations.empty")}</p>
                   </div>
                 ) : (
                   conversations.map((conv) => {
@@ -675,8 +788,8 @@ export default function FloatingChatWidget() {
                               conv.unreadCount > 0 ? "font-bold text-slate-900" : "text-slate-400"
                             }`}
                           >
-                            {isFromMe ? "Bạn: " : ""}
-                            {lastMsg?.content || "Bắt đầu cuộc trò chuyện"}
+                            {isFromMe ? t("conversations.you") : ""}
+                            {lastMsg?.content || t("startConversation")}
                           </p>
                         </div>
                       </button>
@@ -697,8 +810,8 @@ export default function FloatingChatWidget() {
           if (!isOpen && !activeChatUser) loadConversations();
         }}
         className="relative flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/30 transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-        title="Bong bóng tin nhắn"
-        aria-label="Bong bóng tin nhắn"
+        title={t("bubble")}
+        aria-label={t("bubble")}
       >
         {isOpen ? <Minus size={24} /> : <MessageCircle size={26} />}
         {totalUnread > 0 && !isOpen && (

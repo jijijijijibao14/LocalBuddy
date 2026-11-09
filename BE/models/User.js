@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema(
       default: 
       "Sơn Trà" 
     },
+    areas: { type: [String], default: [] },
     languages: { 
       type: [String], 
       default: [] 
@@ -55,6 +56,7 @@ const userSchema = new mongoose.Schema(
       type: String, 
       default: "" 
     },
+    profilePhotos: { type: [String], default: [] },
     pricePerHour: { 
       type: Number, 
       default: 100000, 
@@ -79,6 +81,7 @@ const userSchema = new mongoose.Schema(
       enum: ["Not Started", "Pending", "Verified", "Rejected"],
       default: "Not Started",
     },
+    isPremium: { type: Boolean, default: false },
     walletBalance: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },

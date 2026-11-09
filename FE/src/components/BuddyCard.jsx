@@ -1,5 +1,7 @@
 import { MapPin, Star, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useLocale } from "../contexts/LocaleContext";
+import { useTranslation } from "react-i18next";
 
 export default function BuddyCard({
   buddy,
@@ -7,6 +9,8 @@ export default function BuddyCard({
   experienceStart = "09:00",
   durationHours = "3",
 }) {
+  const { formatCurrency } = useLocale();
+  const { t } = useTranslation("buddy");
   const buddyId = buddy.id || buddy._id;
 
   // Giữ nguyên bộ lọc Traveler đã chọn khi mở hồ sơ Local.
@@ -43,17 +47,17 @@ export default function BuddyCard({
             <h3 className="font-extrabold text-navy">{buddy.fullName}</h3>
             <span className="pill shrink-0">
               <ShieldCheck size={11} />
-              Đã xác minh
+              {t("verified")}
             </span>
           </div>
 
           <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
             <MapPin size={12} />
-            {buddy.area || "Đà Nẵng, Việt Nam"}
+            {buddy.area || t("cardAreaFallback")}
           </p>
 
           <p className="mt-3 line-clamp-2 min-h-10 text-xs leading-5 text-slate-600">
-            {buddy.bio || "Cùng bạn khám phá những góc Đà Nẵng thú vị như người bản địa."}
+            {buddy.bio || t("cardBioFallback")}
           </p>
 
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -71,16 +75,15 @@ export default function BuddyCard({
 
           <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-3">
             <div>
-              <span className="text-[10px] text-slate-500">Chi phí dịch vụ</span>
+              <span className="text-[10px] text-slate-500">{t("serviceCost")}</span>
               <p className="mt-0.5 text-base font-black text-brand">
-                {Number(
+                {formatCurrency(Number(
                   buddy.pricePerHour ?? Math.round(Number(buddy.price || 300000) / 3)
-                ).toLocaleString("vi-VN")}
-                đ{" "}
-                <span className="text-[10px] font-medium text-slate-500">/ giờ</span>
+                ))}{" "}
+                <span className="text-[10px] font-medium text-slate-500">{t("perHour")}</span>
               </p>
             </div>
-            <span className="btn-primary !px-3 !py-2">Xem hồ sơ</span>
+            <span className="btn-primary !px-3 !py-2">{t("viewProfile")}</span>
           </div>
         </div>
       </Link>

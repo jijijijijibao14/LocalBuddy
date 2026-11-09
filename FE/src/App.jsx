@@ -10,6 +10,7 @@ import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LocalSafetyEKYC from "./pages/LocalSafetyEKYC";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
+import WalletPage from "./pages/WalletPage";
 export default function App() {
   return (
     <Routes>
@@ -18,6 +19,16 @@ export default function App() {
         element={
           <MainLayout>
             <VNPayReturnPage />
+          </MainLayout>
+        }
+      />
+      <Route
+        path="/wallet"
+        element={
+          <MainLayout>
+            <ProtectedRoute>
+              <WalletPage />
+            </ProtectedRoute>
           </MainLayout>
         }
       />

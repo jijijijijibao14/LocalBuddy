@@ -2,6 +2,10 @@ const crypto = require("crypto");
 const qs = require("qs");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
+const { getWalletSettings } = require("../utils/walletLedger");
+
+let exchangeRateCache = null;
+let exchangeRateFetchedAt = 0;
 
 function sortObject(obj) {
   let sorted = {};
@@ -53,6 +57,9 @@ function getVNPayMessage(responseCode) {
 // 1. Tạo URL thanh toán VNPay
 exports.createPaymentUrl = async (req, res) => {
   try {
+    if (req.user.role === "admin") {
+      return res.status(403).json({ message: "Ví Admin không hỗ trợ nạp tiền." });
+    }
     const { amount, bankCode = "VNPAYQR" } = req.body;
     const numAmount = Number(amount);
 
@@ -294,9 +301,14 @@ exports.handleVNPayIpn = async (req, res) => {
 // 4. Lấy lịch sử giao dịch ví của người dùng
 exports.getMyTransactions = async (req, res) => {
   try {
-    const transactions = await Transaction.find({ user: req.user._id })
+    const filter = req.user.role === "admin"
+      ? {}
+      : { user: req.user._id, walletOwner: { $ne: "System" } };
+    const transactions = await Transaction.find(filter)
       .sort({ createdAt: -1 })
-      .limit(30);
+      .limit(100)
+      .populate("user", "fullName role")
+      .populate("booking", "date status price");
     return res.json({ transactions });
   } catch (error) {
     return res.status(500).json({ message: "Không thể lấy lịch sử giao dịch ví." });
@@ -306,6 +318,9 @@ exports.getMyTransactions = async (req, res) => {
 // 5. Mô phỏng nạp tiền thành công cho môi trường test/sandbox
 exports.simulateTopUp = async (req, res) => {
   try {
+    if (req.user.role === "admin") {
+      return res.status(403).json({ message: "Ví Admin không hỗ trợ nạp tiền." });
+    }
     const { amount = 100000, orderId } = req.body;
     const numAmount = Math.max(10000, Number(amount) || 100000);
 
@@ -359,6 +374,9 @@ exports.simulateTopUp = async (req, res) => {
 // 6. Xác nhận hoàn tất quét mã QR (từ modal quét mã trực tiếp)
 exports.confirmDeposit = async (req, res) => {
   try {
+    if (req.user.role === "admin") {
+      return res.status(403).json({ message: "Ví Admin không hỗ trợ nạp tiền." });
+    }
     const { orderId } = req.body;
     if (!orderId) {
       return res.status(400).json({ message: "Thiếu mã đơn hàng giao dịch." });
@@ -409,3 +427,190 @@ exports.confirmDeposit = async (req, res) => {
   }
 };
 
+exports.getOverview = async (req, res) => {
+  try {
+    if (req.user.role === "admin") {
+      const settings = await getWalletSettings();
+      return res.json({
+        role: "admin",
+        systemBalance: settings.systemBalance,
+        adminBalance: settings.adminBalance,
+        commissions: {
+          standard: settings.standardCommissionPercent,
+          premium: settings.premiumCommissionPercent,
+        },
+        isPremium: false,
+      });
+    }
+    const user = await User.findById(req.user._id).select("walletBalance isPremium");
+    if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản." });
+    res.json({
+      role: req.user.role,
+      balance: user.walletBalance,
+      isPremium: Boolean(user.isPremium),
+    });
+  } catch (error) {
+    console.error("Load wallet overview error:", error);
+    res.status(500).json({ message: "Không thể tải thông tin ví." });
+  }
+};
+
+exports.updateCommission = async (req, res) => {
+  const { standard, premium } = req.body;
+  if (
+    !Number.isFinite(Number(standard)) ||
+    !Number.isFinite(Number(premium)) ||
+    Number(standard) < 0 ||
+    Number(standard) > 100 ||
+    Number(premium) < 0 ||
+    Number(premium) > 100
+  ) {
+    return res.status(400).json({ message: "Hoa hồng phải nằm trong khoảng 0–100%." });
+  }
+  try {
+    const settings = await getWalletSettings();
+    settings.standardCommissionPercent = Number(standard);
+    settings.premiumCommissionPercent = Number(premium);
+    await settings.save();
+    res.json({
+      commissions: {
+        standard: settings.standardCommissionPercent,
+        premium: settings.premiumCommissionPercent,
+      },
+    });
+  } catch (error) {
+    console.error("Update commission settings error:", error);
+    res.status(500).json({ message: "Không thể lưu cấu hình hoa hồng." });
+  }
+};
+
+exports.requestWithdrawal = async (req, res) => {
+  const amount = Number(req.body.amount);
+  const { bankName, accountNumber, accountName } = req.body;
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return res.status(400).json({ message: "Số tiền rút phải là số nguyên lớn hơn 0." });
+  }
+  if (
+    typeof bankName !== "string" ||
+    typeof accountNumber !== "string" ||
+    typeof accountName !== "string" ||
+    !bankName.trim() ||
+    !accountNumber.trim() ||
+    !accountName.trim() ||
+    accountNumber.trim().length > 40 ||
+    accountName.trim().length > 100
+  ) {
+    return res.status(400).json({ message: "Vui lòng nhập thông tin tài khoản nhận tiền hợp lệ." });
+  }
+
+  try {
+    let updatedBalance;
+    let walletOwner = "User";
+    if (req.user.role === "admin") {
+      walletOwner = "Admin";
+      const settings = await getWalletSettings();
+      const updated = await require("../models/WalletSettings").findOneAndUpdate(
+        { _id: settings._id, adminBalance: { $gte: amount } },
+        { $inc: { adminBalance: -amount } },
+        { new: true },
+      );
+      if (!updated) {
+        return res.status(400).json({ message: "Số dư ví Admin không đủ." });
+      }
+      updatedBalance = updated.adminBalance;
+    } else {
+      const user = await User.findOneAndUpdate(
+        { _id: req.user._id, walletBalance: { $gte: amount } },
+        { $inc: { walletBalance: -amount } },
+        { new: true },
+      );
+      if (!user) {
+        return res.status(400).json({ message: "Số dư ví không đủ để rút." });
+      }
+      updatedBalance = user.walletBalance;
+    }
+
+    const transaction = await Transaction.create({
+      user: req.user._id,
+      type: "Withdrawal",
+      amount,
+      status: "Pending",
+      walletOwner,
+      paymentMethod: "Bank Transfer",
+      description: "Yêu cầu rút tiền đang chờ xử lý",
+      withdrawalDetails: {
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        accountName: accountName.trim(),
+      },
+    });
+    res.status(201).json({ transaction, balance: updatedBalance });
+  } catch (error) {
+    console.error("Request withdrawal error:", error);
+    res.status(500).json({ message: "Không thể tạo yêu cầu rút tiền." });
+  }
+};
+
+exports.resolveWithdrawal = async (req, res) => {
+  const { status } = req.body;
+  if (!["Completed", "Failed"].includes(status)) {
+    return res.status(400).json({ message: "Trạng thái xử lý không hợp lệ." });
+  }
+  try {
+    const transaction = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, type: "Withdrawal", status: "Pending" },
+      { $set: { status } },
+      { new: true },
+    );
+    if (!transaction) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền đang chờ." });
+    }
+    if (status === "Failed") {
+      if (transaction.walletOwner === "Admin") {
+        const settings = await getWalletSettings();
+        await settings.updateOne({ $inc: { adminBalance: transaction.amount } });
+      } else {
+        await User.updateOne(
+          { _id: transaction.user },
+          { $inc: { walletBalance: transaction.amount } },
+        );
+      }
+    }
+    res.json({ transaction });
+  } catch (error) {
+    console.error("Resolve withdrawal error:", error);
+    res.status(500).json({ message: "Không thể cập nhật yêu cầu rút tiền." });
+  }
+};
+
+exports.getExchangeRates = async (req, res) => {
+  const currencies = ["USD", "EUR", "JPY", "KRW"];
+  try {
+    if (exchangeRateCache && Date.now() - exchangeRateFetchedAt < 60 * 60 * 1000) {
+      return res.json({ base: "VND", rates: exchangeRateCache, cached: true });
+    }
+    const response = await fetch("https://open.er-api.com/v6/latest/VND", {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) throw new Error(`Exchange rate provider returned ${response.status}`);
+    const data = await response.json();
+    if (data.result !== "success" || !data.rates) {
+      throw new Error("Exchange rate provider returned an invalid response.");
+    }
+    const rates = Object.fromEntries(
+      currencies.map((currency) => [currency, Number(data.rates[currency])]),
+    );
+    if (Object.values(rates).some((rate) => !Number.isFinite(rate) || rate <= 0)) {
+      throw new Error("Exchange rate response is missing a supported currency.");
+    }
+    exchangeRateCache = rates;
+    exchangeRateFetchedAt = Date.now();
+    return res.json({ base: "VND", rates, cached: false });
+  } catch (error) {
+    if (exchangeRateCache) {
+      return res.json({ base: "VND", rates: exchangeRateCache, cached: true, stale: true });
+    }
+    console.error("Load exchange rates error:", error);
+    return res.status(503).json({ message: "Không thể tải tỷ giá. Vui lòng thử lại sau." });
+  }
+};

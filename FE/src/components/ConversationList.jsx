@@ -2,6 +2,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { MessageCircle, RefreshCw, Loader2 } from "lucide-react";
 import api, { API_BASE_URL } from "../services/api";
 import ChatModal from "./ChatModal";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { getSocket } from "../utils/socket";
 
 function getSocketUrl() {
@@ -22,11 +24,11 @@ function getStoredUser() {
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "vừa xong";
-  if (mins < 60) return `${mins} phút trước`;
+  if (mins < 1) return i18n.t("chat:time.justNow");
+  if (mins < 60) return i18n.t("chat:time.minutesAgo", { count: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} giờ trước`;
-  return Math.floor(hrs / 24) + " ngày trước";
+  if (hrs < 24) return i18n.t("chat:time.hoursAgo", { count: hrs });
+  return i18n.t("chat:time.daysAgo", { count: Math.floor(hrs / 24) });
 }
 
 /**
@@ -36,6 +38,7 @@ function timeAgo(dateStr) {
  *  - currentUser: { _id, fullName, avatar, role }
  */
 export default function ConversationList({ currentUser }) {
+  const { t } = useTranslation("chat");
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeChatUser, setActiveChatUser] = useState(null);
@@ -122,7 +125,7 @@ export default function ConversationList({ currentUser }) {
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 font-extrabold">
           <MessageCircle size={18} className="text-brand" />
-          Tin nhắn trực tiếp
+          {t("conversations.title")}
         </h2>
         <button
           className="btn-light !py-2"
@@ -130,7 +133,7 @@ export default function ConversationList({ currentUser }) {
           disabled={loading}
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-          Làm mới
+          {t("conversations.refresh")}
         </button>
       </div>
 
@@ -141,7 +144,7 @@ export default function ConversationList({ currentUser }) {
       ) : conversations.length === 0 ? (
         <div className="mt-4 rounded-2xl bg-slate-50 p-6 text-center text-sm text-slate-400">
           <MessageCircle size={32} className="mx-auto mb-2 opacity-40" strokeWidth={1.5} />
-          Chưa có cuộc trò chuyện nào.
+          {t("conversations.empty")}
         </div>
       ) : (
         <ul className="mt-4 space-y-2">
@@ -200,7 +203,7 @@ export default function ConversationList({ currentUser }) {
                         }`}
                       >
                         {isFromMe && (
-                          <span className="text-slate-400">Bạn: </span>
+                          <span className="text-slate-400">{t("conversations.you")}</span>
                         )}
                         {lastMsg.content?.slice(0, 60)}
                       </p>

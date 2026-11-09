@@ -8,15 +8,21 @@ import {
   MapPin,
   Search,
   MessageCircle,
+  Wallet,
+  Languages,
 } from "lucide-react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import api from "../services/api";
+import { useLocale } from "../contexts/LocaleContext";
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [authVersion, setAuthVersion] = useState(0);
   const [pendingBookings, setPendingBookings] = useState(0);
   const navigate = useNavigate();
+  const { language, languages, setLanguage } = useLocale();
+  const { t } = useTranslation("common");
   const token = localStorage.getItem("lb_token");
   let user = null;
   try {
@@ -53,7 +59,7 @@ export default function Navbar() {
         }
       } catch (error) {
         if (!cancelled) {
-          console.error("Không tải được số yêu cầu đang chờ:", error);
+          console.error(t("pendingBookingsError"), error);
         }
       }
     }
@@ -99,38 +105,17 @@ export default function Navbar() {
           className={`${open ? "flex" : "hidden"} absolute left-0 right-0 top-[70px] flex-col gap-4 border-b bg-white p-5 md:static md:flex md:flex-row md:items-center md:border-0 md:bg-transparent md:p-0`}
         >
           <NavLink className="nav-link" to="/">
-            Trang chủ
+            {t("home")}
           </NavLink>
           {(!role || role === "traveler") && (
             <>
               <a className="nav-link" href="/#discover">
-                Khám phá Buddy
-              </a>
-              <a className="nav-link" href="/#categories">
-                Trải nghiệm
+                {t("explore")}
               </a>
               <Link className="nav-link" to="/local-safety-ekyc">
-                An toàn & eKYC
+                {t("safety")}
               </Link>
             </>
-          )}
-          {token && user && (
-            <Link className="nav-link" to="/profile">
-              Hồ sơ của tôi
-            </Link>
-          )}
-
-          {token && user && (role === "local" || role === "traveler") && (
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("lb-open-chat", {}));
-              }}
-              className="nav-link inline-flex items-center gap-1.5 cursor-pointer"
-            >
-              <MessageCircle size={15} />
-              <span>Tin nhắn</span>
-            </button>
           )}
 
           {role === "local" && (
@@ -138,7 +123,7 @@ export default function Navbar() {
               <Link className="nav-link inline-flex items-center gap-2"
                 to="/local-dashboard"
               >
-                Quản lý dịch vụ
+                {t("services")}
 
                 {pendingBookings > 0 && (
                   <span className="inline-flex min-w-5 h-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-extrabold text-white">
@@ -147,19 +132,56 @@ export default function Navbar() {
                 )}
               </Link>
               <Link className="nav-link" to="/local-safety-ekyc">
-                An toàn & eKYC
+                {t("safety")}
               </Link>
             </>
           )}
 
-          {role === "admin" && (
-            <Link className="nav-link" to="/admin">
-              Quản trị hệ thống
+          {role === "traveler" && (
+            <Link className="nav-link" to="/dashboard">
+              <span>{t("bookings")}</span>
             </Link>
           )}
-          <a className="nav-link" href="/#help">
-            Trợ giúp
-          </a>
+
+          {token && user && (
+            <Link className="nav-link inline-flex items-center gap-1.5" to="/wallet">
+              <span>{t("wallet")}</span>
+            </Link>
+          )}
+
+          {token && user && (role === "local" || role === "traveler") && (
+            <Link className="nav-link" to="/profile">
+              {t("profile")}
+            </Link>
+          )}
+
+          {role === "admin" && (
+            <Link className="nav-link" to="/admin">
+              {t("admin")}
+            </Link>
+          )}
+          {token && role !== "admin" && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("lb-open-chat", { detail: { support: true } }))}
+              className="nav-link cursor-pointer"
+            >
+              {t("help")}
+            </button>
+          )}
+          <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-600">
+            <span className="sr-only">{t("language")}</span>
+            <select
+              className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-xs"
+              aria-label={t("language")}
+              value={language}
+              onChange={(event) => setLanguage(event.target.value)}
+            >
+              {languages.map((option) => (
+                <option key={option.code} value={option.code}>{option.label}</option>
+              ))}
+            </select>
+          </label>
         </nav>
         <div className="flex items-center gap-2">
           {token && user ? (
@@ -178,15 +200,15 @@ export default function Navbar() {
                     : role === "local"
                       ? "Local"
                       : "Traveler"}{" "}
-                  · {user.fullName?.split(" ")[0] || "Tài khoản"}
+                  · {user.fullName?.split(" ")[0] || t("account")}
                 </span>
               </Link>
               <button
                 className="btn-light hidden sm:flex"
                 onClick={logout}
-                title="Đăng xuất"
+                title={t("logout")}
               >
-                <LogOut size={15} /> Đăng xuất
+                <LogOut size={15} /> {t("logout")}
               </button>
             </>
           ) : (
@@ -195,17 +217,17 @@ export default function Navbar() {
                 to="/login"
                 className="hidden text-xs font-bold text-slate-600 sm:block"
               >
-                Đăng nhập
+                {t("login")}
               </Link>
               <Link to="/register" className="btn-primary !px-3 !py-2.5">
-                Bắt đầu miễn phí
+                {t("start")}
               </Link>
             </>
           )}
           <button
             className="rounded-lg p-2 md:hidden"
             onClick={() => setOpen(!open)}
-            aria-label="Mở menu"
+            aria-label={t("openMenu")}
           >
             <Menu size={20} />
           </button>

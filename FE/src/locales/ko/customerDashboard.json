@@ -1,0 +1,66 @@
+{
+  "errors": {
+    "bookings": "예약 요청을 불러오지 못했습니다. 프로필 정보는 계속 확인할 수 있습니다.",
+    "profile": "최신 프로필 정보를 불러오지 못했습니다."
+  },
+  "eyebrow": "개인 공간",
+  "welcome": "다시 오신 것을 환영합니다, {{name}}님! 👋",
+  "defaultName": "회원",
+  "subtitle": "프로필과 다가오는 체험을 관리하세요.",
+  "accountPill": "Local Buddy 계정",
+  "stats": {
+    "profileScore": "프로필 점수",
+    "profileScoreSub": "정보가 최신 상태입니다",
+    "rating": "평점",
+    "ratingSub": "커뮤니티 평가",
+    "bookings": "예약 요청",
+    "bookingsSub": "모든 요청"
+  },
+  "profile": {
+    "title": "개인 프로필",
+    "update": "프로필 업데이트",
+    "defaultUser": "Local Buddy 사용자",
+    "noEmail": "이메일 없음",
+    "kycDefault": "eKYC 미인증",
+    "phone": "전화번호",
+    "notUpdated": "미등록",
+    "role": "계정 역할"
+  },
+  "bookings": {
+    "title": "내 체험 요청",
+    "refresh": "새로고침",
+    "defaultBuddy": "Local Buddy",
+    "paid": "결제 완료 ({{method}})",
+    "methodWallet": "Local 지갑",
+    "unpaid": "수수료 미결제",
+    "guests_one": "{{count}}명",
+    "guests_other": "{{count}}명",
+    "defaultLanguage": "베트남어",
+    "service": "서비스",
+    "foodBudget": "예상 식비 예산: 1인당 {{amount}} VND",
+    "payTitle": "지갑 또는 VNPAY-QR로 서비스 수수료 결제",
+    "payNow": "지금 결제"
+  },
+  "status": {
+    "pending": "확인 대기",
+    "confirmed": "확인됨",
+    "completed": "완료",
+    "cancelled": "취소됨"
+  },
+  "empty": {
+    "title": "아직 체험 요청이 없습니다",
+    "desc": "나에게 맞는 현지 버디를 찾아보세요.",
+    "cta": "Local Buddy 찾기"
+  },
+  "explore": {
+    "title": "탐험 시작하기",
+    "coffee": "카페와 느긋한 휴식 공간",
+    "food": "현지의 맛",
+    "travel": "바다, 산 그리고 여행지"
+  },
+  "support": {
+    "title": "지원 및 안전",
+    "body": "비밀번호나 결제 정보를 공유하지 마세요. 예약에 문제가 있으면 고객 지원에 문의하세요.",
+    "hotline": "24시간 연중무휴 고객 지원"
+  }
+}

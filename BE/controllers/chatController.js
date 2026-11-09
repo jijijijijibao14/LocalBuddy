@@ -2,6 +2,14 @@ const Message = require("../models/Message");
 const User = require("../models/User");
 const { buildRoomId, validateMessageContent } = require("../utils/chatUtils");
 
+function mayChat(role, otherRole) {
+  return role === "admin"
+    ? otherRole !== "admin"
+    : otherRole === "admin" ||
+      (role === "traveler" && otherRole === "local") ||
+      (role === "local" && otherRole === "traveler");
+}
+
 /**
  * GET /api/chat/conversations
  * Lấy danh sách các cuộc hội thoại của user đang đăng nhập (kèm tin nhắn cuối).
@@ -12,7 +20,7 @@ async function getConversations(req, res) {
 
     // Lấy tất cả tin nhắn có liên quan đến user hiện tại
     const messages = await Message.find({
-      $or: [{ traveler: userId }, { local: userId }],
+      $or: [{ participants: userId }, { traveler: userId }, { local: userId }],
     })
       .sort({ createdAt: -1 })
       .populate("traveler", "fullName avatar role")
@@ -50,6 +58,7 @@ async function getConversations(req, res) {
         content: msg.content,
         sender: msg.sender,
         createdAt: msg.createdAt,
+        deleted: msg.deleted,
       },
       unreadCount: unreadMap.get(msg.roomId) || 0,
     }));
@@ -65,6 +74,14 @@ async function getConversations(req, res) {
     console.error("getConversations error:", err);
     res.status(500).json({ message: "Lỗi máy chủ." });
   }
+}
+
+async function getSupportContact(req, res) {
+  const admin = await User.findOne({ role: "admin", status: "Active" }).select(
+    "fullName avatar role",
+  );
+  if (!admin) return res.status(503).json({ message: "Chưa có Admin hỗ trợ." });
+  res.json({ user: admin });
 }
 
 /**
@@ -85,6 +102,9 @@ async function getMessages(req, res) {
     if (!otherUser || otherUser.status !== "Active") {
       return res.status(404).json({ message: "Người dùng không tồn tại." });
     }
+    if (!mayChat(req.user.role, otherUser.role)) {
+      return res.status(403).json({ message: "Bạn không có quyền truy cập cuộc trò chuyện này." });
+    }
 
     const roomId = buildRoomId(userId, otherUserId);
 
@@ -93,7 +113,12 @@ async function getMessages(req, res) {
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
-      .populate("sender", "fullName avatar role");
+      .populate("sender", "fullName avatar role")
+      .populate({
+        path: "replyTo",
+        select: "content deleted sender createdAt",
+        populate: { path: "sender", select: "fullName role" },
+      });
 
     // Đảo lại để hiển thị từ cũ → mới
     messages.reverse();
@@ -129,7 +154,7 @@ async function sendMessage(req, res) {
     const senderId = req.user._id;
     const senderRole = req.user.role;
     const { otherUserId } = req.params;
-    const { content } = req.body;
+    const { content, replyTo } = req.body;
 
     // Validation nội dung
     const validation = validateMessageContent(content);
@@ -142,47 +167,81 @@ async function sendMessage(req, res) {
       return res.status(404).json({ message: "Người dùng không tồn tại." });
     }
 
-    // Xác định ai là traveler, ai là local
+    if (!mayChat(senderRole, otherUser.role)) {
+      return res.status(403).json({ message: "Bạn không thể chat với tài khoản này." });
+    }
+
+    // Keep the legacy traveler/local fields populated for existing conversations.
     let travelerId, localId;
-    if (senderRole === "traveler") {
-      if (otherUser.role !== "local") {
-        return res
-          .status(400)
-          .json({ message: "Bạn chỉ có thể chat với Local Buddy." });
-      }
+    if (senderRole === "admin" || otherUser.role === "admin") {
+      travelerId = senderRole === "admin" ? otherUserId : senderId;
+      localId = senderRole === "admin" ? senderId : otherUserId;
+    } else if (senderRole === "traveler") {
       travelerId = senderId;
       localId = otherUserId;
     } else if (senderRole === "local") {
-      if (otherUser.role !== "traveler") {
-        return res
-          .status(400)
-          .json({ message: "Bạn chỉ có thể chat với Traveler." });
-      }
       travelerId = otherUserId;
       localId = senderId;
-    } else {
-      return res
-        .status(403)
-        .json({ message: "Admin không sử dụng tính năng chat này." });
     }
 
     const roomId = buildRoomId(travelerId, localId);
+    if (replyTo) {
+      const parent = await Message.findOne({ _id: replyTo, roomId }).select("_id");
+      if (!parent) {
+        return res.status(400).json({ message: "Tin nhắn được trả lời không thuộc cuộc trò chuyện này." });
+      }
+    }
 
     const message = await Message.create({
       roomId,
       sender: senderId,
       traveler: travelerId,
       local: localId,
+      participants: [travelerId, localId],
+      replyTo: replyTo || null,
       content: content.trim(),
     });
-
-    await message.populate("sender", "fullName avatar role");
+    await message.populate([
+      { path: "sender", select: "fullName avatar role" },
+      {
+        path: "replyTo",
+        select: "content deleted sender createdAt",
+        populate: { path: "sender", select: "fullName role" },
+      },
+    ]);
 
     res.status(201).json({ message });
   } catch (err) {
     console.error("sendMessage error:", err);
     res.status(500).json({ message: "Lỗi máy chủ." });
   }
+}
+
+async function updateMessage(req, res) {
+  const validation = validateMessageContent(req.body.content);
+  if (!validation.valid) return res.status(400).json({ message: validation.reason });
+  const message = await Message.findOneAndUpdate(
+    { _id: req.params.messageId, sender: req.user._id, deleted: false },
+    { $set: { content: req.body.content.trim(), edited: true } },
+    { new: true },
+  ).populate("sender", "fullName avatar role");
+  if (!message) return res.status(404).json({ message: "Không tìm thấy tin nhắn của bạn." });
+  req.app.get("io")?.to(message.roomId).emit("message_updated", message);
+  res.json({ message });
+}
+
+async function deleteMessage(req, res) {
+  const message = await Message.findOneAndUpdate(
+    { _id: req.params.messageId, sender: req.user._id, deleted: false },
+    { $set: { content: "", deleted: true } },
+    { new: true },
+  );
+  if (!message) return res.status(404).json({ message: "Không tìm thấy tin nhắn của bạn." });
+  req.app.get("io")?.to(message.roomId).emit("message_deleted", {
+    _id: message._id,
+    roomId: message.roomId,
+  });
+  res.json({ message });
 }
 
 /**
@@ -193,6 +252,13 @@ async function markRead(req, res) {
   try {
     const userId = req.user._id;
     const { otherUserId } = req.params;
+    const otherUser = await User.findById(otherUserId).select("role status");
+    if (!otherUser || otherUser.status !== "Active") {
+      return res.status(404).json({ message: "Người dùng không tồn tại." });
+    }
+    if (!mayChat(req.user.role, otherUser.role)) {
+      return res.status(403).json({ message: "Bạn không có quyền truy cập cuộc trò chuyện này." });
+    }
     const roomId = buildRoomId(userId, otherUserId);
 
     await Message.updateMany(
@@ -207,5 +273,12 @@ async function markRead(req, res) {
   }
 }
 
-module.exports = { getConversations, getMessages, sendMessage, markRead };
-
+module.exports = {
+  getConversations,
+  getSupportContact,
+  getMessages,
+  sendMessage,
+  updateMessage,
+  deleteMessage,
+  markRead,
+};

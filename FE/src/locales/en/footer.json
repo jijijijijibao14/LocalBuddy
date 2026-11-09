@@ -1,0 +1,19 @@
+{
+  "description": "Discover Da Nang with a local. Connect with authentic, safe, and memorable experiences.",
+  "localExperiences": "100% local experiences",
+  "districts": "Areas we serve",
+  "districtHaiChau": "Hải Châu & Thanh Khê",
+  "districtSonTra": "Sơn Trà & Ngũ Hành Sơn",
+  "districtLienChieu": "Liên Chiểu & Hòa Vang",
+  "districtHoiAn": "Hoi An and nearby areas",
+  "safetyLegal": "Safety & legal",
+  "ekyc": "eKYC verification process",
+  "privacy": "Privacy policy",
+  "terms": "Terms of service",
+  "community": "Community guidelines",
+  "supportTitle": "24/7 customer support",
+  "supportDescription": "Our support team is with you throughout your journey.",
+  "hotline": "SUPPORT HOTLINE: {{number}}",
+  "copyright": "© 2026 Local Buddy Da Nang. A platform connecting people with local experiences.",
+  "footerLinks": "Terms of service · Privacy · Help center"
+}
