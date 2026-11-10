@@ -20,6 +20,7 @@ import {
 import api from "../services/api";
 import { useTranslation, Trans } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
+import { transactionAmountPrefix } from "../utils/walletTransactions";
 
 const PRESET_AMOUNTS = [
   50000, 100000, 200000, 500000, 1000000, 2000000,
@@ -208,7 +209,7 @@ export default function WalletTopUpModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl transition-all">
+      <div className="relative w-full max-h-[90dvh] max-w-lg overflow-y-auto overflow-x-hidden rounded-3xl bg-white shadow-2xl transition-all">
         {/* Header gradient */}
         <div className="relative bg-gradient-to-r from-[#075f88] via-[#0e7490] to-[#059669] p-6 text-white">
           <button
@@ -672,7 +673,7 @@ export default function WalletTopUpModal({
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-black text-emerald-600">
-                        +{formatCurrency(tx.amount)}
+                        {transactionAmountPrefix(tx)}{formatCurrency(tx.amount)}
                       </span>
                       <p
                         className={`text-[10px] font-bold ${

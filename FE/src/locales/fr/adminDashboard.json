@@ -35,6 +35,9 @@
     "protectDesc": "Gérer les comptes"
   },
   "accounts": {
+    "search": "Rechercher par nom ou e-mail",
+    "filterStatus": "Filtrer par statut",
+    "allStatuses": "Tous les statuts",
     "title": "Gestion des comptes",
     "subtitle": "Approuvez, suspendez ou activez des comptes.",
     "count_one": "{{count}} compte",
@@ -49,7 +52,7 @@
     "empty": "Aucune donnée de compte."
   },
   "buddies": {
-    "title": "Examiner les profils Food Buddy",
+    "title": "Examiner les comptes",
     "subtitle": "Seuls les profils vérifiés apparaissent dans la liste publique.",
     "verifiedCount": "{{verified}}/{{total}} vérifiés",
     "colInterests": "Centres d'intérêt",
@@ -65,6 +68,7 @@
     "verify": "Vérifier le profil",
     "empty": "Aucun profil de service Local. Un Local doit enregistrer son profil pour créer un profil public."
   },
+  "pagination": { "previous": "Page précédente", "next": "Page suivante", "page": "Page {{page}} / {{total}}" },
   "requests": {
     "title": "Demandes d'expérience récentes",
     "subtitle": "Mettez à jour le statut des demandes de réservation.",

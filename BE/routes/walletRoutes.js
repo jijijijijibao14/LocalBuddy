@@ -24,6 +24,7 @@ router.post("/simulate-topup", protect, walletController.simulateTopUp);
 router.get("/exchange-rates", walletController.getExchangeRates);
 router.get("/overview", protect, walletController.getOverview);
 router.post("/withdraw", protect, walletController.requestWithdrawal);
+router.get("/withdrawals", protect, allowRoles("admin"), walletController.getPendingWithdrawals);
 router.patch(
   "/withdrawals/:id",
   protect,

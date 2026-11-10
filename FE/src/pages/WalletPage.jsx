@@ -4,6 +4,19 @@ import api from "../services/api";
 import WalletTopUpModal from "../components/WalletTopUpModal";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
+import { filterTransactions, transactionAmountPrefix } from "../utils/walletTransactions";
+import { paginate } from "../utils/pagination";
+import Pagination from "../components/Pagination";
+
+const VIETNAMESE_BANKS = [
+  "Vietcombank", "VietinBank", "BIDV", "Agribank", "MB Bank", "Techcombank",
+  "ACB", "VPBank", "TPBank", "Sacombank", "HDBank", "VIB", "SHB",
+  "OCB", "Eximbank", "MSB", "SeABank", "LPBank", "VietABank", "Nam A Bank",
+  "Bac A Bank", "PVcomBank", "VietBank", "BaoViet Bank", "KienlongBank",
+  "ABBank", "NCB", "PGBank", "Saigonbank", "VietCapital Bank",
+  "Public Bank Việt Nam", "Shinhan Bank Việt Nam", "Woori Bank Việt Nam",
+  "Hong Leong Bank Việt Nam", "HSBC Việt Nam", "Standard Chartered Việt Nam",
+];
 
 function getUser() {
   try {
@@ -21,6 +34,11 @@ export default function WalletPage() {
   const { t } = useTranslation("common");
   const [overview, setOverview] = useState(null);
   const [transactions, setTransactions] = useState([]);
+  const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
+  const [historyWallet, setHistoryWallet] = useState("System");
+  const [historyDate, setHistoryDate] = useState("");
+  const [historyDirection, setHistoryDirection] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -32,7 +50,6 @@ export default function WalletPage() {
     amount: "",
     bankName: "",
     accountNumber: "",
-    accountName: "",
   });
   const [commission, setCommission] = useState({ standard: 10, premium: 5 });
   const [savingCommission, setSavingCommission] = useState(false);
@@ -41,9 +58,10 @@ export default function WalletPage() {
     setLoading(true);
     setError("");
     try {
-      const [walletResult, transactionsResult] = await Promise.allSettled([
+      const [walletResult, transactionsResult, withdrawalsResult] = await Promise.allSettled([
         api.get("/wallet/overview"),
         api.get("/wallet/transactions"),
+        isAdmin ? api.get("/wallet/withdrawals") : Promise.resolve(null),
       ]);
       const loadErrors = [];
       if (walletResult.status === "fulfilled") {
@@ -63,13 +81,18 @@ export default function WalletPage() {
           transactionsResult.reason.response?.data?.message || t("errLoadTransactions"),
         );
       }
+      if (isAdmin && withdrawalsResult.status === "fulfilled") {
+        setPendingWithdrawals(withdrawalsResult.value.data.withdrawals || []);
+      } else if (isAdmin && withdrawalsResult.status === "rejected") {
+        loadErrors.push(withdrawalsResult.reason.response?.data?.message || t("errLoadWithdrawals", "Không tải được yêu cầu rút tiền."));
+      }
       if (loadErrors.length) setError(loadErrors.join(" "));
     } catch (requestError) {
       setError(requestError.response?.data?.message       || t("errLoadWallet"));
     } finally {
       setLoading(false);
     }
-        }, [t]);
+  }, [t, isAdmin]);
 
   const handleTopUpSuccess = useCallback(async (newBalance) => {
     await load();
@@ -86,6 +109,13 @@ export default function WalletPage() {
   useEffect(() => { load(); }, [load]);
 
   const balance = isAdmin ? overview?.adminBalance : overview?.balance;
+  const walletTransactions = isAdmin
+    ? transactions.filter((transaction) => transaction.walletOwner === historyWallet)
+    : transactions;
+  const historyResult = paginate(
+    filterTransactions(walletTransactions, { date: historyDate, direction: historyDirection }),
+    historyPage,
+  );
 
   async function submitWithdrawal(event) {
     event.preventDefault();
@@ -97,10 +127,10 @@ export default function WalletPage() {
         ...withdrawal,
         amount: Number(withdrawal.amount),
       });
-      setWithdrawal({ amount: "", bankName: "", accountNumber: "", accountName: "" });
+      setWithdrawal({ amount: "", bankName: "", accountNumber: "" });
       setWithdrawOpen(false);
       await load();
-      setNotice(t("withdrawalQueued", "Đã gửi yêu cầu rút tiền. Số tiền được giữ cho đến khi Admin xử lý."));
+      setNotice(t("withdrawalCompleted", "Rút tiền demo thành công; không có chuyển khoản thật."));
     } catch (requestError) {
       setError(requestError.response?.data?.message || t("errWithdraw"));
     } finally {
@@ -132,7 +162,7 @@ export default function WalletPage() {
     try {
       await api.patch(`/wallet/withdrawals/${transactionId}`, { status });
       setNotice(status === "Completed"
-        ? t("withdrawalCompleted", "Đã đánh dấu yêu cầu là đã chuyển tiền.")
+        ? t("withdrawalCompleted", "Đã hoàn thành yêu cầu rút tiền demo; không có chuyển khoản thật.")
         : t("withdrawalRejected", "Đã từ chối yêu cầu và hoàn lại số dư."));
       await load();
     } catch (requestError) {
@@ -272,38 +302,80 @@ export default function WalletPage() {
         <div className="p-5">
           <h2 className="font-extrabold">{t("history", "Lịch sử giao dịch")}</h2>
           <p className="mt-1 text-xs text-slate-500">{t("transactionDetailsHint", "Chọn một giao dịch để xem đầy đủ thông tin.")}</p>
+          {isAdmin && (
+            <div className="mt-4 flex gap-2" role="tablist" aria-label={t("history", "Lịch sử giao dịch")}>
+              {["System", "Admin"].map((wallet) => (
+                <button
+                  key={wallet}
+                  type="button"
+                  role="tab"
+                  aria-selected={historyWallet === wallet}
+                  className={historyWallet === wallet ? "btn-primary !py-2" : "btn-light !py-2"}
+                  onClick={() => { setHistoryWallet(wallet); setHistoryPage(1); }}
+                >
+                  {wallet === "System" ? t("systemWallet", "Ví hệ thống") : t("adminWallet", "Ví Admin")}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="mt-4 flex flex-wrap gap-3">
+            <label className="w-full max-w-xs text-xs font-bold text-slate-600">
+              {t("historyDate")}
+              <input className="field mt-1" type="date" value={historyDate}
+                onChange={(event) => { setHistoryDate(event.target.value); setHistoryPage(1); }} />
+            </label>
+            <label className="w-full max-w-xs text-xs font-bold text-slate-600">
+              {t("historyDirection")}
+              <select className="field mt-1" value={historyDirection}
+                onChange={(event) => { setHistoryDirection(event.target.value); setHistoryPage(1); }}>
+                <option value="">{t("historyAllDirections")}</option>
+                <option value="in">{t("historyIncoming")}</option>
+                <option value="out">{t("historyOutgoing")}</option>
+              </select>
+            </label>
+          </div>
         </div>
         <div className="divide-y divide-slate-100">
-          {transactions.map((transaction) => (
+          {historyResult.items.map((transaction) => (
             <button key={transaction._id} type="button" onClick={() => setSelectedTransaction(transaction)}
               className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50">
               <span>
                 <b className="block text-sm">{transactionTitle(transaction)}</b>
-                <small className="mt-1 block text-slate-500">{transaction.description}</small>
+                <small className="mt-1 block text-slate-500">
+                  {isAdmin && transaction.walletOwner !== "User" && (
+                    <strong>{transaction.walletOwner === "System" ? t("systemWallet") : t("adminWallet")} · </strong>
+                  )}
+                  {transaction.description}
+                </small>
                 <small className="mt-1 block text-slate-400">{formatDateTime(transaction.createdAt)}</small>
               </span>
               <span className="text-right">
-                <b className="block text-sm text-navy">{formatCurrency(transaction.amount)}</b>
+                <b className="block text-sm text-navy">{transactionAmountPrefix(transaction)}{formatCurrency(transaction.amount)}</b>
                 <small className="text-slate-500">{t(transaction.status.toLowerCase(), transaction.status)}</small>
               </span>
             </button>
           ))}
-          {!transactions.length && <p className="p-8 text-center text-sm text-slate-500">{t("noTransactions", "Chưa có giao dịch.")}</p>}
+          {!historyResult.items.length && <p className="p-8 text-center text-sm text-slate-500">
+            {historyDate || historyDirection ? t("historyNoMatches") : t("noTransactions", "Chưa có giao dịch.")}
+          </p>}
         </div>
+        <Pagination result={historyResult} onChange={setHistoryPage}
+          previousLabel={t("historyPrevious")} nextLabel={t("historyNext")}
+          pageLabel={t("historyPage", { page: historyResult.page, total: historyResult.pageCount })} />
       </section>
 
-      {isAdmin && transactions.some((transaction) => transaction.type === "Withdrawal" && transaction.status === "Pending") && (
+      {isAdmin && pendingWithdrawals.length > 0 && (
         <section className="panel p-5">
-          <h2 className="font-extrabold">{t("withdrawalRequests", "Yêu cầu rút tiền cần xử lý")}</h2>
+          <h2 className="font-extrabold">{t("legacyWithdrawalRequests", "Yêu cầu rút tiền cũ cần xử lý")}</h2>
           <div className="mt-3 space-y-3">
-            {transactions.filter((transaction) => transaction.type === "Withdrawal" && transaction.status === "Pending").map((transaction) => (
+            {pendingWithdrawals.map((transaction) => (
               <div key={transaction._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3">
                 <div>
                   <b>{transaction.user?.fullName || t("account", "Tài khoản")} · {formatCurrency(transaction.amount)}</b>
-                  <p className="text-xs text-slate-500">{transaction.withdrawalDetails?.bankName} · {transaction.withdrawalDetails?.accountNumber} · {transaction.withdrawalDetails?.accountName}</p>
+                  <p className="text-xs text-slate-500">{transaction.withdrawalDetails?.bankName} · {transaction.withdrawalDetails?.accountNumber}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn-primary !py-2" onClick={() => resolveWithdrawal(transaction._id, "Completed")}>{t("markTransferred", "Đã chuyển")}</button>
+                  <button className="btn-primary !py-2" onClick={() => resolveWithdrawal(transaction._id, "Completed")}>{t("markDemoCompleted", "Hoàn thành demo")}</button>
                   <button className="btn-light !py-2" onClick={() => resolveWithdrawal(transaction._id, "Failed")}>{t("reject", "Từ chối")}</button>
                 </div>
               </div>
@@ -329,7 +401,7 @@ export default function WalletPage() {
           }}
         >
           <section
-            className="panel w-full max-w-lg p-6"
+            className="panel max-h-[90dvh] w-full max-w-lg overflow-y-auto p-6"
             role="dialog"
             aria-modal="true"
             aria-labelledby="withdraw-title"
@@ -352,7 +424,7 @@ export default function WalletPage() {
               </button>
             </div>
             <p className="mt-2 text-sm text-slate-500">
-              {t("withdrawalNotice", "Gửi yêu cầu để Admin xử lý chuyển khoản thủ công. Số dư được giữ trong lúc chờ.")}
+              {t("withdrawalDemoNotice", "Rút tiền demo hoàn tất ngay, không có chuyển khoản ngân hàng thật.")}
             </p>
             {error && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
             <form className="mt-5 space-y-3" onSubmit={submitWithdrawal}>
@@ -370,36 +442,31 @@ export default function WalletPage() {
               </label>
               <label className="block text-xs font-bold">
                 {t("bank", "Ngân hàng")}
-                <input
+                <select
                   className="field mt-1"
-                  maxLength="100"
                   required
                   value={withdrawal.bankName}
                   onChange={(event) => setWithdrawal((state) => ({ ...state, bankName: event.target.value }))}
-                />
+                >
+                  <option value="">{t("selectBank", "Chọn ngân hàng")}</option>
+                  {VIETNAMESE_BANKS.map((bank) => <option key={bank} value={bank}>{bank}</option>)}
+                </select>
               </label>
               <label className="block text-xs font-bold">
                 {t("accountNumber", "Số tài khoản")}
                 <input
                   className="field mt-1"
                   maxLength="40"
+                  minLength="6"
+                  pattern="[0-9]{6,40}"
+                  inputMode="numeric"
                   required
                   value={withdrawal.accountNumber}
                   onChange={(event) => setWithdrawal((state) => ({ ...state, accountNumber: event.target.value }))}
                 />
               </label>
-              <label className="block text-xs font-bold">
-                {t("accountName", "Tên chủ tài khoản")}
-                <input
-                  className="field mt-1"
-                  maxLength="100"
-                  required
-                  value={withdrawal.accountName}
-                  onChange={(event) => setWithdrawal((state) => ({ ...state, accountName: event.target.value }))}
-                />
-              </label>
               <button className="btn-primary w-full" type="submit" disabled={withdrawing}>
-                {withdrawing ? t("submitting", "Đang gửi...") : t("submitWithdrawal", "Gửi yêu cầu rút tiền")}
+                {withdrawing ? t("submitting", "Đang gửi...") : t("withdraw", "Rút tiền")}
               </button>
             </form>
           </section>
@@ -407,7 +474,7 @@ export default function WalletPage() {
       )}
       {selectedTransaction && (
         <div className="fixed inset-0 z-[60] grid place-items-center bg-navy/60 p-4" role="presentation" onClick={() => setSelectedTransaction(null)}>
-          <section className="panel w-full max-w-lg p-6" role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" onClick={(event) => event.stopPropagation()}>
+          <section className="panel max-h-[90dvh] w-full max-w-lg overflow-y-auto p-6" role="dialog" aria-modal="true" aria-labelledby="transaction-detail-title" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="eyebrow">{t("details", "Chi tiết giao dịch")}</p>
@@ -423,7 +490,7 @@ export default function WalletPage() {
               <div className="sm:col-span-2"><dt className="text-slate-500">{t("time", "Thời gian")}</dt><dd className="font-bold">{formatDateTime(selectedTransaction.createdAt)}</dd></div>
               <div className="sm:col-span-2"><dt className="text-slate-500">{t("description", "Nội dung")}</dt><dd className="font-bold">{selectedTransaction.description}</dd></div>
               {selectedTransaction.withdrawalDetails?.bankName && (
-                <div className="sm:col-span-2"><dt className="text-slate-500">{t("withdrawalAccount", "Tài khoản nhận")}</dt><dd className="font-bold">{selectedTransaction.withdrawalDetails.bankName} · {selectedTransaction.withdrawalDetails.accountNumber} · {selectedTransaction.withdrawalDetails.accountName}</dd></div>
+                <div className="sm:col-span-2"><dt className="text-slate-500">{t("withdrawalAccount", "Tài khoản nhận")}</dt><dd className="font-bold">{selectedTransaction.withdrawalDetails.bankName} · {selectedTransaction.withdrawalDetails.accountNumber}{selectedTransaction.withdrawalDetails.accountName ? ` · ${selectedTransaction.withdrawalDetails.accountName}` : ""}</dd></div>
               )}
             </dl>
           </section>

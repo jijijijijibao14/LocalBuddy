@@ -35,6 +35,9 @@
     "protectDesc": "계정 관리"
   },
   "accounts": {
+    "search": "이름 또는 이메일로 검색",
+    "filterStatus": "상태로 필터",
+    "allStatuses": "모든 상태",
     "title": "계정 관리",
     "subtitle": "계정을 승인, 정지 또는 활성화합니다.",
     "count_one": "계정 {{count}}개",
@@ -49,7 +52,7 @@
     "empty": "계정 데이터가 아직 없습니다."
   },
   "buddies": {
-    "title": "Food Buddy 프로필 심사",
+    "title": "계정 심사",
     "subtitle": "인증된 프로필만 공개 목록에 표시됩니다.",
     "verifiedCount": "{{verified}}/{{total}} 인증됨",
     "colInterests": "관심사",
@@ -65,6 +68,7 @@
     "verify": "프로필 인증",
     "empty": "Local 서비스 프로필이 아직 없습니다. 공개 프로필을 만들려면 Local이 프로필을 저장해야 합니다."
   },
+  "pagination": { "previous": "이전 페이지", "next": "다음 페이지", "page": "{{page}} / {{total}} 페이지" },
   "requests": {
     "title": "최근 체험 요청",
     "subtitle": "예약 요청 상태를 업데이트합니다.",

@@ -1,5 +1,7 @@
 const User = require("../models/User");
 const BuddyProfile = require("../models/BuddyProfile");
+const UploadedFile = require("../models/UploadedFile");
+const path = require("path");
 const { filterFutureAvailability } = require("../utils/availability");
 
 function isProfileComplete(user) {
@@ -35,6 +37,18 @@ function safeUser(user) {
     isPremium: Boolean(user.isPremium),
     status: user.status,
   };
+}
+
+function mediaIds(user) {
+  const urls = [
+    user.avatar,
+    ...(user.profilePhotos || []),
+    ...(user.languageCertificates || []).map((item) => item.certificateUrl),
+  ];
+  return new Set(urls.map((url) => {
+    if (typeof url !== "string") return null;
+    return url.match(/(?:^|\/)media\/([a-f\d]{24})(?:[?#]|$)/i)?.[1]?.toLowerCase() || null;
+  }).filter(Boolean));
 }
 
 function normalizeInterests(interests = []) {
@@ -133,11 +147,14 @@ exports.getMyProfile = async (req, res) => {
 };
 
 exports.updateMyProfile = async (req, res) => {
+  const uploadedIds = [];
+  let userSaved = false;
   try {
     const user = await User.findById(req.user._id);
     if (!user)
       return res.status(404).json({ message: "Không tìm thấy tài khoản." });
 
+    const previousMedia = mediaIds(user);
     const allowedFields = [
       "fullName",
       "phone",
@@ -170,30 +187,6 @@ exports.updateMyProfile = async (req, res) => {
         user[field] = value;
       }
     }
-    // File upload names are provided by Multer; save public URLs on the user profile.
-    for (const file of req.files || []) {
-      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
-      if (file.fieldname === "avatarFile") user.avatar = fileUrl;
-      if (file.fieldname === "profilePhotoFiles") {
-        if (!/\.(jpe?g|png|webp)$/i.test(file.originalname)) {
-          return res.status(400).json({
-            message: "Ảnh hồ sơ chỉ chấp nhận JPG, PNG hoặc WEBP.",
-          });
-        }
-        user.profilePhotos = [...(user.profilePhotos || []), fileUrl].slice(-10);
-      }
-      const match = file.fieldname.match(/^certificate_(\d+)$/);
-      if (match) {
-        const index = Number(match[1]);
-        const certificates = [...(user.languageCertificates || [])];
-        certificates[index] = {
-          ...(certificates[index] || {}),
-          certificateUrl: fileUrl,
-        };
-        user.languageCertificates = certificates;
-      }
-    }
-
     if (!user.fullName?.trim())
       return res.status(400).json({ message: "Vui lòng nhập họ và tên." });
     if (!user.phone?.trim())
@@ -228,12 +221,57 @@ exports.updateMyProfile = async (req, res) => {
         return res.status(400).json({ message: "Giá mỗi giờ không hợp lệ." });
       user.pricePerHour = pricePerHour;
     }
+    const types = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".pdf": "application/pdf" };
+    for (const file of req.files || []) {
+      const certificate = file.fieldname.match(/^certificate_(\d+)$/);
+      const extension = path.extname(file.originalname).toLowerCase();
+      if ((!certificate && !["avatarFile", "profilePhotoFiles"].includes(file.fieldname)) ||
+          (!certificate && extension === ".pdf") ||
+          (certificate && (!user.languageCertificates || !user.languageCertificates[Number(certificate[1])]))) {
+        return res.status(400).json({ message: "Tệp hồ sơ không hợp lệ." });
+      }
+    }
+    for (const file of req.files || []) {
+      const certificate = file.fieldname.match(/^certificate_(\d+)$/);
+      const stored = await UploadedFile.create({
+        owner: user._id,
+        contentType: types[path.extname(file.originalname).toLowerCase()],
+        data: file.buffer,
+      });
+      uploadedIds.push(stored._id);
+      const fileUrl = `${req.protocol}://${req.get("host")}/media/${stored._id}`;
+      if (file.fieldname === "avatarFile") user.avatar = fileUrl;
+      if (file.fieldname === "profilePhotoFiles") {
+        user.profilePhotos = [...(user.profilePhotos || []), fileUrl].slice(-10);
+      }
+      if (certificate) {
+        const index = Number(certificate[1]);
+        const certificates = [...(user.languageCertificates || [])];
+        const current = certificates[index];
+        certificates[index] = { ...(current.toObject ? current.toObject() : current), certificateUrl: fileUrl };
+        user.languageCertificates = certificates;
+      }
+    }
     user.profileComplete = isProfileComplete(user);
     await user.save();
+    userSaved = true;
     await syncBuddyProfile(user);
+    const currentMedia = mediaIds(user);
+    const removedMedia = [...new Set([...previousMedia, ...uploadedIds.map(String)])]
+      .filter((id) => !currentMedia.has(id));
+    if (removedMedia.length) {
+      await UploadedFile.deleteMany({ _id: { $in: removedMedia }, owner: user._id });
+    }
 
     res.json({ message: "Cập nhật hồ sơ thành công.", user: safeUser(user) });
   } catch (error) {
+    if (!userSaved && uploadedIds.length) {
+      try {
+        await UploadedFile.deleteMany({ _id: { $in: uploadedIds }, owner: req.user._id });
+      } catch (cleanupError) {
+        console.error("Could not clean up uploaded files:", cleanupError);
+      }
+    }
     console.error("Update profile error:", error);
     res.status(500).json({ message: "Không thể cập nhật hồ sơ." });
   }

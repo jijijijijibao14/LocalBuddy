@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import api from "../services/api";
 import { useLocale } from "../contexts/LocaleContext";
+import { disconnectSocket } from "../utils/socket";
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [authVersion, setAuthVersion] = useState(0);
@@ -80,6 +81,7 @@ export default function Navbar() {
         ? "/local-dashboard"
         : "/dashboard";
   function logout() {
+    disconnectSocket();
     localStorage.removeItem("lb_token");
     localStorage.removeItem("lb_user");
     window.dispatchEvent(new Event("lb-auth-change"));
@@ -102,7 +104,10 @@ export default function Navbar() {
           </span>
         </Link>
         <nav
-          className={`${open ? "flex" : "hidden"} absolute left-0 right-0 top-[70px] flex-col gap-4 border-b bg-white p-5 md:static md:flex md:flex-row md:items-center md:border-0 md:bg-transparent md:p-0`}
+          onClick={(event) => {
+            if (event.target.closest("a, button")) setOpen(false);
+          }}
+          className={`${open ? "flex" : "hidden"} absolute left-0 right-0 top-[70px] max-h-[calc(100dvh-70px)] flex-col gap-4 overflow-y-auto border-b bg-white p-5 md:static md:max-h-none md:overflow-visible md:flex md:flex-row md:items-center md:border-0 md:bg-transparent md:p-0`}
         >
           <NavLink className="nav-link" to="/">
             {t("home")}

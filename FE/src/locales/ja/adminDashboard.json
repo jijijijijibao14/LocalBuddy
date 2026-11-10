@@ -35,6 +35,9 @@
     "protectDesc": "アカウントを管理"
   },
   "accounts": {
+    "search": "名前またはメールで検索",
+    "filterStatus": "ステータスで絞り込み",
+    "allStatuses": "すべてのステータス",
     "title": "アカウント管理",
     "subtitle": "アカウントの承認、停止、有効化を行います。",
     "count_one": "{{count}}件のアカウント",
@@ -49,7 +52,7 @@
     "empty": "アカウントデータはまだありません。"
   },
   "buddies": {
-    "title": "Food Buddy プロフィールの審査",
+    "title": "アカウントの審査",
     "subtitle": "認証済みのプロフィールのみ公開リストに表示されます。",
     "verifiedCount": "{{verified}}/{{total}}件が認証済み",
     "colInterests": "興味",
@@ -65,6 +68,7 @@
     "verify": "プロフィールを認証",
     "empty": "Local のサービスプロフィールはまだありません。公開プロフィールを作成するには、Local がプロフィールを保存する必要があります。"
   },
+  "pagination": { "previous": "前のページ", "next": "次のページ", "page": "{{page}} / {{total}} ページ" },
   "requests": {
     "title": "最近の体験リクエスト",
     "subtitle": "予約リクエストのステータスを更新します。",

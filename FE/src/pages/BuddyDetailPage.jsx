@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -49,6 +49,10 @@ export default function BuddyDetailPage() {
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [bookingFormOpen, setBookingFormOpen] = useState(false);
+  const bookingHeadingRef = useRef(null);
+  const bookingButtonRef = useRef(null);
+  const bookingDialogRef = useRef(null);
 
   // Trạng thái thanh toán phí giao dịch
   const [paymentMethod, setPaymentMethod] = useState("Wallet"); // 'Wallet' | 'VNPAY_QR' | 'None'
@@ -82,6 +86,19 @@ export default function BuddyDetailPage() {
     searchParams.get("openChat") === "true" || searchParams.get("openChat") === "1"
   );
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (bookingFormOpen && !isPayModalOpen && !isTopUpOpen && bookingDialogRef.current) {
+      if (!bookingDialogRef.current.open) bookingDialogRef.current.showModal();
+      bookingHeadingRef.current?.focus();
+    }
+  }, [bookingFormOpen, isPayModalOpen, isTopUpOpen]);
+
+  function closeBookingForm() {
+    if (submitting) return;
+    setBookingFormOpen(false);
+    bookingButtonRef.current?.focus();
+  }
 
   function getCurrentUser() {
     try {
@@ -143,28 +160,9 @@ export default function BuddyDetailPage() {
     };
   }, []);
 
-  // Chỉ lấy lịch rảnh đúng ngày và đủ thời lượng đã chọn.
-  const availableSlots = (buddy?.availability || [])
-    .filter((slot) => {
-      if (slot.date !== date) return false;
-
-      const toMinutes = (value) => {
-        const [hour, minute] = value.split(":").map(Number);
-        return hour * 60 + minute;
-      };
-
-      const slotStart = toMinutes(slot.startTime);
-      const slotEnd = toMinutes(slot.endTime);
-      const selectedStart = toMinutes(startTime);
-      const selectedEnd = selectedStart + Number(durationHours) * 60;
-
-      return (
-        slotEnd > slotStart &&
-        selectedStart >= slotStart &&
-        selectedEnd <= slotEnd
-      );
-    })
-    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+  const availableSlots = [...(buddy?.availability || [])].sort((a, b) =>
+    a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -338,6 +336,17 @@ export default function BuddyDetailPage() {
                 </span>
               </div>
             </div>
+            <div className="flex justify-end bg-white p-4">
+              <button
+                ref={bookingButtonRef}
+                type="button"
+                className="btn-primary"
+                aria-haspopup="dialog"
+                onClick={() => setBookingFormOpen(true)}
+              >
+                {t("bookNow")}
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2 border-b border-slate-100 p-4">
               {(buddy.interests?.length
                 ? buddy.interests
@@ -388,22 +397,54 @@ export default function BuddyDetailPage() {
                   </ul>
                 </div>
               </div>
-              {buddy.photos?.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-sm font-extrabold">{t("sharedPhotos")}</h3>
+              <div className="mt-6">
+                <h3 className="text-sm font-extrabold">{t("sharedPhotos")}</h3>
+                {buddy.photos?.length > 0 ? (
                   <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     {buddy.photos.map((photo, index) => (
-                      <img
+                      <a
                         key={`${photo}-${index}`}
-                        src={photo}
-                        alt={t("photoAlt", { index: index + 1, name: buddy.fullName })}
-                        className="aspect-square w-full rounded-xl object-cover"
-                        loading="lazy"
-                      />
+                        href={photo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t("openPhoto", { index: index + 1, name: buddy.fullName })}
+                        className="relative grid aspect-square overflow-hidden rounded-xl bg-slate-100"
+                      >
+                        <span className="absolute inset-0 grid place-items-center p-2 text-center text-xs text-slate-500">
+                          {t("photoUnavailable")}
+                        </span>
+                        <img
+                          src={photo}
+                          alt={t("photoAlt", { index: index + 1, name: buddy.fullName })}
+                          className="relative h-full w-full object-cover"
+                          loading="lazy"
+                          onError={(event) => { event.currentTarget.hidden = true; }}
+                        />
+                      </a>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="mt-3 text-xs text-slate-500">{t("noSharedPhotos")}</p>
+                )}
+              </div>
+              <section className="mt-6 rounded-xl bg-blue-50 p-4" aria-labelledby="local-availability-title">
+                <h3 id="local-availability-title" className="flex items-center gap-2 text-sm font-extrabold text-navy">
+                  <Clock size={16} className="text-brand" />
+                  {t("localAvailability")}
+                </h3>
+                {availableSlots.length ? (
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {availableSlots.map((slot) => (
+                      <li key={`${slot.date}-${slot.startTime}-${slot.endTime}`} className="rounded-lg border border-blue-100 bg-white px-3 py-2 text-xs font-bold text-navy">
+                        {slot.date} · {slot.startTime} – {slot.endTime}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-600">{t("noAvailability")}</p>
+                )}
+                <p className="mt-3 text-xs leading-5 text-slate-500">{t("availabilityBackendCheck")}</p>
+              </section>
             </div>
           </section>
           <section className="panel p-5 sm:p-7">
@@ -449,10 +490,40 @@ export default function BuddyDetailPage() {
           <p className="mt-2 text-xs text-slate-500">
             {t("priceExcludes")}
           </p>
-          <div className="my-5 border-t border-slate-100" />
-          <h1 className="text-xl font-bold to-blue-600">
+          {bookingFormOpen && !isPayModalOpen && !isTopUpOpen && (
+            <dialog
+              ref={bookingDialogRef}
+              id="booking-form"
+              aria-labelledby="booking-form-title"
+              className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-5 text-navy shadow-2xl backdrop:bg-navy/60 sm:p-6"
+              onCancel={(event) => {
+                event.preventDefault();
+                closeBookingForm();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  closeBookingForm();
+                }
+              }}
+            >
+          <div className="flex items-center justify-between gap-3">
+          <h2 id="booking-form-title" ref={bookingHeadingRef} tabIndex={-1} className="text-xl font-bold text-navy">
             {t("bookingInformation")}
-          </h1>
+          </h2>
+          <button type="button" className="btn-light" disabled={submitting} onClick={closeBookingForm}>
+            {t("closeBooking")}
+          </button>
+          </div>
+          <p className="mt-2 text-sm font-semibold text-slate-600">{buddy.fullName}</p>
+          {notice && (
+            <div role="status" className={`mt-3 rounded-lg p-3 text-xs leading-5 ${
+              bookingSuccess ? "border border-emerald-200 bg-emerald-50 text-emerald-800" : "bg-blue-50 text-brand"
+            }`}>
+              <p>{notice}</p>
+              {bookingSuccess && <Link to="/dashboard" className="mt-2 inline-flex font-bold underline">{t("viewRequestDashboard")}</Link>}
+            </div>
+          )}
           <label className="text-xs font-bold">
             {t("experienceDate")}
             <input
@@ -464,44 +535,6 @@ export default function BuddyDetailPage() {
               required
             />
           </label>
-          <div className="mt-4 rounded-xl bg-blue-50 p-4">
-            <h3 className="flex items-center gap-2 text-sm font-extrabold text-navy">
-              <Clock size={16} className="text-brand" />
-              {t("localAvailability")}
-            </h3>
-
-            {!date ? (
-              <p className="mt-2 text-xs text-slate-600">
-                {t("selectDateForAvailability")}
-              </p>
-            ) : availableSlots.length === 0 ? (
-              <p className="mt-2 text-xs leading-5 text-amber-800">
-                {t("noMatchingAvailability")}
-              </p>
-            ) : (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {availableSlots.map((slot) => (
-                  <button
-                    key={`${slot.date}-${slot.startTime}-${slot.endTime}`}
-                    type="button"
-                    onClick={() => setStartTime(slot.startTime)}
-                    className={`rounded-lg border px-3 py-2 text-xs font-bold ${
-                      startTime === slot.startTime
-                        ? "border-brand bg-brand text-white"
-                        : "border-blue-200 bg-white text-navy hover:border-brand"
-                    }`}
-                  >
-                    {slot.startTime} – {slot.endTime}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <p className="mt-3 text-[11px] leading-5 text-slate-500">
-              {t("availabilityBackendCheck")}
-            </p>
-          </div>
-          
           <label className="mt-4 block text-xs font-bold">
             {t("experienceDuration")}
             <select
@@ -770,6 +803,8 @@ export default function BuddyDetailPage() {
                   ? t("payWithQrBook")
                   : t("sendRequestPayLater")}
           </button>
+            </dialog>
+          )}
 
           {/* Nút Chat trực tiếp */}
           {(() => {

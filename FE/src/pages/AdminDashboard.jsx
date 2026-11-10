@@ -14,6 +14,17 @@ import {
 import api from "../services/api";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
+import { filterAccounts, paginate } from "../utils/adminPagination";
+import Pagination from "../components/Pagination";
+
+function AdminPagination({ result, onChange, t }) {
+  return (
+    <Pagination result={result} onChange={onChange}
+      previousLabel={t("pagination.previous")} nextLabel={t("pagination.next")}
+      pageLabel={t("pagination.page", { page: result.page, total: result.pageCount })} />
+  );
+}
+
 export default function AdminDashboard() {
   const { t } = useTranslation("adminDashboard");
   const { formatCurrency, language, languages } = useLocale();
@@ -28,8 +39,14 @@ export default function AdminDashboard() {
   const [buddies, setBuddies] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [accountRoleTab, setAccountRoleTab] = useState("local");
+  const [accountQuery, setAccountQuery] = useState("");
+  const [accountStatus, setAccountStatus] = useState("");
+  const [accountPage, setAccountPage] = useState(1);
+  const [buddyPage, setBuddyPage] = useState(1);
   const [bookingStatusTab, setBookingStatusTab] = useState("Pending");
   const [message, setMessage] = useState("");
+  const accountsResult = paginate(filterAccounts(users, accountRoleTab, accountQuery, accountStatus), accountPage);
+  const buddiesResult = paginate(buddies, buddyPage);
   async function load() {
     try {
       const [s, u, bp, b] = await Promise.all([
@@ -195,12 +212,25 @@ export default function AdminDashboard() {
               type="button"
               role="tab"
               aria-selected={accountRoleTab === role}
-              onClick={() => setAccountRoleTab(role)}
+              onClick={() => { setAccountRoleTab(role); setAccountPage(1); }}
               className={accountRoleTab === role ? "btn-primary" : "btn-light"}
             >
               {label} ({users.filter((user) => user.role === role).length})
             </button>
           ))}
+        </div>
+        <div className="flex flex-wrap gap-3 px-5 pb-4">
+          <input className="field max-w-sm" type="search" value={accountQuery}
+            aria-label={t("accounts.search")} placeholder={t("accounts.search")}
+            onChange={(event) => { setAccountQuery(event.target.value); setAccountPage(1); }} />
+          <select className="field max-w-xs" value={accountStatus}
+            aria-label={t("accounts.filterStatus")}
+            onChange={(event) => { setAccountStatus(event.target.value); setAccountPage(1); }}>
+            <option value="">{t("accounts.allStatuses")}</option>
+            {["Active", "Pending Approval", "Rejected", "Suspended"].map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-xs">
@@ -214,7 +244,7 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {users.filter((user) => user.role === accountRoleTab).map((u) => (
+              {accountsResult.items.map((u) => (
                 <tr className="border-t border-slate-100" key={u._id}>
                   <td className="p-4">
                     <b>{u.fullName}</b>
@@ -250,9 +280,10 @@ export default function AdminDashboard() {
                       value={u.status}
                       onChange={(e) => changeStatus(u._id, e.target.value)}
                     >
+                      {!["Active", "Suspended"].includes(u.status) && (
+                        <option value={u.status} disabled>{u.status}</option>
+                      )}
                       <option>Active</option>
-                      <option>Pending Approval</option>
-                      <option>Rejected</option>
                       <option>Suspended</option>
                     </select>
                     <button
@@ -271,12 +302,13 @@ export default function AdminDashboard() {
               ))}
             </tbody>
           </table>
-          {!users.some((user) => user.role === accountRoleTab) && (
+          {!accountsResult.items.length && (
             <p className="p-8 text-center text-xs text-slate-500">
               {t("accounts.empty")}
             </p>
           )}
         </div>
+        <AdminPagination result={accountsResult} onChange={setAccountPage} t={t} />
       </section>
       <section className="panel mt-6 overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5">
@@ -306,7 +338,7 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {buddies.map((buddy) => (
+              {buddiesResult.items.map((buddy) => (
                 <tr className="border-t border-slate-100" key={buddy._id}>
                   <td className="p-4">
                     <b>{buddy.fullName}</b>
@@ -351,6 +383,7 @@ export default function AdminDashboard() {
             </p>
           )}
         </div>
+        <AdminPagination result={buddiesResult} onChange={setBuddyPage} t={t} />
       </section>
       <section className="panel mt-6 overflow-hidden">
         <div className="flex items-center justify-between p-5">

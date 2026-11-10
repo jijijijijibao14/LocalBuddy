@@ -477,10 +477,10 @@ export default function FloatingChatWidget() {
   if (!token || !user) return null;
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end">
+    <div className="fixed bottom-5 right-3 z-50 flex max-w-[calc(100vw-1.5rem)] flex-col items-end sm:right-5">
       {/* KHUNG CỬA SỔ BONG BÓNG CHAT MỞ RỘNG */}
       {isOpen && (
-        <div className="mb-3 flex flex-col w-[350px] sm:w-[380px] h-[520px] max-h-[82vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
+        <div className="mb-3 flex flex-col w-[calc(100vw-1.5rem)] max-w-[380px] h-[520px] max-h-[80dvh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-200">
           {/* ═════════ HEADER BONG BÓNG CHAT ═════════ */}
           <div className="flex items-center gap-2.5 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 px-3.5 py-3 text-white shadow-xs">
             {activeChatUser ? (

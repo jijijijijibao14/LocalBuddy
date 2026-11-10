@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const path = require("path");
+const { getMedia } = require("./controllers/mediaController");
 const http = require("http");
 const { Server } = require("socket.io");
 const rateLimit = require("express-rate-limit");
@@ -12,8 +13,10 @@ const seedAdmin = require("./seedAdmin");
 const User = require("./models/User");
 const Message = require("./models/Message");
 const { buildRoomId, validateMessageContent } = require("./utils/chatUtils");
+const { startBookingExpiryWorker } = require("./utils/bookingExpiry");
 
 const app = express();
+if (process.env.RENDER === "true") app.set("trust proxy", 1);
 const httpServer = http.createServer(app);
 
 function normalizeOrigin(value) {
@@ -48,6 +51,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json({ limit: "1mb" }));
+app.get("/media/:id", getMedia);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(morgan("dev"));
 // Route gốc: kiểm tra backend khi mở URL Render
@@ -246,6 +250,7 @@ async function startServer() {
 
     httpServer.listen(port, () => {
       console.log(`Local Buddy API listening on http://localhost:${port}`);
+      startBookingExpiryWorker();
     });
   } catch (err) {
     console.error("Không thể khởi động server:", err.message);

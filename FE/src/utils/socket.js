@@ -12,7 +12,9 @@ let socket = null;
  * @returns {import("socket.io-client").Socket}
  */
 export function getSocket(serverUrl, token) {
-  if (socket && socket.connected) return socket;
+  if (socket && socket.connected && socket.auth.token === token && socket.io.uri === serverUrl) {
+    return socket;
+  }
 
   // Huỷ kết nối cũ (nếu có) trước khi tạo mới
   if (socket) {
@@ -49,4 +51,3 @@ export function disconnectSocket() {
 }
 
 export { socket };
-

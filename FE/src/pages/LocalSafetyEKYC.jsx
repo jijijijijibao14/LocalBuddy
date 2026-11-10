@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
   ShieldCheck,
   ScanText,
@@ -25,6 +25,7 @@ const STEPS = [
 
 export default function LocalSafetyEKYC() {
   const { t } = useTranslation("ekyc");
+  const location = useLocation();
   const [consent, setConsent] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState([]);
@@ -96,14 +97,19 @@ export default function LocalSafetyEKYC() {
   return (
     <div className="container-page py-8">
       <Link
-        to="/local-dashboard"
+        to={location.state?.returnTo || "/local-dashboard"}
         className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-brand"
       >
         <ArrowLeft size={16} />
-        {t("backLocal")}
+        {location.state?.returnTo ? t("backBuddy") : t("backLocal")}
       </Link>
 
       <div className="mx-auto max-w-5xl">
+        {location.state?.verificationRequired && !isVerified && (
+          <div className="mb-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900" role="alert">
+            {t("travelerVerificationRequired")}
+          </div>
+        )}
         <section className="overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 to-emerald-600 p-6 text-white sm:p-9">
           <div className="flex items-center gap-3">
             <div className="rounded-2xl bg-white/15 p-3">
@@ -173,10 +179,10 @@ export default function LocalSafetyEKYC() {
                 {t("doneDesc")}
               </p>
               <Link
-                to="/local-dashboard"
+                to={location.state?.returnTo || "/local-dashboard"}
                 className="btn-primary mt-6 inline-flex"
               >
-                {t("goLocal")}
+                {location.state?.returnTo ? t("backBuddy") : t("goLocal")}
               </Link>
             </div>
           ) : (

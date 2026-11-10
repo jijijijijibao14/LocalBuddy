@@ -1,5 +1,9 @@
 {
   "loadError": "Impossible de charger le statut eKYC.",
+  "checkingStatus": "Vérification du statut...",
+  "retry": "Réessayer",
+  "travelerVerificationRequired": "Veuillez vérifier votre identité avant de trouver un compagnon.",
+  "backBuddy": "Retour au profil Buddy",
   "finishSuccess": "Processus eKYC de démonstration terminé ! Le statut du compte a été mis à jour.",
   "finishError": "Impossible de terminer la démonstration eKYC.",
   "backLocal": "Retour à la page Local",

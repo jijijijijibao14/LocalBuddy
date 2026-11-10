@@ -48,29 +48,52 @@ npm run dev
 ```
 Mở `http://localhost:5173`.
 
+## Chạy trên Expo Go (LocalBuddyMobile)
+
+App Expo chỉ là một WebView mở frontend. URL lấy từ `LocalBuddyMobile/.env` (`EXPO_PUBLIC_WEB_URL`, xem `.env.example`).
+
+Chung:
+- `BE/.env`: `CLIENT_URL=http://localhost:5173,http://10.0.2.2:5173,http://<IP Wi-Fi>:5173`
+- `FE/.env`: `VITE_API_URL=http://<IP Wi-Fi>:3001/api` (đổi xong phải restart Vite). Khi `npm run build`, Vite dùng `FE/.env.production` (API deploy).
+- Chạy backend (`npm run dev` trong `BE`) và frontend `npm run dev:host` trong `FE` (Vite lắng nghe `0.0.0.0:5173`).
+
+**Giả lập Android (BlueStacks/AVD):** đặt `EXPO_PUBLIC_WEB_URL=http://10.0.2.2:5173`, rồi trong `LocalBuddyMobile` chạy `npx expo start -c` và mở trên Expo Go.
+
+**iPhone thật:**
+1. Lấy IP Wi-Fi của laptop bằng `ipconfig` (IPv4 Address), iPhone và laptop phải cùng mạng Wi-Fi.
+2. Mở Windows Firewall cho các cổng TCP 5173, 3001, 8081 (PowerShell admin: `New-NetFirewallRule -DisplayName "LocalBuddy dev" -Direction Inbound -Protocol TCP -LocalPort 5173,3001,8081 -Action Allow`).
+3. Đặt `EXPO_PUBLIC_WEB_URL=http://<IP Wi-Fi>:5173` trong `LocalBuddyMobile/.env`, đảm bảo IP đó có trong `CLIENT_URL` và `VITE_API_URL`.
+4. Trong `LocalBuddyMobile` chạy `npx expo start -c`, quét QR bằng Camera/Expo Go.
+
 ## Triển khai production
 - Backend: cấu hình `MONGO_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` và `CLIENT_URL` trong nền tảng host. `CLIENT_URL` phải là origin của frontend (ví dụ `https://your-app.vercel.app`), không có `/` cuối; có thể khai báo nhiều origin, phân tách bằng dấu phẩy.
 - Frontend: cấu hình `VITE_API_URL` thành URL backend đầy đủ, có `/api` ở cuối (ví dụ `https://your-api.example.com/api`) trong môi trường build của nền tảng frontend. Vite nhúng biến này vào bundle lúc build, vì vậy cần build/deploy lại sau khi thay đổi.
 - Không dùng URL `localhost` hoặc URL frontend Vercel làm `VITE_API_URL` production. Nếu thiếu biến này, frontend production sẽ báo lỗi cấu hình rõ ràng thay vì gửi API request nhầm host.
-- Thư mục `BE/uploads` là ổ đĩa cục bộ; trên host có filesystem tạm thời, file tải lên có thể mất khi service khởi động lại hoặc deploy. Dùng object storage bền vững trước khi cần giữ ảnh/chứng chỉ production.
+- Ảnh đại diện, ảnh bổ sung và chứng chỉ mới tải lên được lưu trong MongoDB (tối đa 5 MB mỗi tệp), và được phục vụ qua `/media/:id`; lưu ý các URL này có thể truy cập công khai, không tải tài liệu nhạy cảm lên. Cần duy trì MongoDB và sao lưu dữ liệu.
+- Các ảnh cũ trong `BE/uploads` vẫn dùng đường dẫn cũ, chưa được tự động chuyển vào MongoDB. Trên host có filesystem tạm thời, ảnh cũ có thể đã mất sau khi deploy; nếu không còn file gốc, người dùng cần tải lại ảnh/chứng chỉ.
+- Trang chi tiết Buddy yêu cầu Traveler đăng nhập hoàn thành eKYC demo trước khi xem. eKYC trong dự án chỉ là mô phỏng, không phải xác minh danh tính thật.
 
 ## Chức năng theo vai trò
 - **Traveler**: đăng ký/đăng nhập, tìm và lọc Buddy, đặt lịch, thanh toán trước (ví, VNPay/QR), nạp tiền và rút tiền, chat với Local/Admin, quản lý hồ sơ.
 - **Local**: hoàn tất eKYC demo, quản lý hồ sơ (khu vực, ngôn ngữ, chứng chỉ, ảnh, giá theo giờ), cập nhật lịch rảnh, xác nhận/từ chối/hoàn thành booking, nhận thu nhập vào ví.
-- **Admin**: thống kê, duyệt hồ sơ Local, quản lý người dùng và booking, cấu hình hoa hồng/Premium demo, xử lý rút tiền, hỗ trợ qua chat.
+- **Admin**: thống kê, duyệt hồ sơ Local, quản lý người dùng và booking, cấu hình hoa hồng/Premium demo, hỗ trợ qua chat.
 
 ## Chức năng MVP
 - Landing page giới thiệu quy trình và 3 gói trải nghiệm: Ẩm thực, Cà phê, Du lịch.
 - Danh sách công khai chỉ hiển thị hồ sơ Buddy đang hoạt động và đã được Admin xác minh.
 - Hồ sơ Buddy lấy từ MongoDB; không dùng dữ liệu mẫu dự phòng trong trang chi tiết.
 - Form yêu cầu trải nghiệm gồm ngày, khung giờ, số khách, ngôn ngữ, ngân sách phát sinh dự kiến và ghi chú; chi phí ăn uống/đi lại trong chuyến đi do Traveler thanh toán riêng.
-- Booking chỉ được gửi đến Local sau khi Traveler thanh toán trước bằng số dư ví hoặc luồng QR demo. Tiền được giữ trong ví hệ thống; Local từ chối sẽ hoàn tiền, Local đánh dấu hoàn thành sẽ chia hoa hồng và chuyển phần còn lại vào ví Local.
+- Booking chỉ được gửi đến Local sau khi Traveler thanh toán trước bằng số dư ví hoặc luồng QR demo. Tiền được giữ trong ví hệ thống; Local từ chối sẽ hoàn tiền, hoàn thành sẽ chia hoa hồng và chuyển phần còn lại vào ví Local. Backend kiểm tra mỗi phút theo giờ Việt Nam: lịch đã xác nhận được tự động hoàn thành sau giờ kết thúc; lịch còn chờ sẽ bị hủy và hoàn tiền nếu đã thanh toán. Khi backend dừng, các lịch quá hạn được xử lý lại lúc khởi động.
+- Booking cũ đã thanh toán nhưng không có giao dịch giữ tiền cần được Admin đối soát thủ công; hệ thống không tự quyết toán hoặc xác nhận các lịch thiếu trạng thái giữ tiền hợp lệ.
 - Ngăn tạo yêu cầu trùng khung giờ đang được giữ hoặc đã xác nhận; Admin và Local cũng kiểm tra xung đột trước khi xác nhận.
 - Admin duyệt hồ sơ Local sau khi Local hoàn tất eKYC demo, quản lý riêng Local/Traveler, cấu hình trạng thái Premium demo và cập nhật trạng thái đặt lịch.
 - Hồ sơ Local có thể chọn nhiều khu vực hoạt động và thêm tối đa 10 ảnh hồ sơ; Traveler chọn một khu vực. Cả hai role có thể tải ảnh đại diện, thêm nhiều ngôn ngữ và tải chứng chỉ ảnh/PDF không bắt buộc.
 - Chat realtime hỗ trợ hội thoại Traveler–Local và hộp thư hỗ trợ với Admin; tin nhắn có thể được trả lời, còn người gửi có thể chỉnh sửa hoặc xóa tin của mình.
 - Navbar có lựa chọn Tiếng Việt, Anh, Pháp, Nhật và Hàn; giao diện ví hiển thị quy đổi theo tỷ giá trực tuyến. Số dư, ghi sổ và thanh toán vẫn giữ VND.
-- Trang “Ví và giao dịch” dùng chung cho Local, Traveler và Admin. Admin có ví hệ thống và ví Admin; Local/Traveler/Admin có thể gửi yêu cầu rút tiền, Admin xử lý thủ công. Local thường và Premium demo có thể dùng tỷ lệ hoa hồng riêng.
+- Trang “Ví và giao dịch” dùng chung cho Local, Traveler và Admin. Admin có ví hệ thống và ví Admin; Local thường và Premium demo có thể dùng tỷ lệ hoa hồng riêng.
+- Lịch sử Traveler chỉ gồm nạp, rút, thanh toán đặt lịch và hoàn tiền của tài khoản đó; Local chỉ gồm nạp, rút và thu nhập của mình. Lịch sử Admin được chia thành tab ví hệ thống và ví Admin dùng chung. Giao dịch hoàn tiền cũ không tự tạo thêm bản ghi ví hệ thống.
+- Rút tiền là demo: chọn ngân hàng Việt Nam, nhập số tài khoản và số tiền VND; giao dịch hoàn tất ngay, không có kết nối chuyển khoản thực. Các yêu cầu cũ đã chờ duyệt vẫn hiện riêng cho Admin xử lý.
+- Ví và tự động quyết toán chỉ phục vụ demo; chưa có giao dịch MongoDB nguyên tử hoặc xử lý phục hồi đầy đủ khi tiến trình dừng giữa chừng, không sử dụng với tiền thật.
 - Local có thể khai báo giá dịch vụ theo giờ; Traveler lọc theo sở thích, khu vực, ngôn ngữ, ngày/giờ bắt đầu và ngân sách tối đa mỗi giờ. Thời lượng trải nghiệm được dùng khi đặt lịch và tính giá, không dùng để lọc danh sách.
 - Hồ sơ cá nhân của Local được đồng bộ sang `BuddyProfile`; tài khoản Local cũ được đồng bộ khi Admin mở danh sách hồ sơ.
 
@@ -93,6 +116,7 @@ Mở `http://localhost:5173`.
 - `GET /api/admin/bookings`, `PATCH /api/admin/bookings/:id`
 - `GET /api/wallet/overview`, `GET /api/wallet/transactions`, `GET /api/wallet/exchange-rates`
 - `POST /api/wallet/withdraw`, `PATCH /api/wallet/withdrawals/:id`, `PATCH /api/wallet/commission`
+- `GET /api/wallet/withdrawals` (Admin: danh sách yêu cầu rút đang chờ)
 - `GET /api/chat/conversations`, `GET /api/chat/support`, `GET/POST /api/chat/:otherUserId/messages`
 - `PATCH/DELETE /api/chat/messages/:messageId`
 

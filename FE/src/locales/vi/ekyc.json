@@ -1,5 +1,9 @@
 {
   "loadError": "Không tải được trạng thái eKYC.",
+  "checkingStatus": "Đang kiểm tra trạng thái xác minh...",
+  "retry": "Thử lại",
+  "travelerVerificationRequired": "Hãy hoàn thành xác thực danh tính trước khi tìm bạn đồng hành",
+  "backBuddy": "Quay lại hồ sơ Buddy",
   "finishSuccess": "Hoàn thành quy trình eKYC demo! Trạng thái tài khoản đã được cập nhật.",
   "finishError": "Không thể hoàn thành eKYC demo.",
   "backLocal": "Quay lại trang Local",

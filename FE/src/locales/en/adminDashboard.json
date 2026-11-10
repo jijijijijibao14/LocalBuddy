@@ -35,6 +35,9 @@
     "protectDesc": "Manage accounts"
   },
   "accounts": {
+    "search": "Search by name or email",
+    "filterStatus": "Filter by status",
+    "allStatuses": "All statuses",
     "title": "Account management",
     "subtitle": "Approve, suspend or activate accounts.",
     "count_one": "{{count}} account",
@@ -49,7 +52,7 @@
     "empty": "No account data yet."
   },
   "buddies": {
-    "title": "Review Food Buddy profiles",
+    "title": "Review accounts",
     "subtitle": "Only verified profiles appear in the public list.",
     "verifiedCount": "{{verified}}/{{total}} verified",
     "colInterests": "Interests",
@@ -65,6 +68,7 @@
     "verify": "Verify profile",
     "empty": "No Local service profiles yet. A Local must save their profile to create a public profile."
   },
+  "pagination": { "previous": "Previous page", "next": "Next page", "page": "Page {{page}} / {{total}}" },
   "requests": {
     "title": "Recent experience requests",
     "subtitle": "Update booking request statuses.",

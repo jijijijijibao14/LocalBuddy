@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import LocalDashboard from "./pages/LocalDashboard";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import BuddyVerificationGate from "./components/BuddyVerificationGate";
 import LocalSafetyEKYC from "./pages/LocalSafetyEKYC";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
 import WalletPage from "./pages/WalletPage";
@@ -55,7 +56,7 @@ export default function App() {
         path="/buddy/:id"
         element={
           <MainLayout>
-            <BuddyDetailPage />
+            <BuddyVerificationGate><BuddyDetailPage /></BuddyVerificationGate>
           </MainLayout>
         }
       />

@@ -3,6 +3,7 @@ const BuddyProfile = require("../models/BuddyProfile");
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const { availabilityInstant } = require("../utils/availability");
+const { bookingEndInstant } = require("../utils/bookingExpiry");
 const {
   holdBookingFunds,
   refundBookingFunds,
@@ -224,6 +225,9 @@ exports.create = async (req, res) => {
     if (paymentMethod === "Wallet") {
       const payment = await holdBookingFunds(booking, req.user._id, "Wallet");
       if (!payment.ok) {
+        if (payment.alreadyHeld) {
+          return res.status(409).json({ message: "Lịch đặt đã được xử lý hoặc không còn chờ thanh toán." });
+        }
         await Booking.deleteOne({ _id: booking._id });
         return res.status(400).json({
           message: `Số dư ví không đủ (${payment.currentBalance.toLocaleString("vi-VN")} đ). Cần ${calculatedPrice.toLocaleString("vi-VN")} đ để thanh toán.`,
@@ -374,6 +378,7 @@ exports.updateLocalStatus = async (req, res) => {
       _id: req.params.id,
       buddy: profile._id,
       status: currentStatus,
+      escrowStatus: { $ne: "Processing" },
     });
 
     if (!booking) {
@@ -386,9 +391,18 @@ exports.updateLocalStatus = async (req, res) => {
         message: "Traveler cần thanh toán trước khi Local xác nhận yêu cầu.",
       });
     }
+    if (["Confirmed", "Completed"].includes(status) && booking.escrowStatus !== "Held") {
+      return res.status(400).json({
+        message: "Tiền đặt lịch chưa được giữ hợp lệ. Vui lòng liên hệ Admin để đối soát.",
+      });
+    }
 
     // 6. Chỉ kiểm tra lịch khi Local muốn xác nhận.
     if (status === "Confirmed") {
+      const endInstant = bookingEndInstant(booking);
+      if (!endInstant || endInstant <= new Date()) {
+        return res.status(400).json({ message: "Không thể xác nhận lịch đã hết thời gian trải nghiệm." });
+      }
       const start = toMinutes(booking.startTime);
       const end = toMinutes(booking.endTime);
 
@@ -484,6 +498,9 @@ exports.updateLocalStatus = async (req, res) => {
         _id: booking._id,
         buddy: profile._id,
         status: currentStatus,
+        ...(status === "Cancelled"
+          ? { escrowStatus: { $ne: "Processing" } }
+          : { paymentStatus: "Paid", escrowStatus: "Held" }),
       },
       {
         $set: { status },
@@ -501,10 +518,13 @@ exports.updateLocalStatus = async (req, res) => {
     }
 
     try {
-      if (status === "Cancelled" && booking.escrowStatus === "Held") {
-        await refundBookingFunds(booking, `Hoàn tiền do Local từ chối đặt lịch #${booking._id}`);
-      } else if (status === "Completed" && booking.escrowStatus === "Held") {
-        await releaseBookingFunds(booking);
+      if (status === "Cancelled" && updatedBooking.escrowStatus === "Held") {
+        const refunded = await refundBookingFunds(updatedBooking, `Hoàn tiền do Local từ chối đặt lịch #${booking._id}`);
+        if (!refunded) throw new Error("Không thể hoàn tiền đặt lịch.");
+      } else if (status === "Completed") {
+        if (updatedBooking.escrowStatus !== "Held" || !(await releaseBookingFunds(updatedBooking))) {
+          throw new Error("Không thể quyết toán tiền đặt lịch.");
+        }
       }
     } catch (error) {
       await Booking.updateOne(
@@ -557,9 +577,15 @@ exports.payWithWallet = async (req, res) => {
     if (booking.status === "Cancelled") {
       return res.status(400).json({ message: "Không thể thanh toán cho lịch đặt đã bị hủy." });
     }
+    if (!bookingEndInstant(booking) || bookingEndInstant(booking) <= new Date()) {
+      return res.status(400).json({ message: "Không thể thanh toán cho lịch đã hết thời gian trải nghiệm." });
+    }
 
     const payment = await holdBookingFunds(booking, req.user._id, "Wallet");
     if (!payment.ok) {
+      if (payment.alreadyHeld) {
+        return res.status(409).json({ message: "Lịch đặt đã được xử lý hoặc không còn chờ thanh toán." });
+      }
       return res.status(400).json({
         message: `Số dư ví không đủ. Cần ${booking.price.toLocaleString("vi-VN")} đ nhưng ví hiện chỉ có ${payment.currentBalance.toLocaleString("vi-VN")} đ. Vui lòng nạp thêm tiền.`,
         insufficient: true,
@@ -590,6 +616,9 @@ exports.getBookingVNPayQR = async (req, res) => {
     }
     if (booking.paymentStatus === "Paid") {
       return res.status(400).json({ message: "Lịch đặt này đã được thanh toán trước đó." });
+    }
+    if (booking.status !== "Pending" || !bookingEndInstant(booking) || bookingEndInstant(booking) <= new Date()) {
+      return res.status(400).json({ message: "Không thể thanh toán cho lịch không còn hiệu lực." });
     }
 
     const orderId = `BK${booking._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
@@ -637,6 +666,9 @@ exports.confirmBookingVNPayQR = async (req, res) => {
         message: "Lịch đặt này đã được thanh toán.",
         booking,
       });
+    }
+    if (booking.status !== "Pending" || !bookingEndInstant(booking) || bookingEndInstant(booking) <= new Date()) {
+      return res.status(400).json({ message: "Không thể thanh toán cho lịch không còn hiệu lực." });
     }
 
     const transaction = await Transaction.findOne({

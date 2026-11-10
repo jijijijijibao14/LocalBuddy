@@ -101,6 +101,8 @@ export default function ProfilePage() {
   });
   const [avatarFile, setAvatarFile] = useState(null);
   const [profilePhotoFiles, setProfilePhotoFiles] = useState([]);
+  const [avatarRemoved, setAvatarRemoved] = useState(false);
+  const [profilePhotosChanged, setProfilePhotosChanged] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState("");
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const [certificateFiles, setCertificateFiles] = useState({});
@@ -200,8 +202,11 @@ export default function ProfilePage() {
       };
     });
     setCertificateFiles((old) => {
-      const next = { ...old };
-      delete next[index];
+      const next = {};
+      Object.entries(old).forEach(([key, file]) => {
+        const position = Number(key);
+        if (position !== index) next[position > index ? position - 1 : position] = file;
+      });
       return next;
     });
   };
@@ -246,8 +251,12 @@ export default function ProfilePage() {
           ),
         );
       }
+      if (avatarRemoved) data.append("avatar", "");
       if (avatarFile) data.append("avatarFile", avatarFile);
       if (role === "local") {
+        if (profilePhotosChanged) {
+          data.append("profilePhotos", JSON.stringify(form.profilePhotos));
+        }
         profilePhotoFiles.forEach((file) => data.append("profilePhotoFiles", file));
       }
       if (role === "local") {
@@ -266,7 +275,7 @@ export default function ProfilePage() {
       window.dispatchEvent(new Event("lb-auth-change"));
       setForm((old) => ({
         ...old,
-        avatar: response.data.user.avatar || old.avatar,
+        avatar: response.data.user.avatar ?? old.avatar,
         languages: response.data.user.languages || old.languages,
         interests: response.data.user.interests || old.interests,
         areas: response.data.user.areas || old.areas,
@@ -277,6 +286,8 @@ export default function ProfilePage() {
       }));
       setAvatarFile(null);
       setProfilePhotoFiles([]);
+      setAvatarRemoved(false);
+      setProfilePhotosChanged(false);
       setCertificateFiles({});
       setMessage(
         response.data.user.profileComplete
@@ -377,17 +388,34 @@ export default function ProfilePage() {
                 className="hidden"
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
-                onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  setAvatarFile(e.target.files?.[0] || null);
+                  e.target.value = "";
+                }}
               />
             </label>
             {(avatarFile || form.avatar) && (
-              <img
-                className="mt-2 h-24 w-24 rounded-xl object-cover"
-                src={
-                  avatarFile ? avatarPreview : uploadUrl(form.avatar)
-                }
-                alt={t("avatar")}
-              />
+              <div className="relative mt-2 w-fit">
+                <img
+                  className="h-24 w-24 rounded-xl object-cover"
+                  src={avatarFile ? avatarPreview : uploadUrl(form.avatar)}
+                  alt={t("avatar")}
+                />
+                <button
+                  type="button"
+                  disabled={saving}
+                  className="absolute right-1 top-1 rounded-full bg-white p-1.5 text-rose-700 shadow"
+                  aria-label={t("removeAvatar")}
+                  title={t("removeAvatar")}
+                  onClick={() => {
+                    setAvatarFile(null);
+                    setForm((old) => ({ ...old, avatar: "" }));
+                    setAvatarRemoved(true);
+                  }}
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                </button>
+              </div>
             )}
           </div>
           <label className="text-sm font-bold text-slate-700 sm:col-span-2">
@@ -409,9 +437,10 @@ export default function ProfilePage() {
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                   multiple
-                  onChange={(event) =>
-                    setProfilePhotoFiles(Array.from(event.target.files || []).slice(0, 10))
-                  }
+                  onChange={(event) => {
+                    setProfilePhotoFiles(Array.from(event.target.files || []).slice(0, 10));
+                    event.target.value = "";
+                  }}
                 />
                 <span className="mt-1 block text-xs font-normal text-slate-500">
                   {t("extraPhotosHint")}
@@ -419,23 +448,54 @@ export default function ProfilePage() {
                 {(profilePhotoFiles.length > 0 || form.profilePhotos?.length > 0) && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(form.profilePhotos || []).map((photo, index) => (
-                      <img
-                        key={`${photo}-${index}`}
-                        className="h-20 w-20 rounded-lg object-cover"
-                        src={uploadUrl(photo)}
-                        alt={t("photoAlt", { index: index + 1 })}
-                      />
+                      <div key={`${photo}-${index}`} className="relative">
+                        <img
+                          className="h-20 w-20 rounded-lg object-cover"
+                          src={uploadUrl(photo)}
+                          alt={t("photoAlt", { index: index + 1 })}
+                        />
+                        <button
+                          type="button"
+                          disabled={saving}
+                          className="absolute right-1 top-1 rounded-full bg-white p-1.5 text-rose-700 shadow"
+                          aria-label={t("removePhoto", { index: index + 1 })}
+                          title={t("removePhoto", { index: index + 1 })}
+                          onClick={() => {
+                            setForm((old) => ({
+                              ...old,
+                              profilePhotos: old.profilePhotos.filter((_, i) => i !== index),
+                            }));
+                            setProfilePhotosChanged(true);
+                          }}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
                     ))}
                     {profilePhotoFiles.map((photo, index) => (
-                      <img
-                        key={`${photo.name}-${index}`}
-                        className="h-20 w-20 rounded-lg object-cover"
-                        src={photoPreviews[index]}
-                        alt={t("newPhotoAlt", { index: index + 1 })}
-                      />
+                      <div key={`${photo.name}-${index}`} className="relative">
+                        <img
+                          className="h-20 w-20 rounded-lg object-cover"
+                          src={photoPreviews[index]}
+                          alt={t("newPhotoAlt", { index: index + 1 })}
+                        />
+                        <button
+                          type="button"
+                          disabled={saving}
+                          className="absolute right-1 top-1 rounded-full bg-white p-1.5 text-rose-700 shadow"
+                          aria-label={t("removeNewPhoto", { index: index + 1 })}
+                          title={t("removeNewPhoto", { index: index + 1 })}
+                          onClick={() => setProfilePhotoFiles((files) => files.filter((_, i) => i !== index))}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 )}
+                <span className="mt-2 block text-xs font-normal text-slate-500">
+                  {t("photoRemovalHint")}
+                </span>
               </div>
               <div className="sm:col-span-2 rounded-xl border border-slate-200 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -471,20 +531,45 @@ export default function ProfilePage() {
                         className="field mt-1 text-xs"
                         type="file"
                         accept="image/png,image/jpeg,image/webp,application/pdf"
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setCertificateFiles((old) => ({
                             ...old,
                             [index]: e.target.files?.[0] || null,
-                          }))
-                        }
+                          }));
+                          e.target.value = "";
+                        }}
                       />
                       {(certificateFiles[index] || row.certificateUrl) && (
                         <span className="mt-1 block font-normal text-emerald-700">
                           {certificateFiles[index]?.name ||
                             t("certUploaded")}
+                          {!certificateFiles[index] && row.certificateUrl && (
+                            <> · <a className="underline" href={uploadUrl(row.certificateUrl)} target="_blank" rel="noreferrer">{t("viewCertificate")}</a></>
+                          )}
                         </span>
                       )}
                     </label>
+                    {(certificateFiles[index] || row.certificateUrl) && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        className="btn-light !px-3"
+                        onClick={() => {
+                          setCertificateFiles((old) => {
+                            const next = { ...old };
+                            delete next[index];
+                            return next;
+                          });
+                          setForm((old) => ({
+                            ...old,
+                            languageCertificates: old.languageCertificates.map((item, i) =>
+                              i === index ? { ...item, certificateUrl: "" } : item),
+                          }));
+                        }}
+                      >
+                        <Trash2 size={16} aria-hidden="true" /> {t("removeCertificate")}
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="btn-light !px-3"

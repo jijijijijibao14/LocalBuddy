@@ -167,7 +167,7 @@ export default function BookingPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/60 p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl transition-all">
+      <div className="relative w-full max-h-[90dvh] max-w-md overflow-y-auto overflow-x-hidden rounded-3xl bg-white shadow-2xl transition-all">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-[#075f88] via-[#0e7490] to-[#059669] p-6 text-white">
           <button

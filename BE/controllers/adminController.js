@@ -3,6 +3,7 @@ const BuddyProfile = require("../models/BuddyProfile");
 const Booking = require("../models/Booking");
 const Transaction = require("../models/Transaction");
 const { refundBookingFunds, releaseBookingFunds } = require("../utils/walletLedger");
+const { bookingEndInstant } = require("../utils/bookingExpiry");
 
 exports.stats = async (req, res) => {
   const [users, buddies, bookings, transactions] = await Promise.all([
@@ -18,12 +19,11 @@ exports.users = async (req, res) =>
   res.json(
     await User.find({ role: { $in: ["local", "traveler"] } })
       .select("-password")
-      .sort({ createdAt: -1 })
-      .limit(200),
+      .sort({ createdAt: -1 }),
   );
 
 exports.updateUser = async (req, res) => {
-  const allowed = ["Active", "Pending Approval", "Rejected", "Suspended"];
+  const allowed = ["Active", "Suspended"];
   if (!allowed.includes(req.body.status))
     return res.status(400).json({ message: "Trạng thái không hợp lệ." });
   if (String(req.user._id) === req.params.id && req.body.status !== "Active") {
@@ -49,7 +49,7 @@ exports.updateUser = async (req, res) => {
 
 exports.buddies = async (req, res) => {
   // Tạo hồ sơ công khai cho các tài khoản Local cũ chưa được đồng bộ.
-  const locals = await User.find({ role: "local" }).limit(200);
+  const locals = await User.find({ role: "local" });
   const interestMap = {
     "Ẩm thực": "Ẩm thực",
     "ẩm thực": "Ẩm thực",
@@ -99,8 +99,7 @@ exports.buddies = async (req, res) => {
         "user",
         "fullName email phone kycStatus status interests languages city areas bio profilePhotos isPremium",
       )
-      .sort({ createdAt: -1 })
-      .limit(200),
+      .sort({ createdAt: -1 }),
   );
 };
 
@@ -172,6 +171,15 @@ exports.updateBooking = async (req, res) => {
         message: "Traveler cần thanh toán trước khi xác nhận yêu cầu.",
       });
     }
+    if (current.escrowStatus !== "Held") {
+      return res.status(400).json({
+        message: "Tiền đặt lịch chưa được giữ hợp lệ. Vui lòng đối soát giao dịch trước khi xác nhận.",
+      });
+    }
+    const endInstant = bookingEndInstant(current);
+    if (!endInstant || endInstant <= new Date()) {
+      return res.status(400).json({ message: "Không thể xác nhận lịch đã hết thời gian trải nghiệm." });
+    }
     const conflict = await Booking.findOne({
       _id: { $ne: current._id },
       buddy: current.buddy,
@@ -198,17 +206,37 @@ exports.updateBooking = async (req, res) => {
       message: "Chỉ quyết toán yêu cầu đã được thanh toán.",
     });
   }
+  if (req.body.status === "Completed" && current.escrowStatus !== "Held") {
+    return res.status(400).json({
+      message: "Tiền đặt lịch chưa được giữ hợp lệ. Vui lòng đối soát giao dịch trước khi quyết toán.",
+    });
+  }
   if (req.body.status === "Cancelled" && !["Pending", "Confirmed"].includes(current.status)) {
     return res.status(400).json({ message: "Không thể hủy yêu cầu ở trạng thái này." });
   }
   const previousStatus = current.status;
-  current.status = req.body.status;
-  await current.save();
+  const claimed = await Booking.findOneAndUpdate(
+    {
+      _id: current._id,
+      status: previousStatus,
+      ...(req.body.status === "Cancelled"
+        ? { escrowStatus: { $ne: "Processing" } }
+        : { paymentStatus: "Paid", escrowStatus: "Held" }),
+    },
+    { $set: { status: req.body.status } },
+    { new: true },
+  );
+  if (!claimed) {
+    return res.status(409).json({ message: "Yêu cầu đã được xử lý hoặc không còn tồn tại." });
+  }
   try {
-    if (req.body.status === "Cancelled" && current.escrowStatus === "Held") {
-      await refundBookingFunds(current, `Hoàn tiền do Admin hủy đặt lịch #${current._id}`);
-    } else if (req.body.status === "Completed" && current.escrowStatus === "Held") {
-      await releaseBookingFunds(current);
+    if (req.body.status === "Cancelled" && claimed.escrowStatus === "Held") {
+      const refunded = await refundBookingFunds(claimed, `Hoàn tiền do Admin hủy đặt lịch #${claimed._id}`);
+      if (!refunded) throw new Error("Không thể hoàn tiền đặt lịch.");
+    } else if (req.body.status === "Completed") {
+      if (claimed.escrowStatus !== "Held" || !(await releaseBookingFunds(claimed))) {
+        throw new Error("Không thể quyết toán tiền đặt lịch.");
+      }
     }
   } catch (error) {
     await Booking.updateOne(

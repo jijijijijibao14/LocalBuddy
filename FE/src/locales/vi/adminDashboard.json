@@ -35,6 +35,9 @@
     "protectDesc": "Quản lý tài khoản"
   },
   "accounts": {
+    "search": "Tìm theo tên hoặc email",
+    "filterStatus": "Lọc theo trạng thái",
+    "allStatuses": "Tất cả trạng thái",
     "title": "Quản lý tài khoản",
     "subtitle": "Duyệt, tạm khóa hoặc kích hoạt tài khoản.",
     "count_one": "{{count}} tài khoản",
@@ -49,7 +52,7 @@
     "empty": "Chưa có dữ liệu tài khoản."
   },
   "buddies": {
-    "title": "Duyệt hồ sơ Food Buddy",
+    "title": "Duyệt tài khoản",
     "subtitle": "Chỉ hồ sơ đã xác minh mới xuất hiện trong danh sách công khai.",
     "verifiedCount": "{{verified}}/{{total}} đã xác minh",
     "colInterests": "Sở thích",
@@ -65,6 +68,7 @@
     "verify": "Xác minh hồ sơ",
     "empty": "Chưa có hồ sơ dịch vụ Local. Local cần lưu hồ sơ để tạo hồ sơ công khai."
   },
+  "pagination": { "previous": "Trang trước", "next": "Trang tiếp", "page": "Trang {{page}} / {{total}}" },
   "requests": {
     "title": "Yêu cầu trải nghiệm gần đây",
     "subtitle": "Cập nhật trạng thái yêu cầu đặt lịch.",

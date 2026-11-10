@@ -1,5 +1,9 @@
 {
   "loadError": "eKYC 상태를 불러오지 못했습니다.",
+  "checkingStatus": "인증 상태를 확인하는 중...",
+  "retry": "다시 시도",
+  "travelerVerificationRequired": "동행인을 찾기 전에 본인 인증을 완료해 주세요.",
+  "backBuddy": "Buddy 프로필로 돌아가기",
   "finishSuccess": "eKYC 데모 절차를 완료했습니다! 계정 상태가 업데이트되었습니다.",
   "finishError": "eKYC 데모를 완료할 수 없습니다.",
   "backLocal": "Local 페이지로 돌아가기",

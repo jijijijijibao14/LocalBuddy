@@ -14,6 +14,7 @@ async function holdBookingFunds(booking, userId, paymentMethod, recordPayment = 
   const claimed = await booking.constructor.findOneAndUpdate(
     {
       _id: booking._id,
+      status: "Pending",
       paymentStatus: "Unpaid",
       escrowStatus: { $in: ["None", null] },
     },
@@ -147,26 +148,41 @@ async function refundBookingFunds(booking, reason) {
     );
     throw new Error("Số dư ví hệ thống không đủ để hoàn tiền.");
   }
+  let credited = false;
   try {
-    await User.updateOne(
+    const creditResult = await User.updateOne(
       { _id: booking.customer },
       { $inc: { walletBalance: booking.price } },
     );
-    await Transaction.create({
-      user: booking.customer,
-      booking: booking._id,
-      type: "Refund",
-      amount: booking.price,
-      status: "Completed",
-      paymentMethod: "Wallet",
-      description: reason || `Hoàn tiền đặt lịch #${booking._id}`,
-    });
+    if (!creditResult.matchedCount) throw new Error("Không tìm thấy tài khoản Traveler để hoàn tiền.");
+    credited = true;
+    await Transaction.create([
+      {
+        user: booking.customer,
+        booking: booking._id,
+        type: "Refund",
+        amount: booking.price,
+        status: "Completed",
+        paymentMethod: "Wallet",
+        description: reason || `Hoàn tiền đặt lịch #${booking._id}`,
+      },
+      {
+        user: booking.customer,
+        booking: booking._id,
+        type: "Escrow",
+        amount: booking.price,
+        status: "Refunded",
+        walletOwner: "System",
+        paymentMethod: "Wallet",
+        description: `Hoàn tiền từ ví hệ thống cho đặt lịch #${booking._id}`,
+      },
+    ]);
   } catch (error) {
     await Promise.all([
-      User.updateOne(
+      ...(credited ? [User.updateOne(
         { _id: booking.customer, walletBalance: { $gte: booking.price } },
         { $inc: { walletBalance: -booking.price } },
-      ),
+      )] : []),
       WalletSettings.updateOne(
         { _id: settings._id },
         { $inc: { systemBalance: booking.price } },
@@ -176,6 +192,13 @@ async function refundBookingFunds(booking, reason) {
         { $set: { escrowStatus: "Held", paymentStatus: "Paid" } },
       ),
     ]);
+    await Transaction.deleteMany({
+      booking: booking._id,
+      $or: [
+        { type: "Refund", status: "Completed" },
+        { type: "Escrow", walletOwner: "System", status: "Refunded" },
+      ],
+    });
     throw error;
   }
   return true;
@@ -218,15 +241,24 @@ async function releaseBookingFunds(booking) {
     : settings.standardCommissionPercent;
   const commission = Math.round((booking.price * rate) / 100);
   const localAmount = booking.price - commission;
-  const systemDebit = await WalletSettings.updateOne(
-    { _id: settings._id, systemBalance: { $gte: booking.price } },
-    {
-      $inc: {
-        systemBalance: -booking.price,
-        adminBalance: commission,
+  let systemDebit;
+  try {
+    systemDebit = await WalletSettings.updateOne(
+      { _id: settings._id, systemBalance: { $gte: booking.price } },
+      {
+        $inc: {
+          systemBalance: -booking.price,
+          adminBalance: commission,
+        },
       },
-    },
-  );
+    );
+  } catch (error) {
+    await booking.constructor.updateOne(
+      { _id: booking._id, escrowStatus: "Released" },
+      { $set: { escrowStatus: "Held" } },
+    );
+    throw error;
+  }
   if (!systemDebit.modifiedCount) {
     await booking.constructor.updateOne(
       { _id: booking._id },
@@ -234,48 +266,51 @@ async function releaseBookingFunds(booking) {
     );
     throw new Error("Số dư ví hệ thống không đủ để quyết toán.");
   }
+  let credited = false;
   try {
-    await User.updateOne(
+    const creditResult = await User.updateOne(
       { _id: buddy.user._id },
       { $inc: { walletBalance: localAmount } },
     );
+    if (!creditResult.matchedCount) throw new Error("Không tìm thấy tài khoản Local để quyết toán.");
+    credited = true;
     await Transaction.create([
       {
-      user: buddy.user._id,
-      booking: booking._id,
-      type: "Earning",
-      amount: localAmount,
-      status: "Completed",
-      paymentMethod: "Wallet",
-      description: `Thu nhập sau hoa hồng từ đặt lịch #${booking._id}`,
-    },
+        user: buddy.user._id,
+        booking: booking._id,
+        type: "Earning",
+        amount: localAmount,
+        status: "Completed",
+        paymentMethod: "Wallet",
+        description: `Thu nhập sau hoa hồng từ đặt lịch #${booking._id}`,
+      },
       {
-      user: adminUser?._id || buddy.user._id,
-      booking: booking._id,
-      type: "Commission",
-      amount: commission,
-      status: "Completed",
-      walletOwner: "Admin",
-      paymentMethod: "Wallet",
-      description: `Hoa hồng ${rate}% từ đặt lịch #${booking._id}`,
-    },
+        user: adminUser?._id || buddy.user._id,
+        booking: booking._id,
+        type: "Commission",
+        amount: commission,
+        status: "Completed",
+        walletOwner: "Admin",
+        paymentMethod: "Wallet",
+        description: `Hoa hồng ${rate}% từ đặt lịch #${booking._id}`,
+      },
       {
-      user: buddy.user._id,
-      booking: booking._id,
-      type: "Escrow",
-      amount: booking.price,
-      status: "Completed",
-      walletOwner: "System",
-      paymentMethod: "Wallet",
-      description: `Giải ngân đặt lịch #${booking._id}`,
+        user: buddy.user._id,
+        booking: booking._id,
+        type: "Escrow",
+        amount: booking.price,
+        status: "Completed",
+        walletOwner: "System",
+        paymentMethod: "Wallet",
+        description: `Giải ngân đặt lịch #${booking._id}`,
       },
     ]);
   } catch (error) {
     await Promise.all([
-      User.updateOne(
+      ...(credited ? [User.updateOne(
         { _id: buddy.user._id, walletBalance: { $gte: localAmount } },
         { $inc: { walletBalance: -localAmount } },
-      ),
+      )] : []),
       WalletSettings.updateOne(
         { _id: settings._id },
         {

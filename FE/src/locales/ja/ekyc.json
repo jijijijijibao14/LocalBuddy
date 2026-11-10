@@ -1,5 +1,9 @@
 {
   "loadError": "eKYCのステータスを読み込めませんでした。",
+  "checkingStatus": "確認状況を確認しています...",
+  "retry": "再試行",
+  "travelerVerificationRequired": "同行者を探す前に本人確認を完了してください。",
+  "backBuddy": "Buddy プロフィールに戻る",
   "finishSuccess": "eKYCデモの手続きが完了しました！アカウントのステータスが更新されました。",
   "finishError": "eKYCデモを完了できませんでした。",
   "backLocal": "Local ページに戻る",

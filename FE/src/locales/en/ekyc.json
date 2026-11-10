@@ -1,5 +1,9 @@
 {
   "loadError": "Could not load the eKYC status.",
+  "checkingStatus": "Checking verification status...",
+  "retry": "Try again",
+  "travelerVerificationRequired": "Please complete identity verification before finding a companion.",
+  "backBuddy": "Back to the Buddy profile",
   "finishSuccess": "Demo eKYC process completed! Your account status has been updated.",
   "finishError": "Unable to complete the eKYC demo.",
   "backLocal": "Back to Local page",
