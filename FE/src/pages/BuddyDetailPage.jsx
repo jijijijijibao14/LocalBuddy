@@ -15,10 +15,11 @@ import {
   QrCode,
 } from "lucide-react";
 import { useParams, Link, useSearchParams, useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { mediaUrl } from "../services/api";
 import BookingPaymentModal from "../components/BookingPaymentModal";
 import WalletTopUpModal from "../components/WalletTopUpModal";
 import ChatModal from "../components/ChatModal";
+import CertificateModal from "../components/CertificateModal";
 import { useLocale } from "../contexts/LocaleContext";
 import { useTranslation } from "react-i18next";
 
@@ -30,6 +31,8 @@ export default function BuddyDetailPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const [buddy, setBuddy] = useState(null);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const certificateButtonRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState(
     searchParams.get("date") || ""
@@ -309,7 +312,7 @@ export default function BuddyDetailPage() {
           <section className="panel overflow-hidden">
             <div className="relative">
               <img
-                src={buddy.coverImage}
+                src={mediaUrl(buddy.coverImage)}
                 alt={buddy.fullName}
                 className="h-[250px] w-full object-cover sm:h-[340px]"
               />
@@ -374,16 +377,34 @@ export default function BuddyDetailPage() {
                     <Languages size={16} className="text-brand" />
                     {t("communicationLanguages")}
                   </h3>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(buddy.languages || ["Tiếng Việt"]).map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-md bg-white px-2 py-1.5 text-xs"
-                      >
-                        {!buddy.languages && item === "Tiếng Việt" ? t("vietnamese") : item}
-                      </span>
-                    ))}
-                  </div>
+                  <ul className="mt-3 space-y-2">
+                    {(buddy.languages || ["Tiếng Việt"]).map((item) => {
+                      const certificates = (buddy.languageCertificates || []).filter(
+                        (certificate) => certificate.language === item && certificate.certificateUrl,
+                      );
+                      return (
+                        <li key={item} className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-md bg-white px-2 py-1.5 text-xs">
+                            {!buddy.languages && item === "Tiếng Việt" ? t("vietnamese") : item}
+                          </span>
+                          {certificates.map((certificate, index) => (
+                            <button
+                              key={`${certificate.certificateUrl}-${index}`}
+                              type="button"
+                              className="text-xs text-brand underline"
+                              aria-label={t("openCertificate", { language: item })}
+                              onClick={(event) => {
+                                certificateButtonRef.current = event.currentTarget;
+                                setSelectedCertificate(certificate);
+                              }}
+                            >
+                              {t("viewCertificate")}{certificates.length > 1 ? ` ${index + 1}` : ""}
+                            </button>
+                          ))}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
                 <div className="rounded-xl bg-blue-50 p-4">
                   <h3 className="flex items-center gap-2 text-sm font-extrabold">
@@ -404,7 +425,7 @@ export default function BuddyDetailPage() {
                     {buddy.photos.map((photo, index) => (
                       <a
                         key={`${photo}-${index}`}
-                        href={photo}
+                        href={mediaUrl(photo)}
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={t("openPhoto", { index: index + 1, name: buddy.fullName })}
@@ -414,7 +435,7 @@ export default function BuddyDetailPage() {
                           {t("photoUnavailable")}
                         </span>
                         <img
-                          src={photo}
+                          src={mediaUrl(photo)}
                           alt={t("photoAlt", { index: index + 1, name: buddy.fullName })}
                           className="relative h-full w-full object-cover"
                           loading="lazy"
@@ -899,6 +920,16 @@ export default function BuddyDetailPage() {
         </aside>
       </div>
 
+      {selectedCertificate && (
+        <CertificateModal
+          certificate={selectedCertificate}
+          t={t}
+          onClose={() => {
+            setSelectedCertificate(null);
+            certificateButtonRef.current?.focus();
+          }}
+        />
+      )}
       {/* Modal thanh toán VNPAY-QR / Ví */}
       <BookingPaymentModal
         isOpen={isPayModalOpen}

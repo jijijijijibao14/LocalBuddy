@@ -8,7 +8,7 @@ import {
   Loader2,
   MoreVertical,
 } from "lucide-react";
-import api, { API_BASE_URL } from "../services/api";
+import api, { API_BASE_URL, mediaUrl } from "../services/api";
 import { getSocket } from "../utils/socket";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
@@ -382,7 +382,7 @@ export default function ChatModal({ otherUser, currentUser, onClose }) {
           <div className="relative shrink-0">
             {otherUser.avatar ? (
               <img
-                src={otherUser.avatar}
+                src={mediaUrl(otherUser.avatar)}
                 alt={otherUser.fullName}
                 className="h-9 w-9 rounded-full object-cover ring-2 ring-white/30"
               />
@@ -485,7 +485,7 @@ export default function ChatModal({ otherUser, currentUser, onClose }) {
                     <div className="mr-2 mt-auto shrink-0">
                       {otherUser.avatar ? (
                         <img
-                          src={otherUser.avatar}
+                          src={mediaUrl(otherUser.avatar)}
                           alt=""
                           className="h-6 w-6 rounded-full object-cover"
                         />

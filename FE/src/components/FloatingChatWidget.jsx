@@ -12,7 +12,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import api, { API_BASE_URL } from "../services/api";
+import api, { API_BASE_URL, mediaUrl } from "../services/api";
 import { getSocket } from "../utils/socket";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
@@ -499,7 +499,7 @@ export default function FloatingChatWidget() {
                 <div className="relative shrink-0">
                   {activeChatUser.avatar ? (
                     <img
-                      src={activeChatUser.avatar}
+                      src={mediaUrl(activeChatUser.avatar)}
                       alt=""
                       className="h-8 w-8 rounded-full object-cover ring-2 ring-white/30"
                     />
@@ -607,7 +607,7 @@ export default function FloatingChatWidget() {
                           <div className="mr-1.5 mt-auto shrink-0">
                             {activeChatUser.avatar ? (
                               <img
-                                src={activeChatUser.avatar}
+                                src={mediaUrl(activeChatUser.avatar)}
                                 alt=""
                                 className="h-5 w-5 rounded-full object-cover"
                               />
@@ -756,7 +756,7 @@ export default function FloatingChatWidget() {
                         <div className="relative shrink-0">
                           {other.avatar ? (
                             <img
-                              src={other.avatar}
+                              src={mediaUrl(other.avatar)}
                               alt=""
                               className="h-10 w-10 rounded-full object-cover"
                             />

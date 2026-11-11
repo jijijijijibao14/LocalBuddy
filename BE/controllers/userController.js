@@ -239,7 +239,7 @@ exports.updateMyProfile = async (req, res) => {
         data: file.buffer,
       });
       uploadedIds.push(stored._id);
-      const fileUrl = `${req.protocol}://${req.get("host")}/media/${stored._id}`;
+      const fileUrl = `/media/${stored._id}`;
       if (file.fieldname === "avatarFile") user.avatar = fileUrl;
       if (file.fieldname === "profilePhotoFiles") {
         user.profilePhotos = [...(user.profilePhotos || []), fileUrl].slice(-10);

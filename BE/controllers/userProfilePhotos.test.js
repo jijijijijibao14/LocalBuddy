@@ -46,8 +46,8 @@ test("stores a certificate in MongoDB and syncs its URL", async (t) => {
   }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(create.mock.calls[0].arguments[0].contentType, "application/pdf");
-  assert.equal(res.body.user.languageCertificates[0].certificateUrl, "https://api.example.com/media/aaaaaaaaaaaaaaaaaaaaaaaa");
-  assert.equal(sync.mock.calls[0].arguments[1].$set.languageCertificates[0].certificateUrl, "https://api.example.com/media/aaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(res.body.user.languageCertificates[0].certificateUrl, "/media/aaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(sync.mock.calls[0].arguments[1].$set.languageCertificates[0].certificateUrl, "/media/aaaaaaaaaaaaaaaaaaaaaaaa");
 });
 
 test("deletes unreferenced MongoDB media owned by the user after saving", async (t) => {
@@ -96,7 +96,7 @@ for (const scenario of [
     body: { profilePhotos: JSON.stringify(["/uploads/two.jpg"]) },
     files: [{ fieldname: "profilePhotoFiles", originalname: "new.jpg", buffer: Buffer.from("photo") }],
     avatar: "/uploads/avatar.jpg",
-    photos: ["/uploads/two.jpg", "http://localhost:3001/media/aaaaaaaaaaaaaaaaaaaaaaaa"],
+    photos: ["/uploads/two.jpg", "/media/aaaaaaaaaaaaaaaaaaaaaaaa"],
   },
   {
     name: "keeps photos when no removal is requested",
@@ -109,7 +109,7 @@ for (const scenario of [
     name: "replaces an avatar after removing the old one",
     body: { avatar: "" },
     files: [{ fieldname: "avatarFile", originalname: "new.jpg", buffer: Buffer.from("photo") }],
-    avatar: "http://localhost:3001/media/aaaaaaaaaaaaaaaaaaaaaaaa",
+    avatar: "/media/aaaaaaaaaaaaaaaaaaaaaaaa",
     photos: ["/uploads/one.jpg", "/uploads/two.jpg"],
   },
 ]) {

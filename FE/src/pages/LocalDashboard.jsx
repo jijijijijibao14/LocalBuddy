@@ -11,7 +11,7 @@ import {
   Star,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import api from "../services/api";
+import api, { mediaUrl } from "../services/api";
 import ConversationList from "../components/ConversationList";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
@@ -509,16 +509,6 @@ export default function LocalDashboard() {
                   </button>
                 </div>
               )}
-              {booking.status === "Confirmed" && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    className="btn-primary"
-                    onClick={() => updateBooking(booking._id, "Completed")}
-                  >
-                    <CheckCircle2 size={16} /> {t("actions.complete")}
-                  </button>
-                </div>
-              )}
               {booking.customer?._id && (
                 <button
                   className="btn-light mt-3"
@@ -542,7 +532,7 @@ export default function LocalDashboard() {
       {/* {profile && (
         <section className="panel flex flex-wrap items-center gap-4 p-5">
           <img
-            src={profile.coverImage}
+            src={mediaUrl(profile.coverImage)}
             alt={profile.fullName}
             className="h-20 w-28 rounded-xl object-cover"
           />

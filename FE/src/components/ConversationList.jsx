@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { MessageCircle, RefreshCw, Loader2 } from "lucide-react";
-import api, { API_BASE_URL } from "../services/api";
+import api, { API_BASE_URL, mediaUrl } from "../services/api";
 import ChatModal from "./ChatModal";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n";
@@ -166,7 +166,7 @@ export default function ConversationList({ currentUser }) {
                   <div className="relative shrink-0">
                     {other.avatar ? (
                       <img
-                        src={other.avatar}
+                        src={mediaUrl(other.avatar)}
                         alt={other.fullName}
                         className="h-11 w-11 rounded-full object-cover"
                       />
@@ -225,4 +225,3 @@ export default function ConversationList({ currentUser }) {
     </section>
   );
 }
-

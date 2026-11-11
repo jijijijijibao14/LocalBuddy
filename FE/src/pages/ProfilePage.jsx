@@ -8,9 +8,10 @@ import {
   Trash2,
   Upload,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import api, { API_BASE_URL } from "../services/api";
+import api, { mediaUrl } from "../services/api";
 
 const AREAS = [
   "Hải Châu",
@@ -41,13 +42,6 @@ const INTERESTS = [
   { value: "cà phê", labelKey: "interests.coffee" },
   { value: "du lịch", labelKey: "interests.travel" },
 ];
-const uploadUrl = (url) =>
-  !url
-    ? ""
-    : url.startsWith("http")
-      ? url
-      : `${API_BASE_URL.replace(/\/api\/?$/, "")}${url}`;
-
 function MultiSelectDropdown({ options, value, onChange, placeholder }) {
   const selectedLabels = options
     .filter((option) => value.includes(option.value))
@@ -398,7 +392,7 @@ export default function ProfilePage() {
               <div className="relative mt-2 w-fit">
                 <img
                   className="h-24 w-24 rounded-xl object-cover"
-                  src={avatarFile ? avatarPreview : uploadUrl(form.avatar)}
+                  src={avatarFile ? avatarPreview : mediaUrl(form.avatar)}
                   alt={t("avatar")}
                 />
                 <button
@@ -432,16 +426,26 @@ export default function ProfilePage() {
             <>
               <div className="text-sm font-bold text-slate-700 sm:col-span-2">
                 {t("extraPhotos")}
-                <input
-                  className="field mt-2"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  multiple
-                  onChange={(event) => {
-                    setProfilePhotoFiles(Array.from(event.target.files || []).slice(0, 10));
-                    event.target.value = "";
-                  }}
-                />
+                <label className="field mt-2 flex cursor-pointer items-center gap-2">
+                  <span className="shrink-0 rounded border border-slate-300 bg-white px-2 py-1">{t("chooseFile")}</span>
+                  <span className="min-w-0 truncate font-normal">
+                    {profilePhotoFiles.length
+                      ? t("selectedPhotos", { count: profilePhotoFiles.length })
+                      : t("noFileSelected")}
+                  </span>
+                  <input
+                    className="sr-only"
+                    aria-label={t("extraPhotos")}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={(event) => {
+                      const files = Array.from(event.target.files || []);
+                      if (files.length) setProfilePhotoFiles(files.slice(0, 10));
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
                 <span className="mt-1 block text-xs font-normal text-slate-500">
                   {t("extraPhotosHint")}
                 </span>
@@ -451,7 +455,7 @@ export default function ProfilePage() {
                       <div key={`${photo}-${index}`} className="relative">
                         <img
                           className="h-20 w-20 rounded-lg object-cover"
-                          src={uploadUrl(photo)}
+                          src={mediaUrl(photo)}
                           alt={t("photoAlt", { index: index + 1 })}
                         />
                         <button
@@ -525,35 +529,37 @@ export default function ProfilePage() {
                         ))}
                       </select>
                     </label>
-                    <label className="text-xs font-bold text-slate-600">
-                      {t("certFile")}
-                      <input
-                        className="field mt-1 text-xs"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,application/pdf"
-                        onChange={(e) => {
-                          setCertificateFiles((old) => ({
-                            ...old,
-                            [index]: e.target.files?.[0] || null,
-                          }));
-                          e.target.value = "";
-                        }}
-                      />
-                      {(certificateFiles[index] || row.certificateUrl) && (
-                        <span className="mt-1 block font-normal text-emerald-700">
-                          {certificateFiles[index]?.name ||
-                            t("certUploaded")}
-                          {!certificateFiles[index] && row.certificateUrl && (
-                            <> · <a className="underline" href={uploadUrl(row.certificateUrl)} target="_blank" rel="noreferrer">{t("viewCertificate")}</a></>
-                          )}
+                    <div className="min-w-0 text-xs font-bold text-slate-600">
+                      <span>{t("certFile")}</span>
+                      <div className="field mt-1 flex items-center gap-2 text-xs">
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                        <span className="shrink-0 rounded border border-slate-300 bg-white px-2 py-1">{t("chooseFile")}</span>
+                        <span className="min-w-0 truncate font-normal">
+                          {certificateFiles[index]?.name || (row.certificateUrl ? t("certUploaded") : t("noFileSelected"))}
                         </span>
-                      )}
-                    </label>
-                    {(certificateFiles[index] || row.certificateUrl) && (
+                        <input
+                          className="sr-only"
+                          aria-label={`${t("certFile")} - ${t(`languages.${row.language}`)}`}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,application/pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setCertificateFiles((old) => ({
+                              ...old,
+                              [index]: file,
+                            }));
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                      {(certificateFiles[index] || row.certificateUrl) && (
                       <button
                         type="button"
                         disabled={saving}
-                        className="btn-light !px-3"
+                        className="shrink-0 rounded p-1 text-slate-600 hover:bg-slate-200"
+                        aria-label={t("removeCertificate")}
+                        title={t("removeCertificate")}
                         onClick={() => {
                           setCertificateFiles((old) => {
                             const next = { ...old };
@@ -567,16 +573,22 @@ export default function ProfilePage() {
                           }));
                         }}
                       >
-                        <Trash2 size={16} aria-hidden="true" /> {t("removeCertificate")}
+                        <X size={16} aria-hidden="true" />
                       </button>
-                    )}
+                      )}
+                      </div>
+                      {!certificateFiles[index] && row.certificateUrl && (
+                        <a className="mt-1 inline-block font-normal text-emerald-700 underline" href={mediaUrl(row.certificateUrl)} target="_blank" rel="noreferrer">{t("viewCertificate")}</a>
+                      )}
+                    </div>
                     <button
                       type="button"
                       className="btn-light !px-3"
                       onClick={() => removeLanguage(index)}
                       aria-label={t("removeLanguage")}
+                      title={t("removeLanguage")}
                     >
-                      <Trash2 size={15} />
+                      <Trash2 size={15} aria-hidden="true" />
                     </button>
                   </div>
                 ))}

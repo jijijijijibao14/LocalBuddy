@@ -2,6 +2,7 @@ import { MapPin, Star, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useLocale } from "../contexts/LocaleContext";
 import { useTranslation } from "react-i18next";
+import { mediaUrl } from "../services/api";
 
 export default function BuddyCard({
   buddy,
@@ -28,7 +29,7 @@ export default function BuddyCard({
         <div className="relative overflow-hidden">
           <img
             className="buddy-image transition duration-300 group-hover:scale-[1.02]"
-            src={buddy.coverImage || "/placeholder.jpg"}
+            src={mediaUrl(buddy.coverImage) || "/placeholder.jpg"}
             alt={buddy.fullName || "Local Buddy"}
           />
 

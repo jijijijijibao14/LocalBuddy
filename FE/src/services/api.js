@@ -1,8 +1,10 @@
 import axios from "axios";
+import { resolveMediaUrl } from "../utils/mediaUrl";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const apiBaseUrl = configuredApiUrl || (import.meta.env.DEV ? "http://localhost:3001/api" : "");
 export const API_BASE_URL = apiBaseUrl.replace(/\/+$/, "");
+export const mediaUrl = (value) => resolveMediaUrl(value, API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL || undefined,
