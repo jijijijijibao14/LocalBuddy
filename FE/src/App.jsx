@@ -11,15 +11,32 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import BuddyVerificationGate from "./components/BuddyVerificationGate";
 import LocalSafetyEKYC from "./pages/LocalSafetyEKYC";
 import VNPayReturnPage from "./pages/VNPayReturnPage";
+import PayOSReturnPage from "./pages/PayOSReturnPage";
 import WalletPage from "./pages/WalletPage";
 export default function App() {
   return (
     <Routes>
       <Route
+        path="/payment/payos-return"
+        element={
+          <MainLayout>
+            <PayOSReturnPage />
+          </MainLayout>
+        }
+      />
+      <Route
+        path="/payment/payos-cancel"
+        element={
+          <MainLayout>
+            <PayOSReturnPage />
+          </MainLayout>
+        }
+      />
+      <Route
         path="/payment/vnpay-return"
         element={
           <MainLayout>
-            <VNPayReturnPage />
+            <PayOSReturnPage />
           </MainLayout>
         }
       />

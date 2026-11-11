@@ -27,14 +27,13 @@ export default function BookingPaymentModal({
 }) {
   const { formatCurrency } = useLocale();
   const { t } = useTranslation("payment");
-  const [method, setMethod] = useState("Wallet"); // 'Wallet' | 'VNPAY_QR'
+  const [method, setMethod] = useState("Wallet"); // 'Wallet' | 'PAYOS_QR' | 'VNPAY_QR'
   const [step, setStep] = useState(initialStep); // 'select' | 'qr_view' | 'success'
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [error, setError] = useState("");
   const [qrData, setQrData] = useState(initialQrData);
   const [copied, setCopied] = useState(false);
-  const [hasTransferred, setHasTransferred] = useState(false);
   const [timeLeft, setTimeLeft] = useState(900);
   const [walletBalance, setWalletBalance] = useState(0);
 
@@ -43,13 +42,12 @@ export default function BookingPaymentModal({
       if (initialQrData) {
         setStep("qr_view");
         setQrData(initialQrData);
-        setMethod("VNPAY_QR");
+        setMethod("PAYOS_QR");
       } else {
         setStep(initialStep || "select");
         setQrData(null);
       }
       setError("");
-      setHasTransferred(false);
       setTimeLeft(900);
 
       // Lấy số dư ví mới nhất
@@ -76,6 +74,33 @@ export default function BookingPaymentModal({
     }
     return () => clearInterval(timer);
   }, [step, timeLeft]);
+
+  // Tự động kiểm tra trạng thái thanh toán PayOS (Polling mỗi 2 giây)
+  useEffect(() => {
+    if (step !== "qr_view" || !qrData || !booking?._id) return;
+    const code = qrData.orderCode || qrData.orderId;
+    if (!code) return;
+
+    let active = true;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/bookings/${booking._id}/payos-status/${code}`);
+        if (!active) return;
+        if (data?.completed || data?.booking?.paymentStatus === "Paid") {
+          clearInterval(interval);
+          setStep("success");
+          if (onSuccess) onSuccess(data.booking || booking);
+        }
+      } catch (e) {
+        // bỏ qua lỗi tạm thời khi polling
+      }
+    }, 2000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [step, qrData, booking, onSuccess]);
 
   if (!isOpen || !booking) return null;
 
@@ -112,12 +137,12 @@ export default function BookingPaymentModal({
     }
   }
 
-  async function handleInitVNPayQR() {
+  async function handleInitPayOSQR() {
     setLoading(true);
     setError("");
 
     try {
-      const { data } = await api.post(`/bookings/${booking._id}/pay-vnpay-qr`);
+      const { data } = await api.post(`/bookings/${booking._id}/pay-payos-qr`);
       if (data?.success) {
         setQrData(data);
         setStep("qr_view");
@@ -132,15 +157,15 @@ export default function BookingPaymentModal({
     }
   }
 
-  async function handleConfirmVNPayQR() {
-    if (!qrData?.orderId) return;
+  async function handleConfirmPayOSQR() {
+    if (!qrData?.orderId && !qrData?.orderCode) return;
     setConfirmLoading(true);
     setError("");
 
     try {
       const { data } = await api.post(
-        `/bookings/${booking._id}/confirm-vnpay-qr`,
-        { orderId: qrData.orderId },
+        `/bookings/${booking._id}/confirm-payos-qr`,
+        { orderId: qrData.orderId, orderCode: qrData.orderCode },
       );
       if (data?.success) {
         setStep("success");
@@ -256,11 +281,11 @@ export default function BookingPaymentModal({
                 />
               </label>
 
-              {/* Lựa chọn 2: Quét mã VNPAY-QR */}
+              {/* Lựa chọn 2: Quét mã PayOS / VietQR */}
               <label
-                onClick={() => setMethod("VNPAY_QR")}
+                onClick={() => setMethod("PAYOS_QR")}
                 className={`flex cursor-pointer items-start justify-between rounded-2xl border p-4 transition-all ${
-                  method === "VNPAY_QR"
+                  method === "PAYOS_QR" || method === "VNPAY_QR"
                     ? "border-[#005baa] bg-blue-50/70 shadow-sm ring-2 ring-[#005baa]/20"
                     : "border-slate-200 bg-white hover:bg-slate-50"
                 }`}
@@ -272,22 +297,22 @@ export default function BookingPaymentModal({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-extrabold text-navy">
-                        {t("scanQr")}
+                        {t("scanQr", "Quét mã VietQR / PayOS")}
                       </span>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
-                        {t("instant")}
+                        {t("instant", "Tự động")}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      {t("scanQrHint")}
+                      {t("scanQrHint", "Mở app Ngân hàng (MB, VCB, Techcombank...) quét mã thanh toán tức thì")}
                     </p>
                   </div>
                 </div>
                 <input
                   type="radio"
                   name="bookingPayMethod"
-                  checked={method === "VNPAY_QR"}
-                  onChange={() => setMethod("VNPAY_QR")}
+                  checked={method === "PAYOS_QR" || method === "VNPAY_QR"}
+                  onChange={() => setMethod("PAYOS_QR")}
                   className="h-4 w-4 text-[#005baa] mt-1"
                 />
               </label>
@@ -330,7 +355,7 @@ export default function BookingPaymentModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => setMethod("VNPAY_QR")}
+                        onClick={() => setMethod("PAYOS_QR")}
                         className="w-full rounded-xl border border-slate-200 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         {t("switchToQr")}
@@ -341,7 +366,7 @@ export default function BookingPaymentModal({
                   <button
                     type="button"
                     disabled={loading}
-                    onClick={handleInitVNPayQR}
+                    onClick={handleInitPayOSQR}
                     className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#005baa] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-900/20 hover:bg-[#004a8b] disabled:opacity-50 transition-all cursor-pointer"
                   >
                     <QrCode size={18} />
@@ -393,20 +418,43 @@ export default function BookingPaymentModal({
                     {formatCurrency(price)}
                   </span>
                 </div>
+                {qrData.accountNumber && (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Số tài khoản / Ngân hàng</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-navy">
+                        {qrData.accountNumber} ({qrData.bin === "970422" ? "MBBank" : "VietQR"})
+                      </span>
+                      <button
+                        onClick={() => handleCopy(qrData.accountNumber)}
+                        className="rounded p-1 text-slate-500 hover:bg-slate-200 cursor-pointer"
+                        title="Sao chép số tài khoản"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {qrData.accountName && (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Chủ tài khoản</span>
+                    <span className="font-bold text-slate-700">{qrData.accountName}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500">{t("transactionId")}</span>
                   <span className="font-mono font-bold text-navy">
-                    {qrData.orderId}
+                    {qrData.orderCode || qrData.orderId}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1">
                   <span className="text-slate-500">{t("contentLabel")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-bold text-[#005baa]">
-                      LOCALBUDDY {qrData.orderId}
+                      {qrData.description || `LB BK ${qrData.orderId}`}
                     </span>
                     <button
-                      onClick={() => handleCopy(`LOCALBUDDY ${qrData.orderId}`)}
+                      onClick={() => handleCopy(qrData.description || `LB BK ${qrData.orderId}`)}
                       className="rounded p-1 text-slate-500 hover:bg-slate-200 cursor-pointer"
                       title={t("copyContent")}
                     >
@@ -420,18 +468,18 @@ export default function BookingPaymentModal({
                 </div>
               </div>
 
-              {/* Checkbox xác nhận */}
-              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-left cursor-pointer transition-colors hover:bg-slate-100">
-                <input
-                  type="checkbox"
-                  checked={hasTransferred}
-                  onChange={(e) => setHasTransferred(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                />
-                <span className="text-xs text-slate-700 select-none">
-                  <Trans t={t} i18nKey="bookingTransferredConfirm" components={{ bold: <b /> }} />
-                </span>
-              </label>
+              {/* Nút mở trang PayOS trực tiếp nếu có */}
+              {qrData.checkoutUrl && (
+                <a
+                  href={qrData.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50/70 py-2.5 text-xs font-bold text-[#005baa] hover:bg-blue-100 transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  <span>Mở cổng thanh toán PayOS trên trình duyệt</span>
+                </a>
+              )}
 
               {error && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
@@ -439,17 +487,24 @@ export default function BookingPaymentModal({
                 </div>
               )}
 
+              {/* Tự động nhận diện thanh toán */}
+              <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs font-semibold text-emerald-800 text-left">
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <span className="leading-snug">
+                  Đang chờ thanh toán... Hệ thống tự động nhận diện và xác nhận đặt lịch ngay khi bạn chuyển khoản thành công.
+                </span>
+              </div>
+
               {/* Actions */}
               <div className="space-y-2 pt-1">
                 <button
                   type="button"
-                  disabled={!hasTransferred || confirmLoading}
-                  onClick={handleConfirmVNPayQR}
-                  className={`w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-black text-white transition-all ${
-                    hasTransferred && !confirmLoading
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-700 shadow-lg shadow-emerald-900/20 hover:opacity-95 cursor-pointer"
-                      : "bg-slate-300 cursor-not-allowed opacity-70"
-                  }`}
+                  disabled={confirmLoading}
+                  onClick={handleConfirmPayOSQR}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-900/20 hover:opacity-95 disabled:opacity-50 transition-all cursor-pointer"
                 >
                   {confirmLoading ? (
                     <span>{t("checkingTransaction")}</span>

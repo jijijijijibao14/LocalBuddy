@@ -80,7 +80,7 @@ const schema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["Wallet", "VNPAY_QR", "None"],
+      enum: ["Wallet", "PAYOS_QR", "VNPAY_QR", "None"],
       default: "None",
     },
     paidAt: {

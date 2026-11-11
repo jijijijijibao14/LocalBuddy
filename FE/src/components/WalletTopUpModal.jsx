@@ -6,7 +6,6 @@ import {
   X,
   ArrowRight,
   ShieldCheck,
-  Sparkles,
   History,
   CheckCircle2,
   Clock,
@@ -23,7 +22,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { transactionAmountPrefix } from "../utils/walletTransactions";
 
 const PRESET_AMOUNTS = [
-  50000, 100000, 200000, 500000, 1000000, 2000000,
+  5000, 50000, 100000, 200000, 500000, 1000000, 2000000,
 ];
 
 export default function WalletTopUpModal({
@@ -37,10 +36,9 @@ export default function WalletTopUpModal({
   const [step, setStep] = useState("input"); // 'input' | 'qr_view' | 'success'
   const [amount, setAmount] = useState(100000);
   const [customAmount, setCustomAmount] = useState("100000");
-  const [method, setMethod] = useState("VNPAYQR"); // 'VNPAYQR' | 'ALL'
+  const [method, setMethod] = useState("PAYOS_QR"); // 'PAYOS_QR'
   const [loading, setLoading] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
-  const [simulateLoading, setSimulateLoading] = useState(false);
   const [error, setError] = useState("");
   const [tab, setTab] = useState("topup"); // 'topup' | 'history'
   const [transactions, setTransactions] = useState([]);
@@ -48,7 +46,6 @@ export default function WalletTopUpModal({
   const [qrData, setQrData] = useState(null);
   const [balanceAfterTopUp, setBalanceAfterTopUp] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [hasTransferred, setHasTransferred] = useState(false);
   const [timeLeft, setTimeLeft] = useState(900); // 15 phút
 
   useEffect(() => {
@@ -65,6 +62,47 @@ export default function WalletTopUpModal({
     return () => clearInterval(timer);
   }, [step, timeLeft]);
 
+  // Tự động kiểm tra trạng thái thanh toán PayOS (Polling mỗi 2 giây)
+  useEffect(() => {
+    if (step !== "qr_view" || !qrData) return;
+    const code = qrData.orderCode || qrData.orderId;
+    if (!code) return;
+
+    let active = true;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await api.get(`/wallet/payos/status/${code}`);
+        if (!active) return;
+        if (data?.completed) {
+          clearInterval(interval);
+          const newBal = Number(data.newBalance);
+          setBalanceAfterTopUp(newBal);
+
+          // Tự động cập nhật số dư vào localStorage và thông báo toàn app
+          try {
+            const raw = localStorage.getItem("lb_user");
+            if (raw) {
+              const u = JSON.parse(raw);
+              u.walletBalance = newBal;
+              localStorage.setItem("lb_user", JSON.stringify(u));
+              window.dispatchEvent(new Event("lb-auth-change"));
+            }
+          } catch {}
+
+          if (onSuccess) await onSuccess(newBal);
+          setStep("success");
+        }
+      } catch (e) {
+        // bỏ qua lỗi polling tạm thời
+      }
+    }, 2000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [step, qrData, onSuccess]);
+
   if (!isOpen) return null;
 
   function resetModal() {
@@ -73,7 +111,6 @@ export default function WalletTopUpModal({
     setBalanceAfterTopUp(null);
     setError("");
     setCopied(false);
-    setHasTransferred(false);
     setTimeLeft(900);
   }
 
@@ -105,7 +142,7 @@ export default function WalletTopUpModal({
     setCustomAmount(raw);
     const num = Number(raw);
     setAmount(num);
-    if (num < 10000) {
+    if (num < 5000) {
       setError(t("errMinAmount"));
     } else if (num > 50000000) {
       setError(t("errMaxAmount"));
@@ -114,8 +151,8 @@ export default function WalletTopUpModal({
     }
   }
 
-  async function handleCreateVNPayQR() {
-    if (amount < 10000) {
+  async function handleCreatePayOSQR() {
+    if (amount < 5000) {
       setError(t("errPleaseMin"));
       return;
     }
@@ -123,12 +160,11 @@ export default function WalletTopUpModal({
     setLoading(true);
 
     try {
-      const { data } = await api.post("/wallet/vnpay/create-url", {
+      const { data } = await api.post("/wallet/payos/create-url", {
         amount,
-        bankCode: method === "VNPAYQR" ? "VNPAYQR" : "",
       });
 
-      if (data?.orderId) {
+      if (data?.orderId || data?.orderCode) {
         setQrData(data);
         setStep("qr_view");
         setTimeLeft(900);
@@ -146,18 +182,30 @@ export default function WalletTopUpModal({
   }
 
   async function handleConfirmPayment() {
-    if (!qrData?.orderId) return;
+    if (!qrData?.orderId && !qrData?.orderCode) return;
     setConfirmLoading(true);
     setError("");
 
     try {
       const { data } = await api.post("/wallet/confirm-deposit", {
         orderId: qrData.orderId,
+        orderCode: qrData.orderCode,
       });
 
       if (data?.success) {
-        setBalanceAfterTopUp(Number(data.newBalance));
-        if (onSuccess) await onSuccess(data.newBalance);
+        const newBal = Number(data.newBalance);
+        setBalanceAfterTopUp(newBal);
+        try {
+          const raw = localStorage.getItem("lb_user");
+          if (raw) {
+            const u = JSON.parse(raw);
+            u.walletBalance = newBal;
+            localStorage.setItem("lb_user", JSON.stringify(u));
+            window.dispatchEvent(new Event("lb-auth-change"));
+          }
+        } catch {}
+
+        if (onSuccess) await onSuccess(newBal);
         setStep("success");
       }
     } catch (e) {
@@ -166,34 +214,6 @@ export default function WalletTopUpModal({
       );
     } finally {
       setConfirmLoading(false);
-    }
-  }
-
-  async function handleSimulateTopUp() {
-    if (amount < 10000) {
-      setError(t("errPleaseMin"));
-      return;
-    }
-    setError("");
-    setSimulateLoading(true);
-
-    try {
-      const { data } = await api.post("/wallet/simulate-topup", { amount });
-      if (data?.success) {
-        setBalanceAfterTopUp(Number(data.newBalance));
-        if (onSuccess) await onSuccess(data.newBalance);
-        handleClose();
-        alert(
-          t("simulateAlert", {
-            message: data.message,
-            amount: formatCurrency(data.newBalance),
-          }),
-        );
-      }
-    } catch (e) {
-      setError(e.response?.data?.message || t("errSimulate"));
-    } finally {
-      setSimulateLoading(false);
     }
   }
 
@@ -403,11 +423,11 @@ export default function WalletTopUpModal({
               )}
 
               {/* Actions */}
-              <div className="space-y-2 pt-2">
+              <div className="pt-2">
                 <button
                   type="button"
-                  disabled={loading || simulateLoading || !!error || amount < 10000}
-                  onClick={handleCreateVNPayQR}
+                  disabled={loading || !!error || amount < 5000}
+                  onClick={handleCreatePayOSQR}
                   className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#005baa] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-blue-900/20 hover:bg-[#004a8b] disabled:opacity-50 transition-all cursor-pointer"
                 >
                   {loading ? (
@@ -417,21 +437,6 @@ export default function WalletTopUpModal({
                       <QrCode size={18} />
                       <span>{t("createQrTopUp", { amount: formatCurrency(amount) })}</span>
                     </>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  disabled={loading || simulateLoading || !!error || amount < 10000}
-                  onClick={handleSimulateTopUp}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 transition-colors cursor-pointer"
-                  title={t("simulateHint")}
-                >
-                  <Sparkles size={14} className="text-emerald-600" />
-                  {simulateLoading ? (
-                    t("simulating")
-                  ) : (
-                    t("simulate")
                   )}
                 </button>
               </div>
@@ -454,13 +459,13 @@ export default function WalletTopUpModal({
                 </div>
               </div>
 
-              {/* VNPAY-QR Branding Header */}
+              {/* PayOS / VietQR Branding Header */}
               <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
                 <p className="text-xs font-extrabold text-[#005baa]">
-                  {t("gatewayBanner")}
+                  CỔNG THANH TOÁN PAYOS / VIETQR
                 </p>
                 <p className="text-[11px] text-slate-600 mt-0.5">
-                  {t("gatewayBannerHint")}
+                  Mở ứng dụng Ngân hàng quét mã VietQR để nạp tiền tự động
                 </p>
               </div>
 
@@ -473,7 +478,7 @@ export default function WalletTopUpModal({
                 />
                 <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-slate-500">
                   <ShieldCheck size={14} className="text-emerald-600" />
-                  <span>{t("qrEncrypted")}</span>
+                  <span>Mã QR VietQR chuẩn liên ngân hàng Napas 247</span>
                 </div>
               </div>
 
@@ -485,20 +490,43 @@ export default function WalletTopUpModal({
                     {formatCurrency(qrData.amount)}
                   </span>
                 </div>
+                {qrData.accountNumber && (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Số tài khoản / Ngân hàng</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-navy">
+                        {qrData.accountNumber} ({qrData.bin === "970422" ? "MBBank" : "VietQR"})
+                      </span>
+                      <button
+                        onClick={() => handleCopy(qrData.accountNumber)}
+                        className="rounded p-1 text-slate-500 hover:bg-slate-200 cursor-pointer"
+                        title="Sao chép số tài khoản"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {qrData.accountName && (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Chủ tài khoản</span>
+                    <span className="font-bold text-slate-700">{qrData.accountName}</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500">{t("orderId")}</span>
                   <span className="font-mono font-bold text-navy">
-                    {qrData.orderId}
+                    {qrData.orderCode || qrData.orderId}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-1">
                   <span className="text-slate-500">{t("transferContent")}</span>
                   <div className="flex items-center gap-1.5">
                     <span className="font-mono font-bold text-[#005baa]">
-                      LOCALBUDDY {qrData.orderId}
+                      {qrData.description || `LBTOPUP ${qrData.orderId}`}
                     </span>
                     <button
-                      onClick={() => handleCopy(`LOCALBUDDY ${qrData.orderId}`)}
+                      onClick={() => handleCopy(qrData.description || `LBTOPUP ${qrData.orderId}`)}
                       className="rounded p-1 text-slate-500 hover:bg-slate-200 cursor-pointer"
                       title={t("copyContent")}
                     >
@@ -512,52 +540,47 @@ export default function WalletTopUpModal({
                 </div>
               </div>
 
+              {/* Nút mở trang PayOS trực tiếp nếu có */}
+              {qrData.checkoutUrl && (
+                <a
+                  href={qrData.checkoutUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50/70 py-2.5 text-xs font-bold text-[#005baa] hover:bg-blue-100 transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  <span>Mở cổng thanh toán PayOS trên trình duyệt</span>
+                </a>
+              )}
+
               {error && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
                   {error}
                 </div>
               )}
 
-              {/* Checkbox xác nhận đã chuyển khoản */}
-              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-left cursor-pointer transition-colors hover:bg-slate-100">
-                <input
-                  type="checkbox"
-                  checked={hasTransferred}
-                  onChange={(e) => setHasTransferred(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                />
-                <span className="text-xs text-slate-700 select-none">
-                  <Trans t={t} i18nKey="topUpTransferredConfirm" components={{ bold: <b /> }} />
+              {/* Tự động nhận diện thanh toán */}
+              <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs font-semibold text-emerald-800 text-left">
+                <span className="relative flex h-3 w-3 shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                 </span>
-              </label>
+                <span className="leading-snug">
+                  Đang chờ thanh toán... Hệ thống tự động nhận diện và cộng tiền vào ví ngay khi bạn chuyển khoản thành công.
+                </span>
+              </div>
 
               {/* Actions */}
               <div className="space-y-2 pt-1">
                 <button
                   type="button"
-                  disabled={!hasTransferred || confirmLoading}
+                  disabled={confirmLoading}
                   onClick={handleConfirmPayment}
-                  className={`w-full flex items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-black text-white transition-all ${
-                    hasTransferred && !confirmLoading
-                      ? "bg-gradient-to-r from-emerald-600 to-teal-700 shadow-lg shadow-emerald-900/20 hover:opacity-95 cursor-pointer"
-                      : "bg-slate-300 cursor-not-allowed opacity-70"
-                  }`}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-900/20 hover:opacity-95 disabled:opacity-50 transition-all cursor-pointer"
                 >
-                  {confirmLoading ? (
-                    <span>{t("checkingTransaction")}</span>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={18} />
-                      <span>{t("confirmTopUp")}</span>
-                    </>
-                  )}
+                  <RefreshCw size={16} className={confirmLoading ? "animate-spin" : ""} />
+                  <span>{confirmLoading ? "Đang kiểm tra giao dịch..." : "Kiểm tra thanh toán ngay"}</span>
                 </button>
-
-                {!hasTransferred && (
-                  <p className="text-[11px] text-slate-400">
-                    {t("scanFirst")}
-                  </p>
-                )}
 
                 {qrData.paymentUrl && (
                   <a

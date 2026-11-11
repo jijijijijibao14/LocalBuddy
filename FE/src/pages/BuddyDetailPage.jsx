@@ -58,7 +58,7 @@ export default function BuddyDetailPage() {
   const bookingDialogRef = useRef(null);
 
   // Trạng thái thanh toán phí giao dịch
-  const [paymentMethod, setPaymentMethod] = useState("Wallet"); // 'Wallet' | 'VNPAY_QR' | 'None'
+  const [paymentMethod, setPaymentMethod] = useState("Wallet"); // 'Wallet' | 'PAYOS_QR' | 'None'
   const [walletBalance, setWalletBalance] = useState(0);
   const [createdBooking, setCreatedBooking] = useState(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -270,7 +270,7 @@ export default function BuddyDetailPage() {
         setNotice(
           t("bookingSuccessWallet"),
         );
-      } else if (paymentMethod === "VNPAY_QR") {
+      } else if (paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR") {
         if (data?.qrData) {
           setInitialQrData(data.qrData);
         }
@@ -771,11 +771,11 @@ export default function BuddyDetailPage() {
                 />
               </label>
 
-              {/* VNPAY-QR */}
+              {/* PayOS-QR */}
               <label
-                onClick={() => setPaymentMethod("VNPAY_QR")}
+                onClick={() => setPaymentMethod("PAYOS_QR")}
                 className={`flex cursor-pointer items-start justify-between rounded-xl border p-3 transition-all ${
-                  paymentMethod === "VNPAY_QR"
+                  paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR"
                     ? "border-[#005baa] bg-blue-50/60 shadow-xs ring-2 ring-[#005baa]/20"
                     : "border-slate-200 bg-white hover:bg-slate-50"
                 }`}
@@ -785,17 +785,17 @@ export default function BuddyDetailPage() {
                     <QrCode size={16} />
                   </div>
                   <div>
-                    <span className="text-xs font-black text-navy block">{t("scanVnpay")}</span>
+                    <span className="text-xs font-black text-navy block">Quét mã PayOS / VietQR</span>
                     <span className="text-[11px] text-slate-500">
-                      {t("scanWithApps")}
+                      Mở app ngân hàng quét mã tức thì
                     </span>
                   </div>
                 </div>
                 <input
                   type="radio"
                   name="detailPaymentMethod"
-                  checked={paymentMethod === "VNPAY_QR"}
-                  onChange={() => setPaymentMethod("VNPAY_QR")}
+                  checked={paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR"}
+                  onChange={() => setPaymentMethod("PAYOS_QR")}
                   className="mt-1 h-3.5 w-3.5 text-brand"
                 />
               </label>
@@ -834,21 +834,21 @@ export default function BuddyDetailPage() {
           <button
             disabled={submitting}
             className={`mt-4 w-full flex items-center justify-center gap-2 cursor-pointer font-bold ${
-              paymentMethod === "VNPAY_QR"
+              paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR"
                 ? "rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-4 py-3 text-sm text-white shadow-md shadow-blue-900/15 hover:opacity-95"
                 : "btn-primary"
             }`}
             onClick={book}
           >
             {paymentMethod === "Wallet" && <Wallet size={16} />}
-            {paymentMethod === "VNPAY_QR" && <QrCode size={16} />}
+            {(paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR") && <QrCode size={16} />}
             {paymentMethod === "None" && <CalendarDays size={16} />}
             {submitting
               ? t("processing")
               : paymentMethod === "Wallet"
                 ? t("payWithWalletBook")
-                : paymentMethod === "VNPAY_QR"
-                  ? t("payWithQrBook")
+                : (paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR")
+                  ? "Quét mã PayOS-QR thanh toán"
                   : t("sendRequestPayLater")}
           </button>
             </dialog>

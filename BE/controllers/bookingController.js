@@ -9,6 +9,12 @@ const {
   refundBookingFunds,
   releaseBookingFunds,
 } = require("../utils/walletLedger");
+const {
+  generateOrderCode,
+  createPaymentLink,
+  getPaymentLinkInformation,
+  isPayOSConfigured,
+} = require("../utils/payos");
 
 function toMinutes(value) {
   if (typeof value !== "string" || !/^\d{2}:\d{2}$/.test(value)) {
@@ -61,9 +67,9 @@ exports.create = async (req, res) => {
     const budget = Number(foodBudget);
     const plannedSpend = Number(experienceBudget);
 
-    if (!["Wallet", "VNPAY_QR"].includes(paymentMethod)) {
+    if (!["Wallet", "PAYOS_QR", "VNPAY_QR"].includes(paymentMethod)) {
       return res.status(400).json({
-        message: "Vui lòng thanh toán trước bằng Ví Local Buddy hoặc VNPAY-QR.",
+        message: "Vui lòng thanh toán trước bằng Ví Local Buddy hoặc PayOS-QR.",
       });
     }
 
@@ -237,24 +243,55 @@ exports.create = async (req, res) => {
         });
       }
       newBalance = payment.newBalance;
-    } else if (paymentMethod === "VNPAY_QR") {
-      const orderId = `BK${booking._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
-      const qrCodeUrl = `https://api.vietqr.io/image/970419-0123456789-compact2.jpg?amount=${calculatedPrice}&addInfo=LOCALBUDDY%20${orderId}&accountName=LOCAL%20BUDDY`;
+    } else if (paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR") {
+      const orderCode = generateOrderCode();
+      const clientUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173";
+      const returnUrl = process.env.PAYOS_RETURN_URL || `${clientUrl}/payment/payos-return`;
+      const cancelUrl = process.env.PAYOS_CANCEL_URL || `${clientUrl}/payment/payos-return?cancel=true`;
+      const paymentLink = await createPaymentLink({
+        orderCode,
+        amount: calculatedPrice,
+        description: `LB BK ${orderCode}`,
+        returnUrl,
+        cancelUrl,
+        items: [
+          {
+            name: `Dat lich ${buddy.fullName}`,
+            quantity: 1,
+            price: calculatedPrice,
+          },
+        ],
+      });
+
       await Transaction.create({
         user: req.user._id,
         booking: booking._id,
         type: "Booking",
         amount: calculatedPrice,
         status: "Pending",
-        orderId,
-        paymentMethod: "VNPAY_QR",
-        description: `Thanh toán đặt lịch Local: ${buddy.fullName} (${duration}h) qua VNPAY-QR`,
+        orderId: String(orderCode),
+        payosOrderCode: orderCode,
+        payosPaymentLinkId: paymentLink.paymentLinkId || "",
+        paymentMethod: "PAYOS_QR",
+        description: `Thanh toán đặt lịch Local: ${buddy.fullName} (${duration}h) qua PayOS-QR`,
       });
+
+      booking.paymentMethod = "PAYOS_QR";
+      await booking.save();
+
       qrData = {
-        qrCodeUrl,
-        orderId,
+        qrCodeUrl: paymentLink.qrCodeUrl,
+        checkoutUrl: paymentLink.checkoutUrl,
+        paymentUrl: paymentLink.checkoutUrl,
+        orderCode,
+        orderId: String(orderCode),
         amount: calculatedPrice,
         bookingId: booking._id,
+        bin: paymentLink.bin,
+        accountNumber: paymentLink.accountNumber,
+        accountName: paymentLink.accountName,
+        description: paymentLink.description,
+        isMock: paymentLink.isMock || false,
       };
     }
     const paymentStatus = booking.paymentStatus;
@@ -606,8 +643,8 @@ exports.payWithWallet = async (req, res) => {
   }
 };
 
-// 12. Lấy thông tin mã VNPAY-QR thanh toán cho lịch đặt
-exports.getBookingVNPayQR = async (req, res) => {
+// 12. Lấy thông tin mã PayOS-QR thanh toán cho lịch đặt
+exports.getBookingPayOSQR = async (req, res) => {
   try {
     const { id } = req.params;
     const booking = await Booking.findOne({ _id: id, customer: req.user._id }).populate("buddy", "fullName");
@@ -621,8 +658,25 @@ exports.getBookingVNPayQR = async (req, res) => {
       return res.status(400).json({ message: "Không thể thanh toán cho lịch không còn hiệu lực." });
     }
 
-    const orderId = `BK${booking._id.toString().slice(-6)}${Date.now().toString().slice(-4)}`;
-    const qrCodeUrl = `https://api.vietqr.io/image/970419-0123456789-compact2.jpg?amount=${booking.price}&addInfo=LOCALBUDDY%20${orderId}&accountName=LOCAL%20BUDDY`;
+    const orderCode = generateOrderCode();
+    const clientUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173";
+    const returnUrl = process.env.PAYOS_RETURN_URL || `${clientUrl}/payment/payos-return`;
+    const cancelUrl = process.env.PAYOS_CANCEL_URL || `${clientUrl}/payment/payos-return?cancel=true`;
+
+    const paymentLink = await createPaymentLink({
+      orderCode,
+      amount: booking.price,
+      description: `LB BK ${orderCode}`,
+      returnUrl,
+      cancelUrl,
+      items: [
+        {
+          name: `Dat lich ${booking.buddy?.fullName || "Local Buddy"}`,
+          quantity: 1,
+          price: booking.price,
+        },
+      ],
+    });
 
     await Transaction.create({
       user: req.user._id,
@@ -630,32 +684,126 @@ exports.getBookingVNPayQR = async (req, res) => {
       type: "Booking",
       amount: booking.price,
       status: "Pending",
-      orderId,
-      paymentMethod: "VNPAY_QR",
-      description: `Thanh toán đặt lịch Local: ${booking.buddy?.fullName || "Local Buddy"} qua VNPAY-QR`,
+      orderId: String(orderCode),
+      payosOrderCode: orderCode,
+      payosPaymentLinkId: paymentLink.paymentLinkId || "",
+      paymentMethod: "PAYOS_QR",
+      description: `Thanh toán đặt lịch Local: ${booking.buddy?.fullName || "Local Buddy"} qua PayOS-QR`,
     });
 
-    booking.paymentMethod = "VNPAY_QR";
+    booking.paymentMethod = "PAYOS_QR";
     await booking.save();
 
     return res.json({
       success: true,
-      qrCodeUrl,
-      orderId,
+      qrCodeUrl: paymentLink.qrCodeUrl,
+      checkoutUrl: paymentLink.checkoutUrl,
+      paymentUrl: paymentLink.checkoutUrl,
+      orderCode,
+      orderId: String(orderCode),
       amount: booking.price,
       bookingId: booking._id,
+      bin: paymentLink.bin,
+      accountNumber: paymentLink.accountNumber,
+      accountName: paymentLink.accountName,
+      description: paymentLink.description,
+      isMock: paymentLink.isMock || false,
     });
   } catch (error) {
-    console.error("Get booking VNPAY QR error:", error);
+    console.error("Get booking PayOS QR error:", error);
     return res.status(500).json({ message: "Không thể tạo mã QR thanh toán đặt lịch." });
   }
 };
 
-// 13. Xác nhận thanh toán đặt lịch qua VNPAY-QR
-exports.confirmBookingVNPayQR = async (req, res) => {
+// Alias cho VNPay cũ
+exports.getBookingVNPayQR = exports.getBookingPayOSQR;
+
+// 13. Kiểm tra trạng thái thanh toán PayOS của lịch đặt (cho polling)
+exports.checkBookingPayOSStatus = async (req, res) => {
+  try {
+    const { id, orderCode } = req.params;
+    const booking = await Booking.findOne({ _id: id, customer: req.user._id });
+    if (!booking) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu đặt lịch." });
+    }
+
+    if (booking.paymentStatus === "Paid") {
+      return res.json({
+        success: true,
+        completed: true,
+        status: "PAID",
+        booking,
+      });
+    }
+
+    const numOrderCode = Number(orderCode);
+    const transaction = await Transaction.findOne({
+      booking: booking._id,
+      $or: [
+        { payosOrderCode: numOrderCode || 0 },
+        { orderId: String(orderCode) },
+      ],
+      user: req.user._id,
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ message: "Không tìm thấy giao dịch." });
+    }
+
+    if (transaction.status === "Completed") {
+      if (booking.paymentStatus !== "Paid") {
+        await holdBookingFunds(booking, req.user._id, "PAYOS_QR", false);
+      }
+      return res.json({
+        success: true,
+        completed: true,
+        status: "PAID",
+        booking,
+      });
+    }
+
+    if (isPayOSConfigured()) {
+      const payosInfo = await getPaymentLinkInformation(numOrderCode || transaction.payosOrderCode);
+      if (payosInfo && payosInfo.status === "PAID") {
+        await holdBookingFunds(booking, req.user._id, "PAYOS_QR", false);
+        transaction.status = "Completed";
+        transaction.payosStatus = "PAID";
+        await transaction.save();
+
+        return res.json({
+          success: true,
+          completed: true,
+          status: "PAID",
+          booking,
+        });
+      }
+
+      return res.json({
+        success: true,
+        completed: false,
+        status: payosInfo?.status || transaction.status,
+      });
+    }
+
+    return res.json({
+      success: true,
+      completed: false,
+      status: transaction.status,
+    });
+  } catch (error) {
+    console.error("Check booking PayOS status error:", error);
+    return res.status(500).json({ message: "Lỗi kiểm tra trạng thái thanh toán." });
+  }
+};
+
+// 14. Xác nhận thanh toán đặt lịch qua PayOS-QR
+exports.confirmBookingPayOSQR = async (req, res) => {
   try {
     const { id } = req.params;
-    const { orderId } = req.body;
+    const { orderId, orderCode } = req.body;
+    const code = orderCode || orderId;
+    const numOrderCode = Number(code);
+
     const booking = await Booking.findOne({ _id: id, customer: req.user._id });
     if (!booking) {
       return res.status(404).json({ message: "Không tìm thấy yêu cầu đặt lịch." });
@@ -672,34 +820,48 @@ exports.confirmBookingVNPayQR = async (req, res) => {
     }
 
     const transaction = await Transaction.findOne({
-      orderId,
       booking: booking._id,
+      $or: [
+        { payosOrderCode: numOrderCode || 0 },
+        { orderId: String(code) },
+      ],
       user: req.user._id,
-      status: "Pending",
     });
     if (!transaction) {
       return res.status(404).json({ message: "Không tìm thấy giao dịch thanh toán đang chờ." });
     }
-    if (typeof orderId !== "string" || !orderId.trim()) {
-      return res.status(400).json({ message: "Thiếu mã giao dịch thanh toán." });
+
+    if (isPayOSConfigured()) {
+      const info = await getPaymentLinkInformation(numOrderCode || transaction.payosOrderCode);
+      if (info && info.status !== "PAID") {
+        return res.status(400).json({
+          message: "PayOS chưa xác nhận nhận được khoản thanh toán. Vui lòng thử lại sau vài giây hoặc kiểm tra ứng dụng ngân hàng.",
+          status: info.status,
+        });
+      }
     }
-    const payment = await holdBookingFunds(booking, req.user._id, "VNPAY_QR", false);
-    if (!payment.ok) {
+
+    const payment = await holdBookingFunds(booking, req.user._id, "PAYOS_QR", false);
+    if (!payment.ok && !payment.alreadyHeld) {
       return res.status(400).json({ message: "Không thể ghi nhận khoản thanh toán." });
     }
     transaction.status = "Completed";
+    transaction.payosStatus = "PAID";
     transaction.vnpTransactionNo = `QR${Date.now()}`;
-    transaction.vnpBankCode = "VNPAYQR";
+    transaction.vnpBankCode = "PAYOS";
     transaction.vnpPayDate = new Date().toISOString();
     await transaction.save();
 
     return res.json({
       success: true,
-      message: "Xác nhận thanh toán đặt lịch qua VNPAY-QR thành công!",
+      message: "Xác nhận thanh toán đặt lịch qua PayOS-QR thành công!",
       booking,
     });
   } catch (error) {
-    console.error("Confirm booking VNPAY QR error:", error);
+    console.error("Confirm booking PayOS QR error:", error);
     return res.status(500).json({ message: "Lỗi xác nhận thanh toán." });
   }
 };
+
+// Alias cho VNPay cũ
+exports.confirmBookingVNPayQR = exports.confirmBookingPayOSQR;

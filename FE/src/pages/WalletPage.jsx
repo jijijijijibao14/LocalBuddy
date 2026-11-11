@@ -251,7 +251,7 @@ export default function WalletPage() {
               {isLocal ? t("localWalletName", "Ví Local Buddy") : t("travelerWalletName", "Ví Traveler")}
             </h2>
             <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-extrabold text-brand">
-              <QrCode size={12} /> VNPAY-QR
+              <QrCode size={12} /> PayOS / VietQR
             </span>
           </div>
           <p className="mt-4 text-xs font-medium text-slate-500">{t("availableBalance", "Số dư khả dụng")}</p>
@@ -261,7 +261,7 @@ export default function WalletPage() {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-700 to-emerald-600 px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:brightness-105"
             onClick={() => setTopUpOpen(true)}
           >
-            <QrCode size={17} /> {t("topUpViaVnpay", "Nạp tiền qua VNPAY-QR")}
+            <QrCode size={17} /> {t("topUpViaPayOS", "Nạp tiền qua PayOS-QR")}
           </button>
           <button
             type="button"
@@ -271,7 +271,7 @@ export default function WalletPage() {
             <ArrowUpFromLine size={17} /> {t("withdraw", "Rút tiền")}
           </button>
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
-            {t("vnpayTopupHint", "Hỗ trợ quét QR qua ngân hàng và ví VNPAY. Xác nhận tức thì.")}
+            {t("payosTopupHint", "Hỗ trợ quét VietQR qua mọi ứng dụng ngân hàng và ví điện tử. Xác nhận tức thì.")}
           </p>
         </section>
       )}

@@ -4,13 +4,24 @@ const { protect } = require("../middleware/auth");
 const { allowRoles } = require("../middleware/auth");
 const walletController = require("../controllers/walletController");
 
-// Tạo liên kết thanh toán VNPay QR
-router.post("/vnpay/create-url", protect, walletController.createPaymentUrl);
+// Tạo liên kết thanh toán PayOS QR
+router.post("/payos/create-url", protect, walletController.createPayOSPaymentUrl);
 
-// VNPay redirect người dùng về sau khi thanh toán
-router.get("/vnpay/return", walletController.handleVNPayReturn);
+// Kiểm tra trạng thái giao dịch PayOS (dùng cho polling và xác nhận)
+router.get("/payos/status/:orderCode", protect, walletController.checkPayOSStatus);
 
-// VNPay gọi IPN (Server-to-Server)
+// PayOS redirect người dùng về sau khi thanh toán trên trang web hosted
+router.get("/payos/return", walletController.handlePayOSReturn);
+
+// PayOS gọi Webhook (Server-to-Server)
+router.post("/payos/webhook", walletController.handlePayOSWebhook);
+
+// Xác nhận giao dịch PayOS
+router.post("/payos/confirm", protect, walletController.confirmDeposit);
+
+// Alias cho các endpoint VNPay cũ để không gây lỗi nếu có nơi gọi
+router.post("/vnpay/create-url", protect, walletController.createPayOSPaymentUrl);
+router.get("/vnpay/return", walletController.handlePayOSReturn);
 router.get("/vnpay/ipn", walletController.handleVNPayIpn);
 
 // Lấy lịch sử giao dịch ví của user

@@ -37,18 +37,39 @@ const allowedOrigins = new Set([
     .map(normalizeOrigin),
 ]);
 
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  try {
+    const normalized = normalizeOrigin(origin);
+    if (allowedOrigins.has(normalized)) return true;
+    const url = new URL(normalized);
+    const host = url.hostname;
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host)
+    ) {
+      return true;
+    }
+  } catch { }
+  return false;
+}
+
 // Cấu hình CORS
 app.use(cors({
   origin: function (origin, callback) {
-    // Cho phép request không có Origin và domain đã được cho phép
-    if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
 
     return callback(new Error("Origin không được phép truy cập API"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 }));
 app.use(express.json({ limit: "1mb" }));
 app.get("/media/:id", getMedia);
@@ -91,7 +112,7 @@ app.use((err, req, res, next) => {
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
       callback(new Error("Socket: Origin không được phép."));
@@ -135,8 +156,8 @@ io.on("connection", (socket) => {
     return role === "admin"
       ? otherUser.role !== "admin"
       : otherUser.role === "admin" ||
-          (role === "traveler" && otherUser.role === "local") ||
-          (role === "local" && otherUser.role === "traveler");
+      (role === "traveler" && otherUser.role === "local") ||
+      (role === "local" && otherUser.role === "traveler");
   };
 
   socket.on("join_room", async ({ otherUserId } = {}) => {

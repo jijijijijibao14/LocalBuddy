@@ -4,6 +4,13 @@ const Transaction = require("../models/Transaction");
 const User = require("../models/User");
 const { getWalletSettings } = require("../utils/walletLedger");
 const { transactionHistoryFilter } = require("../utils/walletHistory");
+const {
+  generateOrderCode,
+  createPaymentLink,
+  getPaymentLinkInformation,
+  verifyWebhookData,
+  isPayOSConfigured,
+} = require("../utils/payos");
 
 let exchangeRateCache = null;
 let exchangeRateFetchedAt = 0;
@@ -55,90 +62,76 @@ function getVNPayMessage(responseCode) {
   return map[responseCode] || `Giao dịch không thành công (Mã phản hồi: ${responseCode}).`;
 }
 
-// 1. Tạo URL thanh toán VNPay
-exports.createPaymentUrl = async (req, res) => {
+// 1. Tạo thanh toán PayOS QR (Nạp tiền ví)
+exports.createPayOSPaymentUrl = async (req, res) => {
   try {
     if (req.user.role === "admin") {
       return res.status(403).json({ message: "Ví Admin không hỗ trợ nạp tiền." });
     }
-    const { amount, bankCode = "VNPAYQR" } = req.body;
+    const { amount } = req.body;
     const numAmount = Number(amount);
 
-    if (!Number.isInteger(numAmount) || numAmount < 10000 || numAmount > 50000000) {
+    if (!Number.isInteger(numAmount) || numAmount < 2000 || numAmount > 50000000) {
       return res.status(400).json({
-        message: "Số tiền nạp tối thiểu là 10.000 VNĐ và tối đa là 50.000.000 VNĐ.",
+        message: "Số tiền nạp tối thiểu là 5.000 VNĐ và tối đa là 50.000.000 VNĐ.",
       });
     }
 
-    const tmnCode = process.env.VNP_TMN_CODE || "CGXZLS0Z";
-    const secretKey = process.env.VNP_HASH_SECRET || "XNBCJFAKAZQSGCSFRLZJTCZWTXNKGKYZ";
-    const vnpUrl = process.env.VNP_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    const returnUrl = process.env.VNP_RETURN_URL || "http://localhost:5173/payment/vnpay-return";
+    const orderCode = generateOrderCode();
+    const clientUrl = process.env.CLIENT_URL?.split(",")[0]?.trim() || "http://localhost:5173";
+    const returnUrl = process.env.PAYOS_RETURN_URL || `${clientUrl}/payment/payos-return`;
+    const cancelUrl = process.env.PAYOS_CANCEL_URL || `${clientUrl}/payment/payos-return?cancel=true`;
 
-    const orderId = `LB${Date.now()}${Math.floor(100 + Math.random() * 900)}`;
-    const createDate = getVnPayDateString();
+    const paymentLink = await createPaymentLink({
+      orderCode,
+      amount: numAmount,
+      description: `LBTOPUP ${orderCode}`,
+      returnUrl,
+      cancelUrl,
+      items: [
+        {
+          name: "Nap vi Local Buddy",
+          quantity: 1,
+          price: numAmount,
+        },
+      ],
+    });
 
     const transaction = await Transaction.create({
       user: req.user._id,
       type: "TopUp",
       amount: numAmount,
       status: "Pending",
-      orderId,
-      paymentMethod: bankCode === "VNPAYQR" ? "VNPAY_QR" : "VNPAY",
-      description: `Nạp tiền ví Local Buddy (${numAmount.toLocaleString("vi-VN")} đ)`,
+      orderId: String(orderCode),
+      payosOrderCode: orderCode,
+      payosPaymentLinkId: paymentLink.paymentLinkId || "",
+      paymentMethod: "PAYOS_QR",
+      description: `Nạp tiền ví Local Buddy (${numAmount.toLocaleString("vi-VN")} đ) qua PayOS-QR`,
     });
-
-    let ipAddr =
-      req.headers["x-forwarded-for"] ||
-      req.socket?.remoteAddress ||
-      "127.0.0.1";
-    if (ipAddr && ipAddr.includes(",")) {
-      ipAddr = ipAddr.split(",")[0].trim();
-    }
-    if (ipAddr === "::1") ipAddr = "127.0.0.1";
-
-    let vnp_Params = {
-      vnp_Version: "2.1.0",
-      vnp_Command: "pay",
-      vnp_TmnCode: tmnCode,
-      vnp_Locale: "vn",
-      vnp_CurrCode: "VND",
-      vnp_TxnRef: orderId,
-      vnp_OrderInfo: `Nap tien vi Local Buddy ${numAmount} VND`,
-      vnp_OrderType: "topup",
-      vnp_Amount: numAmount * 100, // VNPay quy định nhân 100
-      vnp_ReturnUrl: returnUrl,
-      vnp_IpAddr: ipAddr,
-      vnp_CreateDate: createDate,
-    };
-
-    if (bankCode && bankCode.trim()) {
-      vnp_Params.vnp_BankCode = bankCode.trim();
-    }
-
-    vnp_Params = sortObject(vnp_Params);
-    const signData = qs.stringify(vnp_Params, { encode: false });
-    const hmac = crypto.createHmac("sha512", secretKey);
-    const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
-    vnp_Params.vnp_SecureHash = signed;
-
-    const paymentUrl = `${vnpUrl}?${qs.stringify(vnp_Params, { encode: false })}`;
-
-    // Tạo mã QR VietQR / VNPAY-QR trực tiếp
-    const qrCodeUrl = `https://api.vietqr.io/image/970419-0123456789-compact2.jpg?amount=${numAmount}&addInfo=LOCALBUDDY%20${orderId}&accountName=LOCAL%20BUDDY`;
 
     return res.json({
-      paymentUrl,
-      qrCodeUrl,
-      orderId,
+      success: true,
+      orderCode,
+      orderId: String(orderCode),
       amount: numAmount,
+      qrCodeUrl: paymentLink.qrCodeUrl,
+      checkoutUrl: paymentLink.checkoutUrl,
+      paymentUrl: paymentLink.checkoutUrl,
+      bin: paymentLink.bin,
+      accountNumber: paymentLink.accountNumber,
+      accountName: paymentLink.accountName,
+      description: paymentLink.description,
       transactionId: transaction._id,
+      isMock: paymentLink.isMock || false,
     });
   } catch (error) {
-    console.error("Lỗi tạo URL thanh toán VNPay:", error);
-    return res.status(500).json({ message: "Không thể tạo liên kết thanh toán VNPay." });
+    console.error("Lỗi tạo PayOS payment URL:", error);
+    return res.status(500).json({ message: "Không thể tạo liên kết thanh toán PayOS." });
   }
 };
+
+// 1. Tạo URL thanh toán VNPay (Giữ lại để tương thích ngược, mặc định trỏ về PayOS)
+exports.createPaymentUrl = exports.createPayOSPaymentUrl;
 
 // 2. Xác thực và xử lý kết quả trả về từ VNPay (Return URL)
 exports.handleVNPayReturn = async (req, res) => {
@@ -332,8 +325,8 @@ exports.simulateTopUp = async (req, res) => {
     if (req.user.role === "admin") {
       return res.status(403).json({ message: "Ví Admin không hỗ trợ nạp tiền." });
     }
-    const { amount = 100000, orderId } = req.body;
-    const numAmount = Math.max(10000, Number(amount) || 100000);
+    const { amount = 50000, orderId } = req.body;
+    const numAmount = Math.max(2000, Number(amount) || 50000);
 
     let transaction;
     if (orderId) {
@@ -388,12 +381,20 @@ exports.confirmDeposit = async (req, res) => {
     if (req.user.role === "admin") {
       return res.status(403).json({ message: "Ví Admin không hỗ trợ nạp tiền." });
     }
-    const { orderId } = req.body;
-    if (!orderId) {
+    const { orderId, orderCode } = req.body;
+    const code = orderCode || orderId;
+    if (!code) {
       return res.status(400).json({ message: "Thiếu mã đơn hàng giao dịch." });
     }
+    const numOrderCode = Number(code);
 
-    const transaction = await Transaction.findOne({ orderId, user: req.user._id });
+    const transaction = await Transaction.findOne({
+      $or: [
+        { payosOrderCode: numOrderCode || 0 },
+        { orderId: String(code) },
+      ],
+      user: req.user._id,
+    });
     if (!transaction) {
       return res.status(404).json({ message: "Không tìm thấy giao dịch tương ứng." });
     }
@@ -408,9 +409,20 @@ exports.confirmDeposit = async (req, res) => {
       });
     }
 
+    if (isPayOSConfigured()) {
+      const info = await getPaymentLinkInformation(numOrderCode || transaction.payosOrderCode);
+      if (info && info.status !== "PAID") {
+        return res.status(400).json({
+          message: "PayOS chưa ghi nhận thanh toán thành công. Vui lòng thử lại sau vài giây hoặc kiểm tra ứng dụng ngân hàng.",
+          status: info.status,
+        });
+      }
+    }
+
     transaction.status = "Completed";
+    transaction.payosStatus = "PAID";
     transaction.vnpTransactionNo = `QR${Date.now()}`;
-    transaction.vnpBankCode = "VNPAYQR";
+    transaction.vnpBankCode = "PAYOS";
     transaction.vnpPayDate = getVnPayDateString();
     transaction.vnpResponseCode = "00";
     await transaction.save();
@@ -435,6 +447,232 @@ exports.confirmDeposit = async (req, res) => {
   } catch (error) {
     console.error("Lỗi xác nhận nạp tiền:", error);
     return res.status(500).json({ message: "Lỗi xác nhận nạp tiền." });
+  }
+};
+
+// 7. Kiểm tra trạng thái giao dịch PayOS (cho polling từ FE)
+exports.checkPayOSStatus = async (req, res) => {
+  try {
+    const { orderCode } = req.params;
+    const numOrderCode = Number(orderCode);
+
+    const transaction = await Transaction.findOne({
+      $or: [
+        { payosOrderCode: numOrderCode || 0 },
+        { orderId: String(orderCode) },
+      ],
+      user: req.user._id,
+    });
+
+    if (!transaction) {
+      return res.status(404).json({ message: "Không tìm thấy giao dịch." });
+    }
+
+    if (transaction.status === "Completed") {
+      const user = await User.findById(req.user._id).select("walletBalance");
+      return res.json({
+        success: true,
+        completed: true,
+        status: "PAID",
+        newBalance: user?.walletBalance || 0,
+      });
+    }
+
+    if (isPayOSConfigured()) {
+      const payosInfo = await getPaymentLinkInformation(numOrderCode || transaction.payosOrderCode);
+      if (payosInfo && payosInfo.status === "PAID") {
+        transaction.status = "Completed";
+        transaction.payosStatus = "PAID";
+        await transaction.save();
+
+        const user = await User.findByIdAndUpdate(
+          transaction.user,
+          { $inc: { walletBalance: transaction.amount } },
+          { new: true }
+        );
+
+        return res.json({
+          success: true,
+          completed: true,
+          status: "PAID",
+          newBalance: user?.walletBalance || 0,
+        });
+      }
+      return res.json({
+        success: true,
+        completed: false,
+        status: payosInfo?.status || transaction.status,
+      });
+    }
+
+    return res.json({
+      success: true,
+      completed: false,
+      status: transaction.status,
+    });
+  } catch (error) {
+    console.error("Check PayOS status error:", error);
+    return res.status(500).json({ message: "Lỗi kiểm tra trạng thái PayOS." });
+  }
+};
+
+// 8. Xử lý kết quả trả về từ PayOS Web Checkout (Return URL)
+exports.handlePayOSReturn = async (req, res) => {
+  try {
+    const { orderCode, status, cancel } = req.query;
+    const numOrderCode = Number(orderCode);
+
+    if (!orderCode) {
+      return res.status(400).json({ success: false, message: "Thiếu mã đơn hàng." });
+    }
+
+    const transaction = await Transaction.findOne({
+      $or: [
+        { payosOrderCode: numOrderCode || 0 },
+        { orderId: String(orderCode) },
+      ],
+    }).populate("user", "fullName email walletBalance");
+
+    if (!transaction) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy giao dịch." });
+    }
+
+    if (cancel === "true" || status === "CANCELLED") {
+      if (transaction.status === "Pending") {
+        transaction.status = "Failed";
+        transaction.payosStatus = "CANCELLED";
+        await transaction.save();
+      }
+      return res.json({
+        success: false,
+        message: "Giao dịch thanh toán đã bị hủy.",
+        orderCode: numOrderCode || transaction.payosOrderCode,
+        amount: transaction.amount,
+      });
+    }
+
+    let isPaid = status === "PAID";
+    if (!isPaid && isPayOSConfigured()) {
+      const info = await getPaymentLinkInformation(numOrderCode || transaction.payosOrderCode);
+      if (info?.status === "PAID") isPaid = true;
+    }
+
+    if (isPaid || transaction.status === "Completed") {
+      if (transaction.status !== "Completed") {
+        transaction.status = "Completed";
+        transaction.payosStatus = "PAID";
+        await transaction.save();
+
+        if (transaction.type === "TopUp") {
+          const updatedUser = await User.findByIdAndUpdate(
+            transaction.user._id,
+            { $inc: { walletBalance: transaction.amount } },
+            { new: true }
+          );
+          return res.json({
+            success: true,
+            message: "Nạp tiền vào ví Local Buddy thành công!",
+            orderCode: numOrderCode || transaction.payosOrderCode,
+            amount: transaction.amount,
+            newBalance: updatedUser.walletBalance,
+            user: updatedUser,
+          });
+        } else if (transaction.type === "Booking") {
+          const Booking = require("../models/Booking");
+          const booking = await Booking.findById(transaction.booking);
+          if (booking && booking.paymentStatus !== "Paid") {
+            const { holdBookingFunds } = require("../utils/walletLedger");
+            await holdBookingFunds(booking, transaction.user._id, "PAYOS_QR", false);
+          }
+          return res.json({
+            success: true,
+            message: "Thanh toán đặt lịch thành công!",
+            orderCode: numOrderCode || transaction.payosOrderCode,
+            amount: transaction.amount,
+            bookingId: transaction.booking,
+          });
+        }
+      }
+
+      const user = await User.findById(transaction.user._id);
+      return res.json({
+        success: true,
+        message: "Giao dịch đã được ghi nhận thành công.",
+        orderCode: numOrderCode || transaction.payosOrderCode,
+        amount: transaction.amount,
+        newBalance: user?.walletBalance || 0,
+        user,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: "Thanh toán chưa hoàn tất.",
+      status,
+      orderCode: numOrderCode || transaction.payosOrderCode,
+    });
+  } catch (error) {
+    console.error("PayOS return error:", error);
+    return res.status(500).json({ success: false, message: "Lỗi xử lý kết quả PayOS." });
+  }
+};
+
+// 9. Xử lý webhook từ server PayOS
+exports.handlePayOSWebhook = async (req, res) => {
+  try {
+    let webhookData = req.body?.data;
+    if (isPayOSConfigured()) {
+      webhookData = await verifyWebhookData(req.body);
+    }
+    if (!webhookData || !webhookData.orderCode) {
+      return res.status(200).json({ success: false, message: "Dữ liệu webhook không hợp lệ" });
+    }
+
+    const { orderCode, code } = webhookData;
+    const numOrderCode = Number(orderCode);
+
+    const transaction = await Transaction.findOne({
+      $or: [
+        { payosOrderCode: numOrderCode },
+        { orderId: String(orderCode) },
+      ],
+    });
+
+    if (!transaction) {
+      return res.status(200).json({ success: false, message: "Order not found" });
+    }
+
+    if (transaction.status === "Completed") {
+      return res.status(200).json({ success: true, message: "Order already completed" });
+    }
+
+    if (code === "00") {
+      transaction.status = "Completed";
+      transaction.payosStatus = "PAID";
+      await transaction.save();
+
+      if (transaction.type === "TopUp") {
+        await User.findByIdAndUpdate(transaction.user, {
+          $inc: { walletBalance: transaction.amount },
+        });
+      } else if (transaction.type === "Booking") {
+        const Booking = require("../models/Booking");
+        const booking = await Booking.findById(transaction.booking);
+        if (booking && booking.paymentStatus !== "Paid") {
+          const { holdBookingFunds } = require("../utils/walletLedger");
+          await holdBookingFunds(booking, transaction.user, "PAYOS_QR", false);
+        }
+      }
+    } else {
+      transaction.status = "Failed";
+      transaction.payosStatus = code;
+      await transaction.save();
+    }
+
+    return res.status(200).json({ success: true, message: "Webhook processed successfully" });
+  } catch (error) {
+    console.error("PayOS webhook error:", error);
+    return res.status(200).json({ success: false, message: error.message });
   }
 };
 
