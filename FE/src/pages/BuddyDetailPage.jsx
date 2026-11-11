@@ -68,6 +68,22 @@ export default function BuddyDetailPage() {
 
   // Chat state
   const [currentUser, setCurrentUser] = useState(getCurrentUser);
+  const isLoggedIn = Boolean(currentUser || localStorage.getItem("lb_token"));
+
+  function handleLoginRedirect() {
+    const redirect = encodeURIComponent(window.location.pathname + window.location.search);
+    navigate(`/login?redirect=${redirect}`);
+  }
+
+  function openBookingForm() {
+    setBookingFormOpen(true);
+    if (!isLoggedIn) {
+      setNotice(t("loginRequired"));
+      setBookingSuccess(false);
+      return;
+    }
+    setNotice("");
+  }
   useEffect(() => {
     if (searchParams.get("openChat") === "true" || searchParams.get("openChat") === "1") {
       if (buddy && localStorage.getItem("lb_token")) {
@@ -191,7 +207,7 @@ export default function BuddyDetailPage() {
   }, [id]);
 
   async function book() {
-    if (!localStorage.getItem("lb_token")) {
+    if (!isLoggedIn) {
       setNotice(
         t("loginRequired"),
       );
@@ -345,7 +361,7 @@ export default function BuddyDetailPage() {
                 type="button"
                 className="btn-primary"
                 aria-haspopup="dialog"
-                onClick={() => setBookingFormOpen(true)}
+                onClick={openBookingForm}
               >
                 {t("bookNow")}
               </button>
@@ -541,7 +557,18 @@ export default function BuddyDetailPage() {
             <div role="status" className={`mt-3 rounded-lg p-3 text-xs leading-5 ${
               bookingSuccess ? "border border-emerald-200 bg-emerald-50 text-emerald-800" : "bg-blue-50 text-brand"
             }`}>
-              <p>{notice}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="flex-1">{notice}</p>
+                {!isLoggedIn && !bookingSuccess && (
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-lg bg-white px-3 py-1.5 text-[11px] font-bold text-brand shadow-sm ring-1 ring-brand/15 transition hover:bg-slate-50"
+                    onClick={handleLoginRedirect}
+                  >
+                    {t("loginNow")}
+                  </button>
+                )}
+              </div>
               {bookingSuccess && <Link to="/dashboard" className="mt-2 inline-flex font-bold underline">{t("viewRequestDashboard")}</Link>}
             </div>
           )}

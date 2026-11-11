@@ -1,6 +1,7 @@
 {
   "loadError": "Không tải được hồ sơ Local Buddy.",
   "loginRequired": "Vui lòng đăng nhập bằng tài khoản Traveler trước khi gửi yêu cầu.",
+  "loginNow": "Đăng nhập ngay",
   "chooseDate": "Vui lòng chọn ngày trải nghiệm.",
   "invalidTime": "Khung giờ trải nghiệm không hợp lệ.",
   "insufficientWallet": "Số dư ví Local Buddy không đủ ({{current}} < {{required}}). Vui lòng nạp thêm tiền hoặc chọn thanh toán qua VNPAY-QR.",

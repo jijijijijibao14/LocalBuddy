@@ -1,6 +1,7 @@
 {
   "loadError": "Unable to load the Local Buddy profile.",
   "loginRequired": "Please sign in with a Traveler account before sending a request.",
+  "loginNow": "Log in now",
   "chooseDate": "Please choose an experience date.",
   "invalidTime": "The experience time is invalid.",
   "insufficientWallet": "Your Local Buddy wallet balance is insufficient ({{current}} < {{required}}). Please add funds or choose VNPAY-QR.",

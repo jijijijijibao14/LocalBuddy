@@ -1,6 +1,7 @@
 {
   "loadError": "Local Buddy 프로필을 불러오지 못했습니다.",
   "loginRequired": "요청을 보내기 전에 Traveler 계정으로 로그인해 주세요.",
+  "loginNow": "지금 로그인",
   "chooseDate": "체험 날짜를 선택해 주세요.",
   "invalidTime": "체험 시간이 올바르지 않습니다.",
   "insufficientWallet": "Local Buddy 지갑 잔액이 부족합니다({{current}} < {{required}}). 충전하거나 VNPAY-QR을 선택해 주세요.",

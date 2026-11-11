@@ -1,6 +1,7 @@
 {
   "loadError": "Local Buddyのプロフィールを読み込めませんでした。",
   "loginRequired": "リクエストを送信する前に、Travelerアカウントでログインしてください。",
+  "loginNow": "今すぐログイン",
   "chooseDate": "体験日を選択してください。",
   "invalidTime": "体験時間が無効です。",
   "insufficientWallet": "Local Buddyウォレットの残高が不足しています（{{current}} < {{required}}）。チャージするか、VNPAY-QRを選択してください。",
