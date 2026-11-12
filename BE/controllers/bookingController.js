@@ -6,9 +6,9 @@ const { availabilityInstant } = require("../utils/availability");
 const { bookingEndInstant } = require("../utils/bookingExpiry");
 const {
   holdBookingFunds,
-  refundBookingFunds,
   releaseBookingFunds,
 } = require("../utils/walletLedger");
+const refundController = require("./refundController");
 const {
   generateOrderCode,
   createPaymentLink,
@@ -356,7 +356,10 @@ exports.localMine = async (req, res) => {
       return res.json([]);
     }
 
-    const rows = await Booking.find({ buddy: profile._id, paymentStatus: "Paid" })
+    const rows = await Booking.find({
+      buddy: profile._id,
+      $or: [{ paymentStatus: "Paid" }, { status: "Cancelled" }],
+    })
       .populate("customer", "fullName email")
       .populate("buddy", "fullName area")
       .sort({ createdAt: -1 });
@@ -410,7 +413,11 @@ exports.updateLocalStatus = async (req, res) => {
     }
 
     // 5. Chỉ lấy booking thuộc Local này và đang Pending.
-    const currentStatus = status === "Completed" ? "Confirmed" : "Pending";
+    const currentStatus = status === "Completed"
+      ? "Confirmed"
+      : status === "Cancelled"
+        ? { $in: ["Pending", "Confirmed"] }
+        : "Pending";
     const booking = await Booking.findOne({
       _id: req.params.id,
       buddy: profile._id,
@@ -421,6 +428,31 @@ exports.updateLocalStatus = async (req, res) => {
     if (!booking) {
       return res.status(404).json({
         message: "Không tìm thấy yêu cầu đang chờ xử lý.",
+      });
+    }
+    if (status === "Cancelled") {
+      const result = await refundController.cancelByLocalOrAdmin(
+        booking,
+        req.user,
+        req.body.reason,
+      );
+      if (result.error) {
+        return res.status(409).json({ message: result.error });
+      }
+      const responseBooking = await Booking.findById(booking._id).populate([
+        { path: "customer", select: "fullName email" },
+        { path: "buddy", select: "fullName area" },
+      ]);
+      return res.status(200).json({
+        message: result.refund?.status === "REFUNDED"
+          ? "Đã từ chối yêu cầu và hoàn 100% vào ví Traveler."
+          : booking.status === "Confirmed"
+            ? "Đã gửi yêu cầu hủy chuyến đến Admin. Khoản hoàn 100% đang chờ duyệt."
+          : result.refund
+            ? "Đã từ chối yêu cầu. Khoản hoàn 100% đang chờ Admin xử lý."
+          : "Đã hủy lịch chưa thanh toán.",
+        booking: responseBooking,
+        refund: result.refund,
       });
     }
     if (["Confirmed", "Completed"].includes(status) && booking.paymentStatus !== "Paid") {
@@ -555,10 +587,7 @@ exports.updateLocalStatus = async (req, res) => {
     }
 
     try {
-      if (status === "Cancelled" && updatedBooking.escrowStatus === "Held") {
-        const refunded = await refundBookingFunds(updatedBooking, `Hoàn tiền do Local từ chối đặt lịch #${booking._id}`);
-        if (!refunded) throw new Error("Không thể hoàn tiền đặt lịch.");
-      } else if (status === "Completed") {
+      if (status === "Completed") {
         if (updatedBooking.escrowStatus !== "Held" || !(await releaseBookingFunds(updatedBooking))) {
           throw new Error("Không thể quyết toán tiền đặt lịch.");
         }

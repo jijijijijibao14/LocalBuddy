@@ -204,6 +204,131 @@ async function refundBookingFunds(booking, reason) {
   return true;
 }
 
+async function settleBookingRefund(booking, refund) {
+  const amount = refund.amount;
+  if (!Number.isSafeInteger(amount) || amount <= 0 || amount > booking.price) {
+    throw new Error("Số tiền hoàn không hợp lệ.");
+  }
+
+  const isFullRefund = amount === booking.price;
+  if (refund._id) {
+    const existing = await Transaction.findOne({ refundId: refund._id, type: "Refund" });
+    if (existing) {
+      const expectedStatus = isFullRefund ? "Refunded" : "PartiallyRefunded";
+      if (booking.paymentStatus === expectedStatus) return true;
+      throw new Error("Giao dịch hoàn tiền đã tồn tại nhưng trạng thái đặt lịch cần đối soát.");
+    }
+  }
+  const previousPaymentStatus = booking.paymentStatus;
+  const updatedBooking = await booking.constructor.findOneAndUpdate(
+    {
+      _id: booking._id,
+      escrowStatus: "Held",
+      paymentStatus: { $in: ["Paid", "RefundPending", "PartiallyRefunded"] },
+    },
+    {
+      $set: {
+        paymentStatus: isFullRefund ? "Refunded" : "PartiallyRefunded",
+        ...(isFullRefund ? { escrowStatus: "Refunded" } : {}),
+      },
+    },
+    { new: true },
+  );
+  if (!updatedBooking) return false;
+
+  let settings;
+  let debited = false;
+  let credited = false;
+  try {
+    settings = await getWalletSettings();
+    const debit = await WalletSettings.updateOne(
+      { _id: settings._id, systemBalance: { $gte: amount } },
+      { $inc: { systemBalance: -amount } },
+    );
+    if (!debit.modifiedCount) {
+      throw new Error("Số dư sổ cái nội bộ không đủ để ghi nhận khoản hoàn.");
+    }
+    debited = true;
+
+    if (booking.paymentMethod === "Wallet") {
+      const credit = await User.updateOne(
+        { _id: booking.customer },
+        { $inc: { walletBalance: amount } },
+      );
+      if (!credit.matchedCount) {
+        throw new Error("Không tìm thấy tài khoản Traveler để hoàn tiền.");
+      }
+      credited = true;
+    }
+
+    await Transaction.create([
+      {
+        user: booking.customer,
+        booking: booking._id,
+        ...(refund._id ? { refundId: refund._id } : {}),
+        type: "Refund",
+        amount,
+        status: "Completed",
+        paymentMethod: booking.paymentMethod,
+        description: refund.reason || `Hoàn tiền đặt lịch #${booking._id}`,
+      },
+      {
+        user: booking.customer,
+        booking: booking._id,
+        type: "Escrow",
+        amount,
+        status: "Refunded",
+        walletOwner: "System",
+        paymentMethod: booking.paymentMethod,
+        description: `Ghi nhận hoàn tiền đặt lịch #${booking._id}`,
+      },
+    ]);
+  } catch (error) {
+    await Promise.all([
+      ...(credited
+        ? [User.updateOne(
+            { _id: booking.customer, walletBalance: { $gte: amount } },
+            { $inc: { walletBalance: -amount } },
+          )]
+        : []),
+      ...(debited
+        ? [WalletSettings.updateOne(
+            { _id: settings._id },
+            { $inc: { systemBalance: amount } },
+          )]
+        : []),
+      booking.constructor.updateOne(
+        { _id: booking._id, paymentStatus: isFullRefund ? "Refunded" : "PartiallyRefunded" },
+        {
+          $set: {
+            escrowStatus: "Held",
+            paymentStatus: previousPaymentStatus,
+          },
+        },
+      ),
+    ]);
+    await Transaction.deleteMany({
+      booking: booking._id,
+      ...(refund._id ? { refundId: refund._id } : {}),
+      type: "Refund",
+      status: "Completed",
+    });
+    await Transaction.deleteMany({
+      booking: booking._id,
+      type: "Escrow",
+      walletOwner: "System",
+      amount,
+      status: "Refunded",
+      paymentMethod: booking.paymentMethod,
+    });
+    throw error;
+  }
+
+  booking.paymentStatus = isFullRefund ? "Refunded" : "PartiallyRefunded";
+  if (isFullRefund) booking.escrowStatus = "Refunded";
+  return true;
+}
+
 async function releaseBookingFunds(booking) {
   const claimed = await booking.constructor.findOneAndUpdate(
     { _id: booking._id, escrowStatus: "Held" },
@@ -339,5 +464,6 @@ module.exports = {
   getWalletSettings,
   holdBookingFunds,
   refundBookingFunds,
+  settleBookingRefund,
   releaseBookingFunds,
 };

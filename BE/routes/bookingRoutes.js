@@ -1,10 +1,14 @@
 
 const router = require("express").Router();
 const c = require("../controllers/bookingController");
+const refund = require("../controllers/refundController");
 const { protect } = require("../middleware/auth");
 
 router.post("/", protect, c.create);
 router.get("/mine", protect, c.mine);
+router.get("/refunds/mine", protect, refund.listMine);
+router.post("/:id/cancel", protect, refund.cancel);
+router.get("/:id/refund-quote", protect, refund.quote);
 router.post("/:id/pay-wallet", protect, c.payWithWallet);
 router.post("/:id/pay-payos-qr", protect, c.getBookingPayOSQR);
 router.get("/:id/payos-status/:orderCode", protect, c.checkBookingPayOSStatus);

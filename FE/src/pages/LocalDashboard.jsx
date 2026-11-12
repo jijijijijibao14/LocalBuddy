@@ -73,6 +73,9 @@ export default function LocalDashboard() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentLocalUser, setCurrentLocalUser] = useState(getStoredUser);
+  const [cancellationBooking, setCancellationBooking] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [bookingActionLoading, setBookingActionLoading] = useState(false);
 
   async function loadData() {
     try {
@@ -189,23 +192,27 @@ export default function LocalDashboard() {
     }
   }
 
-  async function updateBooking(id, status) {
+  async function updateBooking(id, status, reason) {
     setMessage("");
+    setBookingActionLoading(true);
 
     try {
-      await api.patch(`/bookings/${id}/local-status`, { status });
+      const { data } = await api.patch(`/bookings/${id}/local-status`, { status, reason });
       window.dispatchEvent(new Event("lb-bookings-change"));
+      await loadData();
       setMessage(
         status === "Confirmed"
           ? t("messages.confirmed")
-          : t("messages.rejected"),
+          : data.message || t("messages.rejected"),
       );
-
-      await loadData();
+      setCancellationBooking(null);
+      setCancellationReason("");
     } catch (error) {
       setMessage(
         error.response?.data?.message || t("errors.updateBooking"),
       );
+    } finally {
+      setBookingActionLoading(false);
     }
   }
 
@@ -484,7 +491,9 @@ export default function LocalDashboard() {
                 </div>
                 <span className="pill">
                   {booking.status === "Cancelled"
-                    ? t("status.rejected")
+                    ? booking.cancellationReason?.startsWith("Local yêu cầu hủy chuyến:")
+                      ? "Đã yêu cầu hủy chuyến"
+                      : t("status.rejected")
                     : booking.status === "Pending"
                       ? t("status.pending")
                       : booking.status === "Confirmed"
@@ -493,19 +502,48 @@ export default function LocalDashboard() {
                 </span>
               </div>
 
+              {booking.status === "Cancelled" && booking.paymentStatus === "RefundPending" && (
+                <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  Yêu cầu hoàn 100% đang chờ Admin duyệt.
+                </p>
+              )}
+              {booking.status === "Cancelled" && booking.paymentStatus === "Refunded" && (
+                <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                  Đã hoàn tiền cho Traveller.
+                </p>
+              )}
+
               {booking.status === "Pending" && (
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     className="btn-primary"
+                    disabled={bookingActionLoading}
                     onClick={() => updateBooking(booking._id, "Confirmed")}
                   >
                     <CheckCircle2 size={16} /> {t("actions.confirm")}
                   </button>
                   <button
                     className="btn-light"
-                    onClick={() => updateBooking(booking._id, "Cancelled")}
+                    disabled={bookingActionLoading}
+                    onClick={() => updateBooking(booking._id, "Cancelled", "Local từ chối yêu cầu đặt lịch.")}
                   >
                     <XCircle size={16} /> {t("actions.reject")}
+                  </button>
+                </div>
+              )}
+              {booking.status === "Confirmed" && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                    disabled={bookingActionLoading}
+                    onClick={() => {
+                      setCancellationBooking(booking);
+                      setCancellationReason("");
+                      setMessage("");
+                    }}
+                  >
+                    <XCircle size={16} /> Yêu cầu hủy chuyến
                   </button>
                 </div>
               )}
@@ -528,6 +566,75 @@ export default function LocalDashboard() {
           ))}
         </div>
       </section>
+
+      {cancellationBooking && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="local-cancellation-title"
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <header className="border-b border-slate-100 px-6 py-5">
+              <span className="pill"><CalendarDays size={12} /> Yêu cầu hủy chuyến</span>
+              <h2 id="local-cancellation-title" className="mt-3 text-xl font-black text-navy">
+                Gửi yêu cầu đến Admin
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Traveller: {cancellationBooking.customer?.fullName || "Traveller"} · {cancellationBooking.startTime}–{cancellationBooking.endTime}
+              </p>
+            </header>
+            <div className="space-y-4 px-6 py-5">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-sm font-extrabold text-emerald-800">Traveller được hoàn 100%</p>
+                <p className="mt-1 text-xs leading-5 text-emerald-700">
+                  Yêu cầu hủy và khoản hoàn sẽ được gửi Admin xem xét. Tiền chỉ được hoàn sau khi Admin duyệt.
+                </p>
+                <p className="mt-2 text-sm font-black text-navy">
+                  {formatCurrency(cancellationBooking.price || 0)}
+                </p>
+              </div>
+              <div>
+                <label htmlFor="local-cancellation-reason" className="block text-xs font-extrabold text-slate-700">
+                  Lý do hủy <span className="font-medium text-slate-400">(bắt buộc)</span>
+                </label>
+                <textarea
+                  id="local-cancellation-reason"
+                  value={cancellationReason}
+                  onChange={(event) => setCancellationReason(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  autoFocus
+                  className="mt-2 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-blue-100"
+                  placeholder="Cho Admin và Traveller biết lý do bạn cần hủy chuyến..."
+                />
+              </div>
+            </div>
+            <footer className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="btn-light justify-center"
+                disabled={bookingActionLoading}
+                onClick={() => setCancellationBooking(null)}
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={bookingActionLoading || cancellationReason.trim().length < 3}
+                onClick={() => updateBooking(
+                  cancellationBooking._id,
+                  "Cancelled",
+                  cancellationReason,
+                )}
+              >
+                {bookingActionLoading ? "Đang gửi..." : "Gửi Admin yêu cầu hủy"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
 
       {/* {profile && (
         <section className="panel flex flex-wrap items-center gap-4 p-5">

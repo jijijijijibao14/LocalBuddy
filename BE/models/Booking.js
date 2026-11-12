@@ -75,7 +75,7 @@ const schema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["Unpaid", "Paid", "Refunded"],
+      enum: ["Unpaid", "Paid", "RefundPending", "PartiallyRefunded", "Refunded"],
       default: "Unpaid",
     },
     paymentMethod: {
@@ -90,6 +90,12 @@ const schema = new mongoose.Schema(
       type: String,
       enum: ["None", "Processing", "Held", "Released", "Refunded"],
       default: "None",
+    },
+    cancellationReason: { type: String, default: "", maxlength: 500 },
+    refundRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Refund",
+      default: null,
     },
   },
   { timestamps: true }

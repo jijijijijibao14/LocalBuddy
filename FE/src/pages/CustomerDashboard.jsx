@@ -9,10 +9,12 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  QrCode,
 } from "lucide-react";
 import api from "../services/api";
 import { Link } from "react-router-dom";
 import BookingPaymentModal from "../components/BookingPaymentModal";
+import WalletTopUpModal from "../components/WalletTopUpModal";
 import ConversationList from "../components/ConversationList";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
@@ -33,11 +35,19 @@ export default function CustomerDashboard() {
   const { formatCurrency, language, languages } = useLocale();
   const locale = languages.find((l) => l.code === language)?.locale || "vi-VN";
   const [user, setUser] = useState(getStoredUser);
+  const [walletBalance, setWalletBalance] = useState(() => Number(getStoredUser().walletBalance || 0));
   const [bookings, setBookings] = useState([]);
+  const [refunds, setRefunds] = useState([]);
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
   const [selectedBookingForPay, setSelectedBookingForPay] = useState(null);
   const [isBookingPayOpen, setIsBookingPayOpen] = useState(false);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+  const [selectedBookingForCancellation, setSelectedBookingForCancellation] = useState(null);
+  const [refundQuote, setRefundQuote] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationLoading, setCancellationLoading] = useState(false);
+  const [refundNotice, setRefundNotice] = useState("");
   useEffect(() => {
     api
       .get("/bookings/mine")
@@ -45,18 +55,57 @@ export default function CustomerDashboard() {
       .catch(() =>
         setError(t("errors.bookings")),
       );
+    api.get("/bookings/refunds/mine")
+      .then((r) => setRefunds(r.data))
+      .catch(() => setError("Không thể tải lịch sử hoàn tiền."));
     api
       .get("/users/me")
       .then(({ data }) => {
         const profile = data.user;
         const updatedUser = { ...getStoredUser(), ...profile };
         setUser(updatedUser);
+        setWalletBalance(Number(updatedUser.walletBalance || 0));
         localStorage.setItem("lb_user", JSON.stringify(updatedUser));
       })
       .catch(() =>
         setProfileError(t("errors.profile")),
       );
   }, [t]);
+
+  async function startCancellation(booking) {
+    try {
+        setRefundNotice("");
+        const { data } = await api.get(`/bookings/${booking._id}/refund-quote`);
+        setSelectedBookingForCancellation(booking);
+        setRefundQuote(data);
+        setCancellationReason("");
+    } catch (e) {
+        setError(e.response?.data?.message || "Không thể tính số tiền hoàn dự kiến.");
+    }
+  }
+
+  async function submitCancellation() {
+    if (!selectedBookingForCancellation) return;
+    setCancellationLoading(true);
+    setError("");
+    try {
+        const { data } = await api.post(
+          `/bookings/${selectedBookingForCancellation._id}/cancel`,
+          { reason: cancellationReason },
+        );
+        setBookings((prev) =>
+          prev.map((item) => item._id === data.booking._id ? { ...item, ...data.booking } : item),
+        );
+        if (data.refund) setRefunds((prev) => [data.refund, ...prev]);
+        setRefundNotice(data.message);
+        setSelectedBookingForCancellation(null);
+        setRefundQuote(null);
+    } catch (e) {
+        setError(e.response?.data?.message || "Không thể gửi yêu cầu hủy lịch.");
+    } finally {
+        setCancellationLoading(false);
+    }
+  }
   return (
     <div className="container-page py-7">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -166,17 +215,16 @@ export default function CustomerDashboard() {
               <h2 className="font-extrabold">{t("bookings.title")}</h2>
               <button
                 className="btn-light !py-2"
-                onClick={() =>
-                  api
-                    .get("/bookings/mine")
-                    .then((r) => setBookings(r.data))
-                    .catch(() => {})
-                }
+                onClick={() => Promise.all([
+                  api.get("/bookings/mine").then((r) => setBookings(r.data)),
+                  api.get("/bookings/refunds/mine").then((r) => setRefunds(r.data)),
+                ]).catch((e) => setError(e.response?.data?.message || "Không thể tải dữ liệu đặt lịch."))}
               >
                 <RefreshCw size={13} /> {t("bookings.refresh")}
               </button>
             </div>
             {error && <p className="mt-3 text-xs text-amber-700">{error}</p>}
+            {refundNotice && <p className="mt-3 text-xs text-emerald-700" role="status">{refundNotice}</p>}
             {bookings.length ? (
               <div className="mt-4 space-y-3">
                 {bookings.map((b) => (
@@ -199,6 +247,14 @@ export default function CustomerDashboard() {
                                   : "VNPAY-QR",
                             })}
                           </span>
+                        ) : b.paymentStatus === "Refunded" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                            <CheckCircle2 size={11} /> Đã hoàn tiền
+                          </span>
+                        ) : b.paymentStatus === "RefundPending" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800">
+                            <Clock size={11} /> Đang xử lý hoàn tiền
+                          </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800 border border-amber-200">
                             <AlertCircle size={11} /> {t("bookings.unpaid")}
@@ -218,6 +274,12 @@ export default function CustomerDashboard() {
                           {formatCurrency(b.price || 0)}
                         </b>
                       </p>
+                      {refunds.find((item) => item.booking?._id === b._id) && (
+                        <p className="mt-2 text-xs font-semibold text-amber-700">
+                          Hoàn tiền: {refunds.find((item) => item.booking?._id === b._id).status}
+                          {" · "}{formatCurrency(refunds.find((item) => item.booking?._id === b._id).amount || 0)}
+                        </p>
+                      )}
                       {b.foodBudget > 0 && (
                         <p className="mt-1 text-xs text-slate-500">
                           {t("bookings.foodBudget", {
@@ -248,6 +310,14 @@ export default function CustomerDashboard() {
                         >
                           <QrCode size={13} />
                           <span>{t("bookings.payNow")}</span>
+                        </button>
+                      )}
+                      {["Pending", "Confirmed"].includes(b.status) && !b.refundRequestId && (
+                        <button
+                          onClick={() => startCancellation(b)}
+                          className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
+                        >
+                          Hủy lịch
                         </button>
                       )}
                     </div>
@@ -323,6 +393,112 @@ export default function CustomerDashboard() {
         </div>
       </div>
 
+      {selectedBookingForCancellation && refundQuote && (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/60 p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-booking-title"
+            className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <header className="flex items-start gap-4 border-b border-slate-100 px-6 py-5 sm:px-7">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">
+                <CalendarDays size={20} />
+              </span>
+              <div>
+                <h2 id="cancel-booking-title" className="text-lg font-black text-navy">
+                  Xác nhận hủy lịch
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {new Date(selectedBookingForCancellation.date).toLocaleDateString(locale)} · {selectedBookingForCancellation.time}
+                </p>
+              </div>
+            </header>
+
+            <div className="space-y-5 px-6 py-5 sm:px-7">
+              <div>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-extrabold text-navy">Chính sách hoàn tiền</h3>
+                  {refundQuote.hoursUntilExperience != null && refundQuote.hoursUntilExperience > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-brand">
+                      <Clock size={12} />
+                      Còn {refundQuote.hoursUntilExperience.toLocaleString(locale, { maximumFractionDigits: 1 })} giờ
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {[
+                    ["Hơn 6 tiếng", refundQuote.policy.overSixHoursPercent],
+                    ["3–6 tiếng", refundQuote.policy.threeToSixHoursPercent],
+                    ["1–3 tiếng", refundQuote.policy.oneToThreeHoursPercent],
+                    ["Dưới 1 tiếng", refundQuote.policy.underOneHourPercent],
+                  ].map(([label, percent]) => (
+                    <div key={label} className="rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-3">
+                      <p className="text-[11px] font-medium text-slate-500">{label}</p>
+                      <p className="mt-1 text-lg font-black text-navy">{percent}%</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Từ lúc trải nghiệm bắt đầu: <b className="text-slate-700">0%</b>
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-red-100 bg-red-50/70 p-4 sm:p-5">
+                <p className="text-xs font-semibold text-red-800">Số tiền hoàn dự kiến</p>
+                <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p className="text-2xl font-black tracking-tight text-navy sm:text-3xl">
+                    {formatCurrency(refundQuote.amount)}
+                  </p>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-xs font-extrabold text-red-700 ring-1 ring-red-100">
+                    {refundQuote.percentage}% hoàn
+                  </span>
+                </div>
+                {refundQuote.paid && selectedBookingForCancellation.paymentMethod !== "Wallet" && refundQuote.amount > 0 && (
+                  <p className="mt-3 rounded-xl bg-white/80 p-3 text-xs leading-5 text-amber-800">
+                    Khoản PayOS cần Admin xử lý trên cổng thanh toán; trạng thái chỉ hoàn tất sau khi đối soát mã giao dịch.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700" htmlFor="cancellation-reason">
+                  Lý do hủy <span className="font-medium text-slate-400">(ít nhất 3 ký tự)</span>
+                </label>
+                <textarea
+                  id="cancellation-reason"
+                  value={cancellationReason}
+                  onChange={(event) => setCancellationReason(event.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  className="mt-2 w-full resize-y rounded-2xl border border-slate-200 bg-white p-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-4 focus:ring-blue-100"
+                  placeholder="Chia sẻ ngắn gọn lý do bạn muốn hủy..."
+                />
+              </div>
+            </div>
+
+            <footer className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <button
+                type="button"
+                className="btn-light justify-center"
+                disabled={cancellationLoading}
+                onClick={() => setSelectedBookingForCancellation(null)}
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center rounded-xl bg-red-700 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm shadow-red-900/15 transition hover:bg-red-800 focus:outline-none focus:ring-4 focus:ring-red-100 disabled:cursor-not-allowed disabled:opacity-80"
+                disabled={cancellationLoading || cancellationReason.trim().length < 3}
+                onClick={submitCancellation}
+              >
+                {cancellationLoading ? "Đang gửi..." : "Xác nhận hủy"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
       <BookingPaymentModal
         isOpen={isBookingPayOpen}
         onClose={() => setIsBookingPayOpen(false)}
@@ -333,23 +509,25 @@ export default function CustomerDashboard() {
               item._id === updatedBooking._id ? { ...item, ...updatedBooking } : item
             )
           );
-          api
-            .get("/users/me")
-            .then(({ data }) => {
-              if (data?.user?.walletBalance != null) {
-                setBalance(data.user.walletBalance);
-                const updated = { ...user, walletBalance: data.user.walletBalance };
-                setUser(updated);
-                localStorage.setItem("lb_user", JSON.stringify(updated));
-                window.dispatchEvent(new Event("lb-auth-change"));
-              }
-            })
-            .catch(() => {});
+          const updatedUser = getStoredUser();
+          setUser(updatedUser);
+          setWalletBalance(Number(updatedUser.walletBalance || 0));
           setIsBookingPayOpen(false);
         }}
         onOpenTopUp={() => {
           setIsBookingPayOpen(false);
           setIsTopUpOpen(true);
+        }}
+      />
+
+      <WalletTopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        currentBalance={walletBalance}
+        onSuccess={(newBalance) => {
+          const updatedUser = { ...getStoredUser(), walletBalance: Number(newBalance) };
+          setWalletBalance(Number(newBalance));
+          setUser(updatedUser);
         }}
       />
 

@@ -3,6 +3,7 @@ const schema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     booking: { type: mongoose.Schema.Types.ObjectId, ref: "Booking" },
+    refundId: { type: mongoose.Schema.Types.ObjectId, ref: "Refund" },
     type: {
       type: String,
       enum: ["TopUp", "Booking", "Refund", "Escrow", "Earning", "Commission", "Withdrawal"],
@@ -37,4 +38,5 @@ const schema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+schema.index({ refundId: 1 }, { unique: true, sparse: true });
 module.exports = mongoose.model("Transaction", schema);

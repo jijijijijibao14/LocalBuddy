@@ -2,8 +2,9 @@ const User = require("../models/User");
 const BuddyProfile = require("../models/BuddyProfile");
 const Booking = require("../models/Booking");
 const Transaction = require("../models/Transaction");
-const { refundBookingFunds, releaseBookingFunds } = require("../utils/walletLedger");
+const { releaseBookingFunds } = require("../utils/walletLedger");
 const { bookingEndInstant } = require("../utils/bookingExpiry");
+const refundController = require("./refundController");
 
 exports.stats = async (req, res) => {
   const [users, buddies, bookings, transactions] = await Promise.all([
@@ -214,14 +215,29 @@ exports.updateBooking = async (req, res) => {
   if (req.body.status === "Cancelled" && !["Pending", "Confirmed"].includes(current.status)) {
     return res.status(400).json({ message: "Không thể hủy yêu cầu ở trạng thái này." });
   }
+  if (req.body.status === "Cancelled") {
+    const result = await refundController.cancelByLocalOrAdmin(
+      current,
+      req.user,
+      req.body.reason || "Hủy lịch bởi Admin",
+    );
+    if (result.error) {
+      return res.status(409).json({ message: result.error });
+    }
+    const updated = await Booking.findById(current._id);
+    await updated.populate([
+      { path: "customer", select: "fullName email phone" },
+      { path: "buddy", select: "fullName area" },
+    ]);
+    return res.json(updated);
+  }
   const previousStatus = current.status;
   const claimed = await Booking.findOneAndUpdate(
     {
       _id: current._id,
       status: previousStatus,
-      ...(req.body.status === "Cancelled"
-        ? { escrowStatus: { $ne: "Processing" } }
-        : { paymentStatus: "Paid", escrowStatus: "Held" }),
+      paymentStatus: "Paid",
+      escrowStatus: "Held",
     },
     { $set: { status: req.body.status } },
     { new: true },
@@ -230,10 +246,7 @@ exports.updateBooking = async (req, res) => {
     return res.status(409).json({ message: "Yêu cầu đã được xử lý hoặc không còn tồn tại." });
   }
   try {
-    if (req.body.status === "Cancelled" && claimed.escrowStatus === "Held") {
-      const refunded = await refundBookingFunds(claimed, `Hoàn tiền do Admin hủy đặt lịch #${claimed._id}`);
-      if (!refunded) throw new Error("Không thể hoàn tiền đặt lịch.");
-    } else if (req.body.status === "Completed") {
+    if (req.body.status === "Completed") {
       if (claimed.escrowStatus !== "Held" || !(await releaseBookingFunds(claimed))) {
         throw new Error("Không thể quyết toán tiền đặt lịch.");
       }

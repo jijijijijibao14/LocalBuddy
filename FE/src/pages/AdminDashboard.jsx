@@ -38,6 +38,13 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [buddies, setBuddies] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [refunds, setRefunds] = useState([]);
+  const [cancellationPolicy, setCancellationPolicy] = useState({
+    overSixHoursPercent: 100,
+    threeToSixHoursPercent: 75,
+    oneToThreeHoursPercent: 50,
+    underOneHourPercent: 25,
+  });
   const [accountRoleTab, setAccountRoleTab] = useState("local");
   const [accountQuery, setAccountQuery] = useState("");
   const [accountStatus, setAccountStatus] = useState("");
@@ -45,20 +52,28 @@ export default function AdminDashboard() {
   const [buddyPage, setBuddyPage] = useState(1);
   const [bookingStatusTab, setBookingStatusTab] = useState("Pending");
   const [message, setMessage] = useState("");
+  const [refundAction, setRefundAction] = useState(null);
+  const [refundNote, setRefundNote] = useState("");
+  const [providerRefundId, setProviderRefundId] = useState("");
+  const [refundActionLoading, setRefundActionLoading] = useState(false);
   const accountsResult = paginate(filterAccounts(users, accountRoleTab, accountQuery, accountStatus), accountPage);
   const buddiesResult = paginate(buddies, buddyPage);
   async function load() {
     try {
-      const [s, u, bp, b] = await Promise.all([
+      const [s, u, bp, b, r, policy] = await Promise.all([
         api.get("/admin/stats"),
         api.get("/admin/users"),
         api.get("/admin/buddies"),
         api.get("/admin/bookings"),
+        api.get("/admin/refunds"),
+        api.get("/admin/settings/cancellation-policy"),
       ]);
       setStats(s.data);
       setUsers(u.data);
       setBuddies(bp.data);
       setBookings(b.data);
+      setRefunds(r.data);
+      setCancellationPolicy(policy.data.cancellationPolicy);
       setMessage("");
     } catch (e) {
       setMessage(
@@ -112,6 +127,54 @@ export default function AdminDashboard() {
       );
     } catch (e) {
       setMessage(e.response?.data?.message || t("errors.booking"));
+    }
+  }
+  function openRefundAction(refund, action) {
+    setRefundAction({ refund, action });
+    setRefundNote(action === "EXTERNAL" ? "Đã xác nhận hoàn tiền thành công trên PayOS." : "");
+    setProviderRefundId("");
+    setMessage("");
+  }
+  async function submitRefundAction(event) {
+    event.preventDefault();
+    if (!refundAction || refundActionLoading) return;
+    const { refund, action } = refundAction;
+    if (action === "EXTERNAL" && (!providerRefundId.trim() || !refundNote.trim())) {
+      setMessage("Vui lòng nhập mã giao dịch và ghi chú đối soát.");
+      return;
+    }
+
+    setRefundActionLoading(true);
+    try {
+      const { data } = action === "EXTERNAL"
+        ? await api.patch(`/admin/refunds/${refund._id}/confirm-external`, {
+            providerRefundId: providerRefundId.trim(),
+            note: refundNote.trim(),
+          })
+        : await api.patch(`/admin/refunds/${refund._id}/review`, {
+            action,
+            note: refundNote.trim(),
+          });
+      setRefunds((prev) => prev.map((item) => item._id === data._id ? data : item));
+      setMessage(action === "EXTERNAL"
+        ? "Đã ghi nhận giao dịch hoàn PayOS."
+        : action === "APPROVE"
+          ? "Đã duyệt yêu cầu hoàn tiền."
+          : "Đã từ chối yêu cầu hoàn tiền.");
+      setRefundAction(null);
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Không thể xử lý yêu cầu hoàn tiền.");
+    } finally {
+      setRefundActionLoading(false);
+    }
+  }
+  async function saveCancellationPolicy() {
+    try {
+      const { data } = await api.patch("/admin/settings/cancellation-policy", { cancellationPolicy });
+      setCancellationPolicy(data.cancellationPolicy);
+      setMessage("Đã cập nhật chính sách hủy và hoàn tiền.");
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Không thể lưu chính sách hủy.");
     }
   }
   return (
@@ -479,6 +542,195 @@ export default function AdminDashboard() {
           )}
         </div>
       </section>
+      <section className="panel mt-6 p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-extrabold">Chính sách hủy và hoàn tiền</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Các tỷ lệ được tính ở backend theo thời điểm gửi yêu cầu.
+            </p>
+          </div>
+          <button type="button" className="btn-primary !py-2" onClick={saveCancellationPolicy}>
+            Lưu chính sách
+          </button>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["overSixHoursPercent", "Trước hơn 6 tiếng"],
+            ["threeToSixHoursPercent", "Trước 3–6 tiếng"],
+            ["oneToThreeHoursPercent", "Trước 1–3 tiếng"],
+            ["underOneHourPercent", "Trước dưới 1 tiếng"],
+          ].map(([field, label]) => (
+            <label key={field} className="text-xs font-bold text-slate-700">
+              {label} (%)
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={cancellationPolicy[field]}
+                onChange={(event) => setCancellationPolicy((prev) => ({
+                  ...prev,
+                  [field]: event.target.value === "" ? "" : Number(event.target.value),
+                }))}
+                className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2"
+              />
+            </label>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-slate-500">Từ thời điểm bắt đầu trải nghiệm trở đi: hoàn 0%.</p>
+      </section>
+
+      <section className="panel mt-6 overflow-hidden">
+        <div className="p-5">
+          <h2 className="font-extrabold">Yêu cầu hoàn tiền ({refunds.length})</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            PayOS không hỗ trợ hoàn tiền qua SDK hiện tại; xử lý trên Merchant Portal rồi nhập mã xác nhận tại đây.
+          </p>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {refunds.map((refund) => (
+            <div key={refund._id} className="flex flex-wrap items-center justify-between gap-4 p-5">
+              <div className="min-w-[220px]">
+                <p className="font-bold text-navy">
+                  {refund.customer?.fullName || "Traveler"} · {refund.booking?.buddy?.fullName || "Local"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {refund.reason} · {refund.percentage}% · {formatCurrency(refund.amount || 0)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {refund.paymentMethod} · {refund.booking?.time || ""}
+                </p>
+                <p className="mt-1 text-xs font-bold text-amber-700">
+                  {refund.status}{refund.providerRefundId ? ` · ${refund.providerRefundId}` : ""}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {refund.status === "PENDING" && (
+                  <>
+                    <button className="btn-primary !py-2" onClick={() => openRefundAction(refund, "APPROVE")}>
+                      Duyệt
+                    </button>
+                    <button className="btn-light !py-2" onClick={() => openRefundAction(refund, "REJECT")}>
+                      Từ chối
+                    </button>
+                  </>
+                )}
+                {refund.status === "PROCESSING" && refund.paymentMethod !== "Wallet" && !refund.providerRefundId && (
+                  <button className="btn-primary !py-2" onClick={() => openRefundAction(refund, "EXTERNAL")}>
+                    Ghi nhận PayOS đã hoàn
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          {!refunds.length && <p className="p-8 text-center text-xs text-slate-500">Chưa có yêu cầu hoàn tiền.</p>}
+        </div>
+      </section>
+
+      {refundAction && (
+        <div
+          className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !refundActionLoading) setRefundAction(null);
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="refund-action-title"
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <header className="border-b border-slate-100 px-6 py-5">
+              <span className="pill">
+                <Wallet size={12} /> Quản lý hoàn tiền
+              </span>
+              <h2 id="refund-action-title" className="mt-3 text-xl font-black text-navy">
+                {refundAction.action === "EXTERNAL"
+                  ? "Ghi nhận hoàn tiền PayOS"
+                  : refundAction.action === "APPROVE"
+                    ? "Duyệt yêu cầu hoàn tiền"
+                    : "Từ chối yêu cầu hoàn tiền"}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {refundAction.refund.customer?.fullName || "Traveller"} · {formatCurrency(refundAction.refund.amount || 0)}
+              </p>
+            </header>
+            <form onSubmit={submitRefundAction}>
+              <div className="space-y-4 px-6 py-5">
+                {refundAction.action === "EXTERNAL" && (
+                  <div>
+                    <label className="block text-xs font-extrabold text-slate-700" htmlFor="provider-refund-id">
+                      Mã giao dịch hoàn tiền PayOS
+                    </label>
+                    <input
+                      id="provider-refund-id"
+                      value={providerRefundId}
+                      onChange={(event) => setProviderRefundId(event.target.value)}
+                      maxLength={200}
+                      required
+                      autoFocus
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-blue-100"
+                      placeholder="Nhập mã giao dịch đã xác nhận"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-700" htmlFor="refund-action-note">
+                    {refundAction.action === "REJECT" ? "Lý do từ chối" : "Ghi chú"}
+                    {refundAction.action === "APPROVE" && (
+                      <span className="ml-1 font-medium text-slate-400">(không bắt buộc)</span>
+                    )}
+                  </label>
+                  <textarea
+                    id="refund-action-note"
+                    value={refundNote}
+                    onChange={(event) => setRefundNote(event.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    required={refundAction.action === "EXTERNAL"}
+                    autoFocus={refundAction.action !== "EXTERNAL"}
+                    className="mt-2 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-blue-100"
+                    placeholder={refundAction.action === "REJECT"
+                      ? "Nhập lý do từ chối..."
+                      : "Nhập ghi chú nếu cần..."}
+                  />
+                </div>
+                {message && (
+                  <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" role="alert">
+                    {message}
+                  </p>
+                )}
+              </div>
+              <footer className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="btn-light justify-center"
+                  disabled={refundActionLoading}
+                  onClick={() => setRefundAction(null)}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className={refundAction.action === "REJECT"
+                    ? "rounded-xl bg-red-700 px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-red-800 disabled:opacity-60"
+                    : "btn-primary"}
+                  disabled={refundActionLoading}
+                >
+                  {refundActionLoading
+                    ? "Đang xử lý..."
+                    : refundAction.action === "EXTERNAL"
+                      ? "Xác nhận đã hoàn"
+                      : refundAction.action === "APPROVE"
+                        ? "Duyệt hoàn tiền"
+                        : "Xác nhận từ chối"}
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
