@@ -68,6 +68,7 @@ export default function LocalDashboard() {
   const [availability, setAvailability] = useState([]);
   const [availabilityDirty, setAvailabilityDirty] = useState(false);
   const [bookings, setBookings] = useState([]);
+  const [cancellationPage, setCancellationPage] = useState(1);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingStatusFilter, setBookingStatusFilter] = useState("Pending");
   const [bookingPage, setBookingPage] = useState(1);
@@ -239,6 +240,10 @@ export default function LocalDashboard() {
     (booking) => booking.status === bookingStatusFilter,
   );
   const bookingResult = paginate(filteredBookings, bookingPage, 3);
+  const cancellationRequests = bookings.filter(
+    (booking) => booking.status === "Cancelled",
+  );
+  const cancellationResult = paginate(cancellationRequests, cancellationPage, 3);
 
   return (
     <div className="container-page space-y-6 py-8">
@@ -495,6 +500,105 @@ export default function LocalDashboard() {
             previousLabel={t("requests.pagination.previous")}
             nextLabel={t("requests.pagination.next")}
             pageLabel={t("requests.pagination.page", { page: bookingResult.page, total: bookingResult.pageCount })}
+          />
+        )}
+      </section>
+      <section className="panel p-5 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black text-navy">
+              {t("cancellationRequests.title")}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {t("cancellationRequests.subtitle")}
+            </p>
+          </div>
+          <span className="pill">{cancellationRequests.length}</span>
+        </div>
+
+        {cancellationRequests.length === 0 ? (
+          <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-500">
+            {t("cancellationRequests.empty")}
+          </p>
+        ) : (
+          <div className="mt-5 space-y-3">
+            {cancellationResult.items.map((booking) => {
+              const refundRequest =
+                typeof booking.refundRequestId === "object"
+                  ? booking.refundRequestId
+                  : null;
+              const requesterRole = refundRequest?.requestedByRole;
+
+              return (
+                <article
+                  key={booking._id}
+                  className="rounded-xl border border-slate-200 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-extrabold text-navy">
+                        {booking.customer?.fullName || "Traveler"}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {t("cancellationRequests.date", {
+                          date: booking.date?.slice(0, 10) || "",
+                        })}
+                        {booking.time ? ` · ${booking.time}` : ""}
+                      </p>
+                    </div>
+                    <span className="pill">
+                      {refundRequest
+                        ? t(
+                            `cancellationRequests.status${refundRequest.status}`,
+                            refundRequest.status,
+                          )
+                        : t("cancellationRequests.noRefund")}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-600">
+                    {t("cancellationRequests.requestedBy")}:{" "}
+                    {requesterRole
+                      ? t(`cancellationRequests.roles.${requesterRole}`)
+                      : t("cancellationRequests.roles.unknown")}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-700">
+                    <span className="font-bold">
+                      {t("cancellationRequests.reason")}:
+                    </span>{" "}
+                    {refundRequest?.reason ||
+                      booking.cancellationReason ||
+                      t("cancellationRequests.noReason")}
+                  </p>
+                  {refundRequest && (
+                    <p className="mt-2 text-xs font-semibold text-slate-600">
+                      {t("cancellationRequests.refundAmount")}:{" "}
+                      {formatCurrency(refundRequest.amount)} (
+                      {refundRequest.percentage}%)
+                    </p>
+                  )}
+                  {refundRequest?.providerRefundId && (
+                    <p className="mt-2 break-all text-xs text-slate-500">
+                      {t("cancellationRequests.providerRefundId")}:{" "}
+                      {refundRequest.providerRefundId}
+                    </p>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        )}
+
+        {cancellationRequests.length > 3 && (
+          <Pagination
+            result={cancellationResult}
+            onChange={setCancellationPage}
+            previousLabel={t("requests.pagination.previous")}
+            nextLabel={t("requests.pagination.next")}
+            pageLabel={t("requests.pagination.page", {
+              page: cancellationResult.page,
+              total: cancellationResult.pageCount,
+            })}
+            showPageNumbers
           />
         )}
       </section>

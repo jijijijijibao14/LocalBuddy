@@ -87,6 +87,31 @@
     "extraNote": "追加費用は Traveler が直接支払います。",
     "message": "メッセージ：{{message}}"
   },
+  "cancellationRequests": {
+    "title": "キャンセルリクエスト",
+    "subtitle": "あなたのLocalプロフィールに紐づくキャンセル済み予約です。",
+    "empty": "キャンセルリクエストはありません。",
+    "date": "体験日：{{date}}",
+    "requestedBy": "申請者",
+    "roles": {
+      "traveler": "Traveler",
+      "local": "Local",
+      "admin": "Admin",
+      "unknown": "不明"
+    },
+    "reason": "理由",
+    "noReason": "理由は記載されていません。",
+    "noRefund": "返金リクエストはありません",
+    "refundAmount": "返金額",
+    "providerRefundId": "返金取引ID",
+    "statusPENDING": "Adminの確認待ち",
+    "statusAPPROVED": "承認済み",
+    "statusPROCESSING": "処理中",
+    "statusREFUNDED": "返金済み",
+    "statusNO_REFUND": "返金なし · エスクローを50/50で分配",
+    "statusREJECTED": "却下",
+    "statusFAILED": "手動での照合が必要"
+  },
   "status": {
     "rejected": "辞退済み",
     "pending": "確認待ち",

@@ -371,14 +371,15 @@ exports.localMine = async (req, res) => {
       buddy: profile._id,
       $or: [
         { paymentStatus: "Paid" },
-        {
-          status: "Cancelled",
-          paymentStatus: { $in: ["RefundPending", "PartiallyRefunded", "Refunded"] },
-        },
+        { status: "Cancelled" },
       ],
     })
       .populate("customer", "fullName email")
       .populate("buddy", "fullName area")
+      .populate(
+        "refundRequestId",
+        "requestedByRole amount percentage reason paymentMethod status providerRefundId reviewNote history createdAt",
+      )
       .sort({ createdAt: -1 });
 
     res.json(rows);

@@ -87,6 +87,31 @@
     "extraNote": "Extra costs are paid directly by the Traveler.",
     "message": "Message: {{message}}"
   },
+  "cancellationRequests": {
+    "title": "Cancellation requests",
+    "subtitle": "Cancelled bookings for your Local profile.",
+    "empty": "There are no cancellation requests yet.",
+    "date": "Experience date: {{date}}",
+    "requestedBy": "Requested by",
+    "roles": {
+      "traveler": "Traveler",
+      "local": "Local",
+      "admin": "Admin",
+      "unknown": "Unknown"
+    },
+    "reason": "Reason",
+    "noReason": "No reason was provided.",
+    "noRefund": "No refund request was created",
+    "refundAmount": "Refund amount",
+    "providerRefundId": "Refund transaction ID",
+    "statusPENDING": "Awaiting Admin review",
+    "statusAPPROVED": "Approved",
+    "statusPROCESSING": "Processing",
+    "statusREFUNDED": "Refunded",
+    "statusNO_REFUND": "No refund · escrow split 50/50",
+    "statusREJECTED": "Rejected",
+    "statusFAILED": "Manual reconciliation required"
+  },
   "status": {
     "rejected": "Declined",
     "pending": "Pending confirmation",

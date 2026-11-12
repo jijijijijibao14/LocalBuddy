@@ -87,6 +87,31 @@
     "extraNote": "Les frais supplémentaires sont payés directement par le Traveler.",
     "message": "Message : {{message}}"
   },
+  "cancellationRequests": {
+    "title": "Demandes d'annulation",
+    "subtitle": "Réservations annulées pour votre profil Local.",
+    "empty": "Aucune demande d'annulation pour le moment.",
+    "date": "Date de l'expérience : {{date}}",
+    "requestedBy": "Demandé par",
+    "roles": {
+      "traveler": "Traveler",
+      "local": "Local",
+      "admin": "Admin",
+      "unknown": "Inconnu"
+    },
+    "reason": "Motif",
+    "noReason": "Aucun motif fourni.",
+    "noRefund": "Aucune demande de remboursement créée",
+    "refundAmount": "Montant du remboursement",
+    "providerRefundId": "Identifiant de transaction du remboursement",
+    "statusPENDING": "En attente de l'Admin",
+    "statusAPPROVED": "Approuvé",
+    "statusPROCESSING": "En cours",
+    "statusREFUNDED": "Remboursé",
+    "statusNO_REFUND": "Pas de remboursement · escrow réparti 50/50",
+    "statusREJECTED": "Refusé",
+    "statusFAILED": "Rapprochement manuel requis"
+  },
   "status": {
     "rejected": "Refusée",
     "pending": "En attente de confirmation",

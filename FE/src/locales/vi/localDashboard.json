@@ -87,6 +87,31 @@
     "extraNote": "Chi phí phát sinh do Traveler thanh toán trực tiếp.",
     "message": "Lời nhắn: {{message}}"
   },
+  "cancellationRequests": {
+    "title": "Yêu cầu hủy chuyến",
+    "subtitle": "Các chuyến thuộc Local của bạn đã có yêu cầu hủy.",
+    "empty": "Chưa có yêu cầu hủy chuyến nào.",
+    "date": "Ngày trải nghiệm: {{date}}",
+    "requestedBy": "Người yêu cầu",
+    "roles": {
+      "traveler": "Traveler",
+      "local": "Local",
+      "admin": "Admin",
+      "unknown": "Không xác định"
+    },
+    "reason": "Lý do",
+    "noReason": "Không có lý do được cung cấp.",
+    "noRefund": "Không phát sinh yêu cầu hoàn tiền",
+    "refundAmount": "Số tiền hoàn",
+    "providerRefundId": "Mã giao dịch hoàn",
+    "statusPENDING": "Chờ Admin xử lý",
+    "statusAPPROVED": "Đã duyệt",
+    "statusPROCESSING": "Đang xử lý",
+    "statusREFUNDED": "Đã hoàn tiền",
+    "statusNO_REFUND": "Không hoàn · escrow chia 50/50",
+    "statusREJECTED": "Đã từ chối",
+    "statusFAILED": "Cần đối soát thủ công"
+  },
   "status": {
     "rejected": "Đã từ chối",
     "pending": "Chờ xác nhận",

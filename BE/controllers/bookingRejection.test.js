@@ -25,8 +25,10 @@ function response() {
 
 test("Local booking history query includes cancelled bookings awaiting refund", async (t) => {
   const rows = [{ _id: "cancelled-booking", status: "Cancelled", paymentStatus: "RefundPending" }];
+  const populatedPaths = [];
   const query = {
-    populate() {
+    populate(path) {
+      populatedPaths.push(path);
       return this;
     },
     sort: async () => rows,
@@ -42,12 +44,10 @@ test("Local booking history query includes cancelled bookings awaiting refund", 
     buddy: "buddy",
     $or: [
       { paymentStatus: "Paid" },
-      {
-        status: "Cancelled",
-        paymentStatus: { $in: ["RefundPending", "PartiallyRefunded", "Refunded"] },
-      },
+      { status: "Cancelled" },
     ],
   });
+  assert(populatedPaths.includes("refundRequestId"));
 });
 
 test("Local rejection immediately refunds a Wallet booking and records it as refunded", async (t) => {
