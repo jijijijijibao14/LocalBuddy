@@ -96,7 +96,26 @@
   "actions": {
     "confirm": "Confirmer",
     "reject": "Refuser",
+    "cancel": "Annuler la réservation",
     "complete": "Terminer l'expérience",
     "messageTraveler": "Envoyer un message au Traveler"
+  },
+  "cancellation": {
+    "eyebrow": "ANNULER L'EXPÉRIENCE",
+    "title": "Confirmer l'annulation de l'expérience",
+    "bookingDetails": "Traveler : {{name}} · {{start}}–{{end}}",
+    "refundTitle": "Le Traveler reçoit un remboursement de 100 %",
+    "refundDescription": "La demande de remboursement de 100 % sera envoyée à l'Admin. Les réservations en attente payées par portefeuille peuvent être remboursées automatiquement.",
+    "refundAmount": "Montant du remboursement : {{amount}}",
+    "unpaidTitle": "Cette réservation n'a pas été payée",
+    "unpaidDescription": "Aucun remboursement n'est dû. La réservation sera annulée après l'envoi du motif.",
+    "reasonLabel": "Motif de l'annulation (obligatoire)",
+    "reasonPlaceholder": "Expliquez à l'Admin et au Traveler pourquoi vous devez annuler...",
+    "close": "Fermer",
+    "submitting": "Envoi...",
+    "submit": "Confirmer l'annulation"
+  },
+  "refund": {
+    "noRefundPayout": "Aucun remboursement ; l'escrow a été réparti à 50 % pour l'Admin et 50 % pour le Local."
   }
 }

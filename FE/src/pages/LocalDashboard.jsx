@@ -210,15 +210,23 @@ export default function LocalDashboard() {
           ? t("messages.confirmed")
           : data.message || t("messages.rejected"),
       );
-
-      await loadData();
+      setCancellationBooking(null);
+      setCancellationReason("");
       return true;
     } catch (error) {
       setMessage(
         error.response?.data?.message || t("errors.updateBooking"),
       );
       return false;
+    } finally {
+      setBookingActionLoading(false);
     }
+  }
+
+  function openCancellation(booking) {
+    setCancellationBooking(booking);
+    setCancellationReason("");
+    setSelectedBooking(null);
   }
 
   const bookingStatusTabs = [
@@ -470,6 +478,13 @@ export default function LocalDashboard() {
                 <span className="mt-2 block text-xs text-slate-500">
                   {booking.customer?.email || ""} · {booking.time}
                 </span>
+                {booking.status === "Cancelled" &&
+                  booking.paymentStatus === "Paid" &&
+                  booking.escrowStatus === "Released" && (
+                    <span className="mt-3 block rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800">
+                      {t("refund.noRefundPayout")}
+                    </span>
+                  )}
             </button>
           ))}
         </div>
@@ -522,11 +537,20 @@ export default function LocalDashboard() {
                 <CheckCircle2 size={16} /> {t("actions.confirm")}
               </button>
               <button type="button" className="btn-light" onClick={async () => {
-                if (await updateBooking(selectedBooking._id, "Cancelled")) setSelectedBooking(null);
+                openCancellation(selectedBooking);
               }}>
                 <XCircle size={16} /> {t("actions.reject")}
               </button>
             </>
+          )}
+          {selectedBooking.status === "Confirmed" && (
+            <button
+              type="button"
+              className="btn-light"
+              onClick={() => openCancellation(selectedBooking)}
+            >
+              <XCircle size={16} /> {t("actions.cancel")}
+            </button>
           )}
           {selectedBooking.customer?._id && (
             <button type="button" className="btn-light" onClick={() => {
@@ -556,27 +580,41 @@ export default function LocalDashboard() {
             className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
           >
             <header className="border-b border-slate-100 px-6 py-5">
-              <span className="pill"><CalendarDays size={12} /> Yêu cầu hủy chuyến</span>
+              <span className="pill"><CalendarDays size={12} /> {t("cancellation.eyebrow")}</span>
               <h2 id="local-cancellation-title" className="mt-3 text-xl font-black text-navy">
-                Gửi yêu cầu đến Admin
+                {t("cancellation.title")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Traveller: {cancellationBooking.customer?.fullName || "Traveller"} · {cancellationBooking.startTime}–{cancellationBooking.endTime}
+                {t("cancellation.bookingDetails", {
+                  name: cancellationBooking.customer?.fullName || "Traveler",
+                  start: cancellationBooking.startTime,
+                  end: cancellationBooking.endTime,
+                })}
               </p>
             </header>
             <div className="space-y-4 px-6 py-5">
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="text-sm font-extrabold text-emerald-800">Traveller được hoàn 100%</p>
+                <p className="text-sm font-extrabold text-emerald-800">
+                  {cancellationBooking.paymentStatus === "Paid"
+                    ? t("cancellation.refundTitle")
+                    : t("cancellation.unpaidTitle")}
+                </p>
                 <p className="mt-1 text-xs leading-5 text-emerald-700">
-                  Yêu cầu hủy và khoản hoàn sẽ được gửi Admin xem xét. Tiền chỉ được hoàn sau khi Admin duyệt.
+                  {cancellationBooking.paymentStatus === "Paid"
+                    ? t("cancellation.refundDescription")
+                    : t("cancellation.unpaidDescription")}
                 </p>
-                <p className="mt-2 text-sm font-black text-navy">
-                  {formatCurrency(cancellationBooking.price || 0)}
-                </p>
+                {cancellationBooking.paymentStatus === "Paid" && (
+                  <p className="mt-2 text-sm font-black text-navy">
+                    {t("cancellation.refundAmount", {
+                      amount: formatCurrency(cancellationBooking.price || 0),
+                    })}
+                  </p>
+                )}
               </div>
               <div>
                 <label htmlFor="local-cancellation-reason" className="block text-xs font-extrabold text-slate-700">
-                  Lý do hủy <span className="font-medium text-slate-400">(bắt buộc)</span>
+                  {t("cancellation.reasonLabel")}
                 </label>
                 <textarea
                   id="local-cancellation-reason"
@@ -586,7 +624,7 @@ export default function LocalDashboard() {
                   rows={3}
                   autoFocus
                   className="mt-2 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-blue-100"
-                  placeholder="Cho Admin và Traveller biết lý do bạn cần hủy chuyến..."
+                  placeholder={t("cancellation.reasonPlaceholder")}
                 />
               </div>
             </div>
@@ -597,7 +635,7 @@ export default function LocalDashboard() {
                 disabled={bookingActionLoading}
                 onClick={() => setCancellationBooking(null)}
               >
-                Đóng
+                {t("cancellation.close")}
               </button>
               <button
                 type="button"
@@ -609,7 +647,9 @@ export default function LocalDashboard() {
                   cancellationReason,
                 )}
               >
-                {bookingActionLoading ? "Đang gửi..." : "Gửi Admin yêu cầu hủy"}
+                {bookingActionLoading
+                  ? t("cancellation.submitting")
+                  : t("cancellation.submit")}
               </button>
             </footer>
           </section>

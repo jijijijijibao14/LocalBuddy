@@ -96,7 +96,26 @@
   "actions": {
     "confirm": "Confirm",
     "reject": "Decline",
+    "cancel": "Cancel booking",
     "complete": "Complete experience",
     "messageTraveler": "Message Traveler"
+  },
+  "cancellation": {
+    "eyebrow": "CANCEL EXPERIENCE",
+    "title": "Confirm experience cancellation",
+    "bookingDetails": "Traveler: {{name}} · {{start}}–{{end}}",
+    "refundTitle": "Traveler receives a 100% refund",
+    "refundDescription": "The 100% refund request will be sent to Admin for processing. Pending bookings paid by wallet may be refunded automatically.",
+    "refundAmount": "Refund amount: {{amount}}",
+    "unpaidTitle": "This booking has not been paid",
+    "unpaidDescription": "No refund is due. The booking will be cancelled after you submit a reason.",
+    "reasonLabel": "Cancellation reason (required)",
+    "reasonPlaceholder": "Tell Admin and the Traveler why you need to cancel...",
+    "close": "Close",
+    "submitting": "Submitting...",
+    "submit": "Confirm cancellation"
+  },
+  "refund": {
+    "noRefundPayout": "No refund was issued; escrow was split 50% to Admin and 50% to Local."
   }
 }

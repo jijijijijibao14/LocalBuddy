@@ -4,7 +4,7 @@ const historySchema = new mongoose.Schema(
   {
     status: {
       type: String,
-      enum: ["PENDING", "APPROVED", "PROCESSING", "REFUNDED", "REJECTED", "FAILED"],
+      enum: ["PENDING", "APPROVED", "PROCESSING", "REFUNDED", "NO_REFUND", "REJECTED", "FAILED"],
       required: true,
     },
     actor: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
@@ -46,7 +46,7 @@ const schema = new mongoose.Schema(
     paymentMethod: { type: String, required: true },
     status: {
       type: String,
-      enum: ["PENDING", "APPROVED", "PROCESSING", "REFUNDED", "REJECTED", "FAILED"],
+      enum: ["PENDING", "APPROVED", "PROCESSING", "REFUNDED", "NO_REFUND", "REJECTED", "FAILED"],
       default: "PENDING",
       index: true,
     },

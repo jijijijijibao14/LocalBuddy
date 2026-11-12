@@ -2,8 +2,11 @@ export function transactionDirection(transaction) {
   if (transaction.type === "Escrow") {
     return transaction.status === "Held" ? "in" : "out";
   }
+  if (transaction.type === "Refund") {
+    return transaction.paymentMethod === "Wallet" ? "in" : null;
+  }
   if (["Booking", "Withdrawal"].includes(transaction.type)) return "out";
-  if (["TopUp", "Refund", "Earning", "Commission"].includes(transaction.type)) return "in";
+  if (["TopUp", "Earning", "Commission"].includes(transaction.type)) return "in";
   return null;
 }
 

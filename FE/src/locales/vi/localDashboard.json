@@ -96,7 +96,26 @@
   "actions": {
     "confirm": "Xác nhận",
     "reject": "Từ chối",
+    "cancel": "Hủy lịch",
     "complete": "Hoàn thành trải nghiệm",
     "messageTraveler": "Nhắn tin cho Traveler"
+  },
+  "cancellation": {
+    "eyebrow": "HỦY TRẢI NGHIỆM",
+    "title": "Xác nhận hủy trải nghiệm",
+    "bookingDetails": "Traveler: {{name}} · {{start}}–{{end}}",
+    "refundTitle": "Traveler được hoàn 100%",
+    "refundDescription": "Yêu cầu hoàn 100% sẽ được gửi Admin xử lý. Lịch đang chờ thanh toán bằng ví có thể được hoàn tự động.",
+    "refundAmount": "Số tiền hoàn: {{amount}}",
+    "unpaidTitle": "Lịch này chưa được thanh toán",
+    "unpaidDescription": "Không phát sinh khoản hoàn. Lịch sẽ được hủy sau khi bạn gửi lý do.",
+    "reasonLabel": "Lý do hủy (bắt buộc)",
+    "reasonPlaceholder": "Cho Admin và Traveler biết lý do bạn cần hủy chuyến...",
+    "close": "Đóng",
+    "submitting": "Đang gửi...",
+    "submit": "Xác nhận hủy"
+  },
+  "refund": {
+    "noRefundPayout": "Không hoàn tiền; escrow đã được chia 50% cho Admin và 50% cho Local."
   }
 }

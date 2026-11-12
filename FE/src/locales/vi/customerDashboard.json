@@ -78,5 +78,20 @@
     "title": "Hỗ trợ & an toàn",
     "body": "Không chia sẻ mật khẩu hoặc thông tin thanh toán. Liên hệ hỗ trợ nếu bạn gặp vấn đề với đặt lịch.",
     "hotline": "Hỗ trợ khách hàng 24/7"
+  },
+  "refunds": {
+    "title": "Lịch sử hoàn tiền",
+    "empty": "Chưa có yêu cầu hoàn tiền.",
+    "amount": "Số tiền hoàn",
+    "providerRefundId": "Mã giao dịch hoàn",
+    "history": "Lịch sử xử lý",
+    "cancelBooking": "Yêu cầu hủy lịch",
+    "statusPENDING": "Chờ Admin xử lý",
+    "statusAPPROVED": "Đã được duyệt",
+    "statusPROCESSING": "Đang xử lý",
+    "statusREFUNDED": "Đã hoàn tiền",
+    "statusNO_REFUND": "Không hoàn · escrow chia 50/50",
+    "statusREJECTED": "Đã từ chối",
+    "statusFAILED": "Cần đối soát thủ công"
   }
 }

@@ -31,7 +31,10 @@ test("Local booking list includes cancelled bookings after refund", async (t) =>
     buddy: "buddy",
     $or: [
       { paymentStatus: "Paid" },
-      { status: "Cancelled", paymentStatus: "Refunded" },
+      {
+        status: "Cancelled",
+        paymentStatus: { $in: ["RefundPending", "PartiallyRefunded", "Refunded"] },
+      },
     ],
   });
   assert.deepEqual(res.body, [cancelledBooking]);

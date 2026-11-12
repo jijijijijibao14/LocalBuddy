@@ -78,5 +78,20 @@
     "title": "Assistance et sécurité",
     "body": "Ne partagez jamais votre mot de passe ni vos informations de paiement. Contactez l'assistance en cas de problème avec une réservation.",
     "hotline": "Assistance client 24h/24 et 7j/7"
+  },
+  "refunds": {
+    "title": "Historique des remboursements",
+    "empty": "Aucune demande de remboursement.",
+    "amount": "Montant remboursé",
+    "providerRefundId": "ID de transaction de remboursement",
+    "history": "Historique du traitement",
+    "cancelBooking": "Demander l'annulation",
+    "statusPENDING": "En attente de l'Admin",
+    "statusAPPROVED": "Approuvé",
+    "statusPROCESSING": "En cours",
+    "statusREFUNDED": "Remboursé",
+    "statusNO_REFUND": "Non remboursé · escrow réparti à 50/50",
+    "statusREJECTED": "Refusé",
+    "statusFAILED": "Rapprochement manuel requis"
   }
 }

@@ -40,7 +40,13 @@ test("Local booking history query includes cancelled bookings awaiting refund", 
   assert.deepEqual(res.body, rows);
   assert.deepEqual(findBookings.mock.calls[0].arguments[0], {
     buddy: "buddy",
-    $or: [{ paymentStatus: "Paid" }, { status: "Cancelled" }],
+    $or: [
+      { paymentStatus: "Paid" },
+      {
+        status: "Cancelled",
+        paymentStatus: { $in: ["RefundPending", "PartiallyRefunded", "Refunded"] },
+      },
+    ],
   });
 });
 

@@ -329,10 +329,17 @@ async function settleBookingRefund(booking, refund) {
   return true;
 }
 
-async function releaseBookingFunds(booking) {
+async function releaseBookingFunds(booking, adminSharePercent = null) {
+  if (
+    adminSharePercent !== null &&
+    (!Number.isInteger(adminSharePercent) || adminSharePercent < 0 || adminSharePercent > 100)
+  ) {
+    throw new Error("Tỷ lệ chia doanh thu không hợp lệ.");
+  }
+  const previousPaymentStatus = booking.paymentStatus;
   const claimed = await booking.constructor.findOneAndUpdate(
     { _id: booking._id, escrowStatus: "Held" },
-    { $set: { escrowStatus: "Released" } },
+    { $set: { escrowStatus: "Released", paymentStatus: "Paid" } },
     { new: true },
   );
   if (!claimed) return false;
@@ -349,21 +356,23 @@ async function releaseBookingFunds(booking) {
   } catch (error) {
     await booking.constructor.updateOne(
       { _id: booking._id, escrowStatus: "Released" },
-      { $set: { escrowStatus: "Held" } },
+      { $set: { escrowStatus: "Held", paymentStatus: previousPaymentStatus } },
     );
     throw error;
   }
   if (!buddy?.user) {
     await booking.constructor.updateOne(
       { _id: booking._id },
-      { $set: { escrowStatus: "Held" } },
+      { $set: { escrowStatus: "Held", paymentStatus: previousPaymentStatus } },
     );
     throw new Error("Không tìm thấy tài khoản Local để quyết toán.");
   }
 
-  const rate = buddy.user.isPremium
-    ? settings.premiumCommissionPercent
-    : settings.standardCommissionPercent;
+  const rate = adminSharePercent === null
+    ? buddy.user.isPremium
+      ? settings.premiumCommissionPercent
+      : settings.standardCommissionPercent
+    : adminSharePercent;
   const commission = Math.round((booking.price * rate) / 100);
   const localAmount = booking.price - commission;
   let systemDebit;
@@ -380,14 +389,14 @@ async function releaseBookingFunds(booking) {
   } catch (error) {
     await booking.constructor.updateOne(
       { _id: booking._id, escrowStatus: "Released" },
-      { $set: { escrowStatus: "Held" } },
+      { $set: { escrowStatus: "Held", paymentStatus: previousPaymentStatus } },
     );
     throw error;
   }
   if (!systemDebit.modifiedCount) {
     await booking.constructor.updateOne(
       { _id: booking._id },
-      { $set: { escrowStatus: "Held" } },
+      { $set: { escrowStatus: "Held", paymentStatus: previousPaymentStatus } },
     );
     throw new Error("Số dư ví hệ thống không đủ để quyết toán.");
   }
@@ -447,7 +456,7 @@ async function releaseBookingFunds(booking) {
       ),
       booking.constructor.updateOne(
         { _id: booking._id },
-        { $set: { escrowStatus: "Held" } },
+        { $set: { escrowStatus: "Held", paymentStatus: previousPaymentStatus } },
       ),
     ]);
     await Transaction.deleteMany({
@@ -457,6 +466,8 @@ async function releaseBookingFunds(booking) {
     });
     throw error;
   }
+  booking.paymentStatus = "Paid";
+  booking.escrowStatus = "Released";
   return { commission, localAmount, rate };
 }
 

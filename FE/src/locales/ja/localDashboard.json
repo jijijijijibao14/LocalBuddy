@@ -96,7 +96,26 @@
   "actions": {
     "confirm": "承認",
     "reject": "辞退",
+    "cancel": "予約をキャンセル",
     "complete": "体験を完了",
     "messageTraveler": "Traveler にメッセージを送る"
+  },
+  "cancellation": {
+    "eyebrow": "体験をキャンセル",
+    "title": "体験のキャンセルを確定",
+    "bookingDetails": "Traveler：{{name}} · {{start}}–{{end}}",
+    "refundTitle": "Travelerに100%返金されます",
+    "refundDescription": "100%返金の申請はAdminに送られます。保留中でウォレット払いの予約は自動返金される場合があります。",
+    "refundAmount": "返金額：{{amount}}",
+    "unpaidTitle": "この予約は未払いです",
+    "unpaidDescription": "返金は発生しません。理由を送信すると予約がキャンセルされます。",
+    "reasonLabel": "キャンセル理由（必須）",
+    "reasonPlaceholder": "キャンセルが必要な理由をAdminとTravelerに伝えてください...",
+    "close": "閉じる",
+    "submitting": "送信中...",
+    "submit": "キャンセルを確定"
+  },
+  "refund": {
+    "noRefundPayout": "返金はなく、エスクローをAdminとLocalに50%ずつ分配しました。"
   }
 }

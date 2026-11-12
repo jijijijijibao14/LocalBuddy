@@ -18,11 +18,12 @@ import { filterAccounts, paginate } from "../utils/adminPagination";
 import Pagination from "../components/Pagination";
 import BookingDetailsModal from "../components/BookingDetailsModal";
 
-function AdminPagination({ result, onChange, t }) {
+function AdminPagination({ result, onChange, t, showPageNumbers = false }) {
   return (
     <Pagination result={result} onChange={onChange}
       previousLabel={t("pagination.previous")} nextLabel={t("pagination.next")}
-      pageLabel={t("pagination.page", { page: result.page, total: result.pageCount })} />
+      pageLabel={t("pagination.page", { page: result.page, total: result.pageCount })}
+      showPageNumbers={showPageNumbers} />
   );
 }
 
@@ -40,6 +41,7 @@ export default function AdminDashboard() {
   const [buddies, setBuddies] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [refunds, setRefunds] = useState([]);
+  const [refundPage, setRefundPage] = useState(1);
   const [cancellationPolicy, setCancellationPolicy] = useState({
     overSixHoursPercent: 100,
     threeToSixHoursPercent: 75,
@@ -65,6 +67,7 @@ export default function AdminDashboard() {
     ? ["Pending", "Confirmed"].includes(booking.status)
     : booking.status === bookingStatusTab);
   const bookingResult = paginate(filteredBookings, bookingPage, 3);
+  const refundResult = paginate(refunds, refundPage, 3);
   async function load() {
     try {
       const [s, u, bp, b, r, policy] = await Promise.all([
@@ -138,7 +141,7 @@ export default function AdminDashboard() {
   }
   function openRefundAction(refund, action) {
     setRefundAction({ refund, action });
-    setRefundNote(action === "EXTERNAL" ? "Đã xác nhận hoàn tiền thành công trên PayOS." : "");
+    setRefundNote("");
     setProviderRefundId("");
     setMessage("");
   }
@@ -162,12 +165,22 @@ export default function AdminDashboard() {
             action,
             note: refundNote.trim(),
           });
-      setRefunds((prev) => prev.map((item) => item._id === data._id ? data : item));
-      setMessage(action === "EXTERNAL"
-        ? "Đã ghi nhận giao dịch hoàn PayOS."
-        : action === "APPROVE"
-          ? "Đã duyệt yêu cầu hoàn tiền."
-          : "Đã từ chối yêu cầu hoàn tiền.");
+      setRefunds((prev) => prev.map((item) => item._id === data._id
+        ? {
+            ...item,
+            ...data,
+            booking: item.booking,
+            customer: item.customer,
+            requestedBy: item.requestedBy,
+          }
+        : item));
+      setMessage(data.status === "NO_REFUND"
+        ? t("refunds.noRefundPayout")
+        : action === "EXTERNAL"
+          ? "Đã ghi nhận giao dịch hoàn PayOS."
+          : action === "APPROVE"
+            ? "Đã duyệt yêu cầu hoàn tiền."
+            : "Đã từ chối yêu cầu hoàn tiền.");
       setRefundAction(null);
     } catch (e) {
       setMessage(e.response?.data?.message || "Không thể xử lý yêu cầu hoàn tiền.");
@@ -514,6 +527,148 @@ export default function AdminDashboard() {
           <AdminPagination result={bookingResult} onChange={setBookingPage} t={t} />
         )}
       </section>
+      <section className="panel mt-6 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div>
+            <h2 className="font-extrabold">{t("refunds.policyTitle")}</h2>
+            <p className="mt-1 text-xs text-slate-500">{t("refunds.policySubtitle")}</p>
+          </div>
+          <button type="button" className="btn-primary" onClick={saveCancellationPolicy}>
+            {t("refunds.savePolicy")}
+          </button>
+        </div>
+        <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["overSixHoursPercent", t("refunds.overSixHours")],
+            ["threeToSixHoursPercent", t("refunds.threeToSixHours")],
+            ["oneToThreeHoursPercent", t("refunds.oneToThreeHours")],
+            ["underOneHourPercent", t("refunds.underOneHour")],
+          ].map(([field, label]) => (
+            <label key={field} className="text-xs font-bold text-slate-600">
+              {label}
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  className="field"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={cancellationPolicy[field] ?? ""}
+                  onChange={(event) => setCancellationPolicy((current) => ({
+                    ...current,
+                    [field]: event.target.value === "" ? "" : Number(event.target.value),
+                  }))}
+                />
+                <span>%</span>
+              </div>
+            </label>
+          ))}
+        </div>
+      </section>
+      <section className="panel mt-6 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <div>
+            <h2 className="font-extrabold">{t("refunds.title")}</h2>
+            <p className="mt-1 text-xs text-slate-500">{t("refunds.subtitle")}</p>
+          </div>
+          <span className="pill">{refunds.length}</span>
+        </div>
+        <div className="space-y-3 px-5 pb-5">
+          {refundResult.items.map((refund) => (
+            <article key={refund._id} className="rounded-2xl border border-slate-200 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-navy">
+                    {refund.customer?.fullName || t("refunds.unknownCustomer")}
+                    <span className="ml-2 text-xs font-normal text-slate-500">
+                      {refund.customer?.email || ""}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {refund.booking?.buddy?.fullName || t("requests.defaultBuddy")}
+                    {refund.booking?.date
+                      ? ` · ${new Date(refund.booking.date).toLocaleDateString(locale)}`
+                      : ""}
+                    {refund.booking?.time ? ` · ${refund.booking.time}` : ""}
+                  </p>
+                </div>
+                <span className="pill">{t(`refunds.status${refund.status}`, refund.status)}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600">
+                <span>{t("refunds.amount")}: <b>{formatCurrency(refund.amount)}</b></span>
+                <span>{t("refunds.percentage", { percentage: refund.percentage })}</span>
+                <span>{t("refunds.paymentMethod")}: {refund.paymentMethod}</span>
+              </div>
+              <p className="mt-2 text-xs text-slate-600">{refund.reason}</p>
+              {refund.reviewNote && (
+                <p className="mt-2 rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
+                  {refund.reviewNote}
+                </p>
+              )}
+              {refund.providerRefundId && (
+                <p className="mt-2 break-all text-xs text-slate-500">
+                  {t("refunds.providerRefundId")}: {refund.providerRefundId}
+                </p>
+              )}
+              {refund.history?.length > 0 && (
+                <details className="mt-3 border-t border-slate-100 pt-3">
+                  <summary className="cursor-pointer text-xs font-bold text-brand">
+                    {t("refunds.history")}
+                  </summary>
+                  <ol className="mt-2 space-y-2">
+                    {refund.history.map((entry, index) => (
+                      <li key={`${entry.status}-${entry.createdAt || index}`} className="text-xs text-slate-600">
+                        <span className="font-bold">
+                          {t(`refunds.status${entry.status}`, entry.status)}
+                        </span>
+                        {entry.createdAt && (
+                          <span className="ml-2 text-slate-400">
+                            {new Date(entry.createdAt).toLocaleString(locale)}
+                          </span>
+                        )}
+                        {entry.note && <p className="mt-1">{entry.note}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2">
+                {refund.status === "PENDING" && (
+                  <>
+                    <button type="button" className="btn-primary !py-2" onClick={() => openRefundAction(refund, "APPROVE")}>
+                      {t("refunds.approve")}
+                    </button>
+                    <button type="button" className="btn-light !py-2" onClick={() => openRefundAction(refund, "REJECT")}>
+                      {t("refunds.reject")}
+                    </button>
+                  </>
+                )}
+                {refund.status === "PROCESSING" && refund.paymentMethod !== "Wallet" && !refund.providerRefundId && (
+                  <button type="button" className="btn-primary !py-2" onClick={() => openRefundAction(refund, "EXTERNAL")}>
+                    {t("refunds.confirmExternal")}
+                  </button>
+                )}
+                {refund.status === "PROCESSING" && refund.paymentMethod !== "Wallet" && (
+                  <p className="basis-full text-xs text-amber-800">{t("refunds.externalInstructions")}</p>
+                )}
+              </div>
+            </article>
+          ))}
+          {!refunds.length && (
+            <p className="rounded-xl bg-slate-50 p-5 text-center text-sm text-slate-500">
+              {t("refunds.empty")}
+            </p>
+          )}
+        </div>
+        {refunds.length > 3 && (
+          <AdminPagination
+            result={refundResult}
+            onChange={setRefundPage}
+            t={t}
+            showPageNumbers
+          />
+        )}
+      </section>
       {selectedBooking && (
         <BookingDetailsModal
           title={t("requests.details")}
@@ -537,6 +692,73 @@ export default function AdminDashboard() {
             { label: t("requests.noteLabel"), value: selectedBooking.message, fullWidth: true },
           ]}
         />
+      )}
+      {refundAction && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm">
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="refund-action-title"
+            onSubmit={submitRefundAction}
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <header className="border-b border-slate-100 px-6 py-5">
+              <h2 id="refund-action-title" className="text-lg font-black text-navy">
+                {t(refundAction.action === "EXTERNAL"
+                  ? "refunds.confirmExternal"
+                  : refundAction.action === "APPROVE"
+                    ? "refunds.approve"
+                    : "refunds.reject")}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                {refundAction.refund.customer?.fullName || t("refunds.unknownCustomer")}
+                {" · "}{formatCurrency(refundAction.refund.amount)}
+              </p>
+              {refundAction.action === "EXTERNAL" && (
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+                  {t("refunds.externalInstructions")}
+                </p>
+              )}
+            </header>
+            <div className="space-y-4 px-6 py-5">
+              {refundAction.action === "EXTERNAL" && (
+                <label className="block text-xs font-bold text-slate-700">
+                  {t("refunds.providerRefundId")}
+                  <input
+                    className="field mt-2"
+                    value={providerRefundId}
+                    onChange={(event) => setProviderRefundId(event.target.value)}
+                    maxLength={120}
+                    required
+                  />
+                </label>
+              )}
+              <label className="block text-xs font-bold text-slate-700">
+                {t("refunds.note")}
+                <textarea
+                  className="field mt-2 min-h-24 resize-y"
+                  value={refundNote}
+                  onChange={(event) => setRefundNote(event.target.value)}
+                  maxLength={500}
+                  required={refundAction.action === "EXTERNAL"}
+                />
+              </label>
+            </div>
+            <footer className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                className="btn-light justify-center"
+                disabled={refundActionLoading}
+                onClick={() => setRefundAction(null)}
+              >
+                {t("requests.close")}
+              </button>
+              <button type="submit" className="btn-primary justify-center" disabled={refundActionLoading}>
+                {refundActionLoading ? <RefreshCw size={14} className="animate-spin" /> : t("refunds.submit")}
+              </button>
+            </footer>
+          </form>
+        </div>
       )}
     </div>
   );

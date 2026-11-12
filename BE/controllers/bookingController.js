@@ -371,7 +371,10 @@ exports.localMine = async (req, res) => {
       buddy: profile._id,
       $or: [
         { paymentStatus: "Paid" },
-        { status: "Cancelled", paymentStatus: "Refunded" },
+        {
+          status: "Cancelled",
+          paymentStatus: { $in: ["RefundPending", "PartiallyRefunded", "Refunded"] },
+        },
       ],
     })
       .populate("customer", "fullName email")

@@ -78,5 +78,20 @@
     "title": "Support & safety",
     "body": "Never share your password or payment information. Contact support if you have any problem with a booking.",
     "hotline": "24/7 customer support"
+  },
+  "refunds": {
+    "title": "Refund history",
+    "empty": "No refund requests yet.",
+    "amount": "Refund amount",
+    "providerRefundId": "Refund transaction ID",
+    "history": "Processing history",
+    "cancelBooking": "Request cancellation",
+    "statusPENDING": "Waiting for Admin",
+    "statusAPPROVED": "Approved",
+    "statusPROCESSING": "Processing",
+    "statusREFUNDED": "Refunded",
+    "statusNO_REFUND": "No refund · escrow split 50/50",
+    "statusREJECTED": "Rejected",
+    "statusFAILED": "Manual reconciliation required"
   }
 }

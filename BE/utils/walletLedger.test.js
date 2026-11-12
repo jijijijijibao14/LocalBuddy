@@ -6,10 +6,10 @@ const Transaction = require("../models/Transaction");
 const WalletSettings = require("../models/WalletSettings");
 const { releaseBookingFunds, refundBookingFunds } = require("./walletLedger");
 
-function setup(t, premium = false) {
+function setup(t, premium = false, paymentStatus = "Paid") {
   const state = {
     escrowStatus: "Held",
-    paymentStatus: "Paid",
+    paymentStatus,
     systemBalance: 140000,
     adminBalance: 0,
     travelerBalance: 0,
@@ -27,6 +27,7 @@ function setup(t, premium = false) {
   };
   const booking = {
     _id: "booking", customer: "traveler", buddy: "buddy", price: 140000,
+    paymentStatus,
     constructor: model,
   };
   t.mock.method(WalletSettings, "findOneAndUpdate", async () => settings);
@@ -49,6 +50,25 @@ function setup(t, premium = false) {
   });
   return { state, booking };
 }
+
+test("non-refundable cancellation splits held funds equally and clears pending payment status", async (t) => {
+  const { state, booking } = setup(t, false, "RefundPending");
+  const result = await releaseBookingFunds(booking, 50);
+
+  assert.equal(result.commission, 70000);
+  assert.equal(result.localAmount, 70000);
+  assert.equal(state.systemBalance, 0);
+  assert.equal(state.adminBalance, 70000);
+  assert.equal(state.localBalance, 70000);
+  assert.equal(state.travelerBalance, 0);
+  assert.equal(state.paymentStatus, "Paid");
+  assert.equal(state.escrowStatus, "Released");
+  assert.deepEqual(state.transactions.map((item) => [item.type, item.amount]), [
+    ["Earning", 70000],
+    ["Commission", 70000],
+    ["Escrow", 140000],
+  ]);
+});
 
 for (const [premium, expectedCommission] of [[false, 14000], [true, 7000]]) {
   test(`release 140000 with ${premium ? "premium" : "standard"} commission once`, async (t) => {

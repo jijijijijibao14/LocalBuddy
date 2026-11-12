@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   UserRound,
   RefreshCw,
+  QrCode,
 } from "lucide-react";
 import api from "../services/api";
 import { Link } from "react-router-dom";
@@ -38,8 +39,15 @@ export default function CustomerDashboard() {
   const [walletBalance, setWalletBalance] = useState(() => Number(getStoredUser().walletBalance || 0));
   const [bookings, setBookings] = useState([]);
   const [refunds, setRefunds] = useState([]);
+  const [refundPage, setRefundPage] = useState(1);
+  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
+  const [refundNotice, setRefundNotice] = useState("");
+  const [refundQuote, setRefundQuote] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationLoading, setCancellationLoading] = useState(false);
+  const [selectedBookingForCancellation, setSelectedBookingForCancellation] = useState(null);
   const [selectedBookingForPay, setSelectedBookingForPay] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [isBookingPayOpen, setIsBookingPayOpen] = useState(false);
@@ -53,6 +61,7 @@ export default function CustomerDashboard() {
   ];
   const filteredBookings = bookings.filter((booking) => booking.status === bookingStatusTab);
   const bookingResult = paginate(filteredBookings, bookingPage, 3);
+  const refundResult = paginate(refunds, refundPage, 3);
   useEffect(() => {
     api
       .get("/bookings/mine")
@@ -79,13 +88,16 @@ export default function CustomerDashboard() {
 
   async function startCancellation(booking) {
     try {
-        setRefundNotice("");
-        const { data } = await api.get(`/bookings/${booking._id}/refund-quote`);
-        setSelectedBookingForCancellation(booking);
-        setRefundQuote(data);
-        setCancellationReason("");
+      setError("");
+      setRefundNotice("");
+      const { data } = await api.get(`/bookings/${booking._id}/refund-quote`);
+      setSelectedBookingForCancellation(booking);
+      setRefundQuote(data);
+      setCancellationReason("");
+      return true;
     } catch (e) {
-        setError(e.response?.data?.message || "Không thể tính số tiền hoàn dự kiến.");
+      setError(e.response?.data?.message || "Không thể tính số tiền hoàn dự kiến.");
+      return false;
     }
   }
 
@@ -94,21 +106,33 @@ export default function CustomerDashboard() {
     setCancellationLoading(true);
     setError("");
     try {
-        const { data } = await api.post(
-          `/bookings/${selectedBookingForCancellation._id}/cancel`,
-          { reason: cancellationReason },
-        );
-        setBookings((prev) =>
-          prev.map((item) => item._id === data.booking._id ? { ...item, ...data.booking } : item),
-        );
-        if (data.refund) setRefunds((prev) => [data.refund, ...prev]);
-        setRefundNotice(data.message);
-        setSelectedBookingForCancellation(null);
-        setRefundQuote(null);
+      const { data } = await api.post(
+        `/bookings/${selectedBookingForCancellation._id}/cancel`,
+        { reason: cancellationReason },
+      );
+      setBookings((prev) =>
+        prev.map((item) => item._id === data.booking._id ? { ...item, ...data.booking } : item),
+      );
+      if (data.refund) {
+        setRefunds((prev) => [data.refund, ...prev]);
+        setRefundPage(1);
+      }
+      setRefundNotice(data.message);
+      setSelectedBookingForCancellation(null);
+      setRefundQuote(null);
+      try {
+        const { data: profileData } = await api.get("/users/me");
+        const updatedUser = { ...getStoredUser(), ...profileData.user };
+        setUser(updatedUser);
+        setWalletBalance(Number(updatedUser.walletBalance || 0));
+        localStorage.setItem("lb_user", JSON.stringify(updatedUser));
+      } catch (profileRefreshError) {
+        setProfileError(profileRefreshError.response?.data?.message || t("errors.profile"));
+      }
     } catch (e) {
-        setError(e.response?.data?.message || "Không thể gửi yêu cầu hủy lịch.");
+      setError(e.response?.data?.message || "Không thể gửi yêu cầu hủy lịch.");
     } finally {
-        setCancellationLoading(false);
+      setCancellationLoading(false);
     }
   }
   return (
@@ -223,6 +247,12 @@ export default function CustomerDashboard() {
                 onClick={() => Promise.all([
                   api.get("/bookings/mine").then((r) => setBookings(r.data)),
                   api.get("/bookings/refunds/mine").then((r) => setRefunds(r.data)),
+                  api.get("/users/me").then(({ data }) => {
+                    const updatedUser = { ...getStoredUser(), ...data.user };
+                    setUser(updatedUser);
+                    setWalletBalance(Number(updatedUser.walletBalance || 0));
+                    localStorage.setItem("lb_user", JSON.stringify(updatedUser));
+                  }),
                 ]).catch((e) => setError(e.response?.data?.message || "Không thể tải dữ liệu đặt lịch."))}
               >
                 <RefreshCw size={13} /> {t("bookings.refresh")}
@@ -360,6 +390,86 @@ export default function CustomerDashboard() {
           </section>
         </div>
       </div>
+
+      <section className="panel mt-6 p-5 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-extrabold">{t("refunds.title")}</h2>
+          <span className="pill">{refunds.length}</span>
+        </div>
+        {refunds.length ? (
+          <div className="mt-4 space-y-3">
+            {refundResult.items.map((refund) => (
+              <article key={refund._id} className="rounded-2xl border border-slate-200 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-navy">
+                      {refund.booking?.buddy?.fullName || t("bookings.defaultBuddy")}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {refund.booking?.date
+                        ? new Date(refund.booking.date).toLocaleDateString(locale)
+                        : ""}
+                      {refund.booking?.time ? ` · ${refund.booking.time}` : ""}
+                    </p>
+                  </div>
+                  <span className="pill">{t(`refunds.status${refund.status}`, refund.status)}</span>
+                </div>
+                <p className="mt-3 text-sm font-extrabold text-navy">
+                  {t("refunds.amount")}: {formatCurrency(refund.amount)}
+                  <span className="ml-2 text-xs font-semibold text-slate-500">
+                    ({refund.percentage}%)
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-slate-600">{refund.reason}</p>
+                {refund.providerRefundId && (
+                  <p className="mt-2 break-all text-xs text-slate-500">
+                    {t("refunds.providerRefundId")}: {refund.providerRefundId}
+                  </p>
+                )}
+                {refund.history?.length > 0 && (
+                  <details className="mt-3 border-t border-slate-100 pt-3">
+                    <summary className="cursor-pointer text-xs font-bold text-brand">
+                      {t("refunds.history")}
+                    </summary>
+                    <ol className="mt-2 space-y-2">
+                      {refund.history.map((entry, index) => (
+                        <li key={`${entry.status}-${entry.createdAt || index}`} className="text-xs text-slate-600">
+                          <span className="font-bold">
+                            {t(`refunds.status${entry.status}`, entry.status)}
+                          </span>
+                          {entry.createdAt && (
+                            <span className="ml-2 text-slate-400">
+                              {new Date(entry.createdAt).toLocaleString(locale)}
+                            </span>
+                          )}
+                          {entry.note && <p className="mt-1">{entry.note}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-xl bg-slate-50 p-4 text-center text-sm text-slate-500">
+            {t("refunds.empty")}
+          </p>
+        )}
+        {refunds.length > 3 && (
+          <Pagination
+            result={refundResult}
+            onChange={setRefundPage}
+            previousLabel={t("bookings.previous")}
+            nextLabel={t("bookings.next")}
+            pageLabel={t("bookings.page", {
+              page: refundResult.page,
+              total: refundResult.pageCount,
+            })}
+            showPageNumbers
+          />
+        )}
+      </section>
 
       {selectedBookingForCancellation && refundQuote && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-slate-950/60 p-4">
@@ -513,6 +623,14 @@ export default function CustomerDashboard() {
               setIsBookingPayOpen(true);
             }}>
               <QrCode size={14} /> {t("bookings.payNow")}
+            </button>
+          )}
+          {["Pending", "Confirmed"].includes(selectedBooking.status) && (
+            <button type="button" className="btn-light" onClick={async () => {
+              const booking = selectedBooking;
+              if (await startCancellation(booking)) setSelectedBooking(null);
+            }}>
+              <CalendarDays size={14} /> {t("refunds.cancelBooking")}
             </button>
           )}
         </BookingDetailsModal>

@@ -9,6 +9,8 @@ test("wallet history displays direction for credits, debits and pending payments
   assert.equal(transactionAmountPrefix({ type: "Escrow", status: "Refunded" }), "−");
   assert.equal(transactionAmountPrefix({ type: "Commission", status: "Completed" }), "+");
   assert.equal(transactionAmountPrefix({ type: "Earning", status: "Completed" }), "+");
+  assert.equal(transactionAmountPrefix({ type: "Refund", status: "Completed", paymentMethod: "Wallet" }), "+");
+  assert.equal(transactionAmountPrefix({ type: "Refund", status: "Completed", paymentMethod: "PAYOS_QR" }), "");
   assert.equal(transactionAmountPrefix({ type: "Booking", status: "Completed" }), "−");
   assert.equal(transactionAmountPrefix({ type: "Withdrawal", status: "Pending" }), "−");
   assert.equal(transactionAmountPrefix({ type: "Withdrawal", status: "Failed" }), "");

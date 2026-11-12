@@ -8,7 +8,7 @@ LocalBuddy là nền tảng kết nối **Traveler** (du khách) với **Local B
 | Thành phần | Quy mô |
 |---|---|
 | Frontend (`FE/`) | SPA React 18 + Vite + Tailwind CSS; 10 trang (Trang chủ, Đăng nhập/Đăng ký, Chi tiết Buddy, Hồ sơ, Ví, eKYC, Dashboard Traveler/Local/Admin, VNPay return) và 10 component dùng chung; đa ngôn ngữ vi/en/fr/ja/ko (i18next); biểu đồ Recharts; chat realtime qua socket.io-client |
-| Backend (`BE/`) | REST API Express 4 + Socket.IO; 6 model chính (User, BuddyProfile, Booking, Message, Transaction, WalletSettings) và 7 nhóm route (auth, users, buddies, bookings, wallet, chat, admin) với ~50 endpoint; JWT, rate limit, upload file bằng multer |
+| Backend (`BE/`) | REST API Express 4 + Socket.IO; 8 model (User, BuddyProfile, Booking, Refund, Message, Transaction, WalletSettings, UploadedFile) và 7 nhóm route (auth, users, buddies, bookings, wallet, chat, admin) với ~50 endpoint; JWT, rate limit, upload file bằng multer |
 | Cơ sở dữ liệu | MongoDB (Mongoose) |
 | Triển khai | Frontend trên Vercel, backend trên Render (xem mục Triển khai production) |
 
@@ -76,15 +76,16 @@ Chung:
 
 ## Chức năng theo vai trò
 - **Traveler**: đăng ký/đăng nhập, tìm và lọc Buddy, đặt lịch, thanh toán trước (ví, VNPay/QR), nạp tiền và rút tiền, chat với Local/Admin, quản lý hồ sơ.
-- **Local**: hoàn tất eKYC demo, quản lý hồ sơ (khu vực, ngôn ngữ, chứng chỉ, ảnh, giá theo giờ), cập nhật lịch rảnh, xác nhận/từ chối/hoàn thành booking, nhận thu nhập vào ví.
-- **Admin**: thống kê, duyệt hồ sơ Local, quản lý người dùng và booking, cấu hình hoa hồng/Premium demo, hỗ trợ qua chat.
+- **Local**: hoàn tất eKYC demo, quản lý hồ sơ (khu vực, ngôn ngữ, chứng chỉ, ảnh, giá theo giờ), cập nhật lịch rảnh, xác nhận/từ chối/hoàn thành booking, gửi yêu cầu hủy chuyến đã xác nhận để Admin xét hoàn tiền, nhận thu nhập vào ví.
+- **Admin**: thống kê, duyệt hồ sơ Local, quản lý người dùng và booking, duyệt/từ chối yêu cầu hoàn tiền, đối soát hoàn tiền PayOS, cấu hình chính sách hủy, hoa hồng/Premium demo, hỗ trợ qua chat.
 
 ## Chức năng MVP
 - Landing page giới thiệu quy trình và 3 gói trải nghiệm: Ẩm thực, Cà phê, Du lịch.
 - Danh sách công khai chỉ hiển thị hồ sơ Buddy đang hoạt động và đã được Admin xác minh.
 - Hồ sơ Buddy lấy từ MongoDB; không dùng dữ liệu mẫu dự phòng trong trang chi tiết.
 - Form yêu cầu trải nghiệm gồm ngày, khung giờ, số khách, ngôn ngữ, ngân sách phát sinh dự kiến và ghi chú; chi phí ăn uống/đi lại trong chuyến đi do Traveler thanh toán riêng.
-- Booking chỉ được gửi đến Local sau khi Traveler thanh toán trước bằng số dư ví hoặc luồng QR demo. Tiền được giữ trong ví hệ thống; Local từ chối sẽ hoàn tiền, hoàn thành sẽ chia hoa hồng và chuyển phần còn lại vào ví Local. Backend kiểm tra mỗi phút theo giờ Việt Nam: lịch đã xác nhận được tự động hoàn thành sau giờ kết thúc; lịch còn chờ sẽ bị hủy và hoàn tiền nếu đã thanh toán. Khi backend dừng, các lịch quá hạn được xử lý lại lúc khởi động.
+- Booking chỉ được gửi đến Local sau khi Traveler thanh toán trước bằng số dư ví hoặc luồng QR demo. Tiền được giữ trong ví hệ thống; Local từ chối lịch thanh toán bằng ví sẽ hoàn 100% vào ví Traveler, còn hoàn thành sẽ chia hoa hồng và chuyển phần còn lại vào ví Local. Booking thanh toán qua cổng ngoài cần Admin xử lý hoàn tiền trên Merchant Portal. Backend kiểm tra mỗi phút theo giờ Việt Nam: lịch đã xác nhận được tự động hoàn thành sau giờ kết thúc; lịch còn chờ sẽ bị hủy và hoàn tiền nếu đã thanh toán. Khi backend dừng, các lịch quá hạn được xử lý lại lúc khởi động.
+- Traveler có thể hủy lịch đang chờ hoặc đã xác nhận theo chính sách hoàn tiền do Admin cấu hình. Local từ chối lịch đang chờ đã thanh toán bằng ví được hoàn 100% tự động; Local yêu cầu hủy lịch đã xác nhận sẽ được Admin duyệt. Nếu yêu cầu Traveler hủy được duyệt với mức hoàn 0%, escrow được chia 50% cho Admin và 50% cho Local, không cộng vào ví Traveler. Tiền hoàn PayOS phải thao tác trên Merchant Portal rồi nhập mã giao dịch để đối soát; lịch sử yêu cầu và trạng thái được hiển thị cho Traveler/Admin.
 - Booking cũ đã thanh toán nhưng không có giao dịch giữ tiền cần được Admin đối soát thủ công; hệ thống không tự quyết toán hoặc xác nhận các lịch thiếu trạng thái giữ tiền hợp lệ.
 - Ngăn tạo yêu cầu trùng khung giờ đang được giữ hoặc đã xác nhận; Admin và Local cũng kiểm tra xung đột trước khi xác nhận.
 - Admin duyệt hồ sơ Local sau khi Local hoàn tất eKYC demo, quản lý riêng Local/Traveler, cấu hình trạng thái Premium demo và cập nhật trạng thái đặt lịch.
@@ -108,6 +109,7 @@ Chung:
 - `GET /api/buddies`, `GET /api/buddies/:id`
 - `PATCH /api/buddies/mine/availability`
 - `POST /api/bookings`, `GET /api/bookings/mine`, `GET /api/bookings/local`, `PATCH /api/bookings/:id/local-status`
+- `GET /api/bookings/:id/refund-quote`, `POST /api/bookings/:id/cancel`, `GET /api/bookings/refunds/mine`
 - `POST /api/bookings/:id/pay-wallet`, `POST /api/bookings/:id/pay-vnpay-qr`, `POST /api/bookings/:id/confirm-vnpay-qr`
 - `GET /api/users/me`, `PATCH /api/users/me`, `GET /api/users/me/buddy-profile`, `PATCH /api/users/me/kyc-demo/complete`
 - `POST /api/wallet/vnpay/create-url`, `GET /api/wallet/vnpay/return`, `GET /api/wallet/vnpay/ipn`, `POST /api/wallet/confirm-deposit`
@@ -115,6 +117,7 @@ Chung:
 - `GET /api/admin/stats`, `GET /api/admin/users`, `PATCH /api/admin/users/:id/status`
 - `GET /api/admin/buddies`, `PATCH /api/admin/buddies/:id/verification`
 - `GET /api/admin/bookings`, `PATCH /api/admin/bookings/:id`
+- `GET /api/admin/refunds`, `PATCH /api/admin/refunds/:id/review`, `PATCH /api/admin/refunds/:id/confirm-external`, `GET/PATCH /api/admin/settings/cancellation-policy`
 - `GET /api/wallet/overview`, `GET /api/wallet/transactions`, `GET /api/wallet/exchange-rates`
 - `POST /api/wallet/withdraw`, `PATCH /api/wallet/withdrawals/:id`, `PATCH /api/wallet/commission`
 - `GET /api/wallet/withdrawals` (Admin: danh sách yêu cầu rút đang chờ)

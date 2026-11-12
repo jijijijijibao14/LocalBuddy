@@ -4,7 +4,11 @@ const BuddyProfile = require("../models/BuddyProfile");
 const Refund = require("../models/Refund");
 const WalletSettings = require("../models/WalletSettings");
 const Transaction = require("../models/Transaction");
-const { getWalletSettings, settleBookingRefund } = require("../utils/walletLedger");
+const {
+  getWalletSettings,
+  releaseBookingFunds,
+  settleBookingRefund,
+} = require("../utils/walletLedger");
 const {
   DEFAULT_CANCELLATION_POLICY,
   calculateCancellationQuote,
@@ -294,18 +298,52 @@ exports.review = async (req, res) => {
       return res.json(refund);
     }
     if (refund.amount === 0) {
-      await Refund.updateOne(
-        { _id: refund._id, status: "APPROVED" },
-        {
-          $set: { status: "REFUNDED" },
-          $push: { history: { status: "REFUNDED", actor: req.user._id, note: "Chính sách hủy áp dụng mức hoàn 0%." } },
-        },
-      );
-      await Booking.updateOne(
-        { _id: booking._id, paymentStatus: "RefundPending" },
-        { $set: { paymentStatus: "Paid" } },
-      );
-      return res.json(await Refund.findById(refund._id));
+      const payoutNote = "Chính sách áp dụng mức hoàn 0%; tiền escrow được chia 50% cho Admin và 50% cho Local.";
+      try {
+        const payout = await releaseBookingFunds(booking, 50);
+        if (!payout) throw new Error("Escrow không còn ở trạng thái có thể chia khoản không hoàn.");
+        const completed = await Refund.findOneAndUpdate(
+          { _id: refund._id, status: "APPROVED" },
+          {
+            $set: {
+              status: "NO_REFUND",
+              reviewedBy: req.user._id,
+              reviewNote: payoutNote,
+            },
+            $push: {
+              history: {
+                status: "NO_REFUND",
+                actor: req.user._id,
+                note: payoutNote,
+              },
+            },
+          },
+          { new: true },
+        );
+        if (!completed) {
+          throw new Error("Đã chia escrow nhưng không cập nhật được trạng thái yêu cầu; cần đối soát thủ công.");
+        }
+        return res.json(completed);
+      } catch (error) {
+        await Refund.findOneAndUpdate(
+          { _id: refund._id, status: "APPROVED" },
+          {
+            $set: { status: "FAILED", reviewNote: error.message },
+            $push: {
+              history: {
+                status: "FAILED",
+                actor: req.user._id,
+                note: error.message,
+              },
+            },
+          },
+        );
+        await Booking.updateOne(
+          { _id: booking._id, escrowStatus: "Held", paymentStatus: "RefundPending" },
+          { $set: { paymentStatus: "Paid" } },
+        );
+        throw error;
+      }
     }
     if (refund.paymentMethod !== "Wallet") {
       const processing = await Refund.findOneAndUpdate(

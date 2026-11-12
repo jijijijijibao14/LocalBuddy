@@ -78,5 +78,20 @@
     "title": "サポートと安全",
     "body": "パスワードや支払い情報は共有しないでください。予約に問題がある場合はサポートにお問い合わせください。",
     "hotline": "24時間365日のカスタマーサポート"
+  },
+  "refunds": {
+    "title": "返金履歴",
+    "empty": "返金リクエストはありません。",
+    "amount": "返金額",
+    "providerRefundId": "返金取引ID",
+    "history": "処理履歴",
+    "cancelBooking": "キャンセルを申請",
+    "statusPENDING": "管理者の対応待ち",
+    "statusAPPROVED": "承認済み",
+    "statusPROCESSING": "処理中",
+    "statusREFUNDED": "返金済み",
+    "statusNO_REFUND": "返金なし・エスクローを50/50で分配",
+    "statusREJECTED": "拒否済み",
+    "statusFAILED": "手動照合が必要"
   }
 }

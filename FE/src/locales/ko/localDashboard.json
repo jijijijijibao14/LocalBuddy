@@ -96,7 +96,26 @@
   "actions": {
     "confirm": "확인",
     "reject": "거절",
+    "cancel": "예약 취소",
     "complete": "체험 완료",
     "messageTraveler": "Traveler에게 메시지 보내기"
+  },
+  "cancellation": {
+    "eyebrow": "체험 취소",
+    "title": "체험 취소 확인",
+    "bookingDetails": "Traveler: {{name}} · {{start}}–{{end}}",
+    "refundTitle": "Traveler에게 100% 환불됩니다",
+    "refundDescription": "100% 환불 요청이 Admin에게 전달됩니다. 대기 중이며 지갑으로 결제된 예약은 자동 환불될 수 있습니다.",
+    "refundAmount": "환불 금액: {{amount}}",
+    "unpaidTitle": "아직 결제되지 않은 예약입니다",
+    "unpaidDescription": "환불 금액이 없습니다. 사유를 제출하면 예약이 취소됩니다.",
+    "reasonLabel": "취소 사유 (필수)",
+    "reasonPlaceholder": "취소가 필요한 이유를 Admin과 Traveler에게 알려주세요...",
+    "close": "닫기",
+    "submitting": "전송 중...",
+    "submit": "취소 확인"
+  },
+  "refund": {
+    "noRefundPayout": "환불 없이 에스크로를 Admin과 Local에 50%씩 분배했습니다."
   }
 }
