@@ -15,6 +15,9 @@ import api, { mediaUrl } from "../services/api";
 import ConversationList from "../components/ConversationList";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
+import { paginate } from "../utils/pagination";
+import Pagination from "../components/Pagination";
+import BookingDetailsModal from "../components/BookingDetailsModal";
 
 function todayString() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -65,7 +68,9 @@ export default function LocalDashboard() {
   const [availability, setAvailability] = useState([]);
   const [availabilityDirty, setAvailabilityDirty] = useState(false);
   const [bookings, setBookings] = useState([]);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingStatusFilter, setBookingStatusFilter] = useState("Pending");
+  const [bookingPage, setBookingPage] = useState(1);
   const [profileScore, setProfileScore] = useState(0);
   const [date, setDate] = useState(todayString());
   const [startTime, setStartTime] = useState("09:00");
@@ -205,14 +210,14 @@ export default function LocalDashboard() {
           ? t("messages.confirmed")
           : data.message || t("messages.rejected"),
       );
-      setCancellationBooking(null);
-      setCancellationReason("");
+
+      await loadData();
+      return true;
     } catch (error) {
       setMessage(
         error.response?.data?.message || t("errors.updateBooking"),
       );
-    } finally {
-      setBookingActionLoading(false);
+      return false;
     }
   }
 
@@ -225,6 +230,7 @@ export default function LocalDashboard() {
   const filteredBookings = bookings.filter(
     (booking) => booking.status === bookingStatusFilter,
   );
+  const bookingResult = paginate(filteredBookings, bookingPage, 3);
 
   return (
     <div className="container-page space-y-6 py-8">
@@ -246,7 +252,7 @@ export default function LocalDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           {
             label: t("stats.profileScore"),
@@ -403,7 +409,10 @@ export default function LocalDashboard() {
                 role="tab"
                 aria-selected={bookingStatusFilter === tab.status}
                 aria-controls="booking-list"
-                onClick={() => setBookingStatusFilter(tab.status)}
+                onClick={() => {
+                  setBookingStatusFilter(tab.status);
+                  setBookingPage(1);
+                }}
                 className={
                   bookingStatusFilter === tab.status
                     ? "btn-primary"
@@ -434,138 +443,109 @@ export default function LocalDashboard() {
             </p>
           )}
 
-          {filteredBookings.map((booking) => (
-            <article
+          {bookingResult.items.map((booking) => (
+            <button
               key={booking._id}
-              className="rounded-xl border border-slate-200 p-4"
+              type="button"
+              onClick={() => setSelectedBooking(booking)}
+              className="w-full rounded-xl border border-slate-200 p-4 text-left hover:border-brand/40 hover:bg-slate-50"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-extrabold text-navy">
+                <span className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="font-extrabold text-navy">
                     {booking.customer?.fullName || "Traveler"}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {booking.customer?.email || ""}
-                  </p>
-                  <p className="mt-3 text-sm">
+                  </span>
+                  <span className="text-sm text-slate-500">
                     {t("requests.date", { date: booking.date?.slice(0, 10) })}
-                  </p>
-                  <p className="mt-1 text-sm">
-                    {t("requests.time", {
-                      start: booking.startTime,
-                      end: booking.endTime,
-                      count: Number(booking.durationHours) || 0,
-                    })}
-                  </p>
-                  <p className="mt-1 text-sm">
-                    {t("requests.guests", { count: booking.guestCount || 1 })}
-                  </p>
-
-                  <p className="mt-1 text-sm">
-                    {t("requests.language", {
-                      language: booking.language || t("requests.defaultLanguage"),
-                    })}
-                  </p>
-
-                  <p className="mt-1 text-sm">
-                    {t("requests.foodBudget", {
-                      amount: formatCurrency(booking.foodBudget || 0),
-                    })}
-                  </p>
-                  <p className="mt-1 text-sm">
-                    {t("requests.extraBudget", {
-                      amount: formatCurrency(booking.experienceBudget || 0),
-                    })}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {t("requests.extraNote")}
-                  </p>
-                  {booking.message && (
-                    <p className="mt-2 text-sm text-slate-600">
-                      {t("requests.message", { message: booking.message })}
-                    </p>
-                  )}
-                  <p className="mt-2 text-sm font-bold text-brand">
-                    {formatCurrency(booking.price || 0)}
-                  </p>
-                </div>
-                <span className="pill">
-                  {booking.status === "Cancelled"
-                    ? booking.cancellationReason?.startsWith("Local yêu cầu hủy chuyến:")
-                      ? "Đã yêu cầu hủy chuyến"
-                      : t("status.rejected")
-                    : booking.status === "Pending"
-                      ? t("status.pending")
-                      : booking.status === "Confirmed"
-                        ? t("status.confirmed")
-                        : booking.status}
+                  </span>
+                  <span className="pill">
+                    {booking.status === "Cancelled"
+                      ? t("status.cancelled")
+                      : booking.status === "Pending"
+                        ? t("status.pending")
+                        : booking.status === "Confirmed"
+                          ? t("status.confirmed")
+                          : t("tabs.completed")}
+                  </span>
                 </span>
-              </div>
-
-              {booking.status === "Cancelled" && booking.paymentStatus === "RefundPending" && (
-                <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-                  Yêu cầu hoàn 100% đang chờ Admin duyệt.
-                </p>
-              )}
-              {booking.status === "Cancelled" && booking.paymentStatus === "Refunded" && (
-                <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                  Đã hoàn tiền cho Traveller.
-                </p>
-              )}
-
-              {booking.status === "Pending" && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    className="btn-primary"
-                    disabled={bookingActionLoading}
-                    onClick={() => updateBooking(booking._id, "Confirmed")}
-                  >
-                    <CheckCircle2 size={16} /> {t("actions.confirm")}
-                  </button>
-                  <button
-                    className="btn-light"
-                    disabled={bookingActionLoading}
-                    onClick={() => updateBooking(booking._id, "Cancelled", "Local từ chối yêu cầu đặt lịch.")}
-                  >
-                    <XCircle size={16} /> {t("actions.reject")}
-                  </button>
-                </div>
-              )}
-              {booking.status === "Confirmed" && (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-4 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
-                    disabled={bookingActionLoading}
-                    onClick={() => {
-                      setCancellationBooking(booking);
-                      setCancellationReason("");
-                      setMessage("");
-                    }}
-                  >
-                    <XCircle size={16} /> Yêu cầu hủy chuyến
-                  </button>
-                </div>
-              )}
-              {booking.customer?._id && (
-                <button
-                  className="btn-light mt-3"
-                  onClick={() => window.dispatchEvent(new CustomEvent("lb-open-chat", {
-                    detail: { otherUser: {
-                      _id: booking.customer._id,
-                      fullName: booking.customer.fullName,
-                      avatar: booking.customer.avatar,
-                      role: "traveler",
-                    } },
-                  }))}
-                >
-                  {t("actions.messageTraveler")}
-                </button>
-              )}
-            </article>
+                <span className="mt-2 block text-xs text-slate-500">
+                  {booking.customer?.email || ""} · {booking.time}
+                </span>
+            </button>
           ))}
         </div>
+        {filteredBookings.length > 3 && (
+          <Pagination
+            result={bookingResult}
+            onChange={setBookingPage}
+            previousLabel={t("requests.pagination.previous")}
+            nextLabel={t("requests.pagination.next")}
+            pageLabel={t("requests.pagination.page", { page: bookingResult.page, total: bookingResult.pageCount })}
+          />
+        )}
       </section>
+      {selectedBooking && (
+        <BookingDetailsModal
+          title={t("requests.details")}
+          closeLabel={t("requests.close")}
+          onClose={() => setSelectedBooking(null)}
+          fields={[
+            { label: t("requests.customer"), value: selectedBooking.customer?.fullName || "Traveler" },
+            { label: t("requests.statusLabel"), value: selectedBooking.status === "Cancelled"
+              ? t("status.cancelled")
+              : selectedBooking.status === "Pending"
+                ? t("status.pending")
+                : selectedBooking.status === "Confirmed"
+                  ? t("status.confirmed")
+                  : t("tabs.completed") },
+            { label: t("requests.email"), value: selectedBooking.customer?.email },
+            { label: t("requests.dateLabel"), value: selectedBooking.date?.slice(0, 10) },
+            { label: t("requests.timeLabel"), value: t("requests.time", {
+              start: selectedBooking.startTime,
+              end: selectedBooking.endTime,
+              count: Number(selectedBooking.durationHours) || 0,
+            }) },
+            { label: t("requests.guestsLabel"), value: t("requests.guests", { count: selectedBooking.guestCount || 1 }) },
+            { label: t("requests.language"), value: selectedBooking.language || t("requests.defaultLanguage") },
+            { label: t("requests.foodBudgetLabel"), value: formatCurrency(selectedBooking.foodBudget || 0) },
+            { label: t("requests.extraBudgetLabel"), value: formatCurrency(selectedBooking.experienceBudget || 0) },
+            { label: t("requests.meetingAddressLabel"), value: selectedBooking.meetingAddress, fullWidth: true },
+            { label: t("requests.messageLabel"), value: selectedBooking.message, fullWidth: true },
+            { label: t("requests.serviceLabel"), value: formatCurrency(selectedBooking.price || 0) },
+            { label: t("requests.paymentLabel"), value: selectedBooking.paymentStatus },
+          ]}
+        >
+          {selectedBooking.status === "Pending" && (
+            <>
+              <button type="button" className="btn-primary" onClick={async () => {
+                if (await updateBooking(selectedBooking._id, "Confirmed")) setSelectedBooking(null);
+              }}>
+                <CheckCircle2 size={16} /> {t("actions.confirm")}
+              </button>
+              <button type="button" className="btn-light" onClick={async () => {
+                if (await updateBooking(selectedBooking._id, "Cancelled")) setSelectedBooking(null);
+              }}>
+                <XCircle size={16} /> {t("actions.reject")}
+              </button>
+            </>
+          )}
+          {selectedBooking.customer?._id && (
+            <button type="button" className="btn-light" onClick={() => {
+              const customer = selectedBooking.customer;
+              setSelectedBooking(null);
+              window.dispatchEvent(new CustomEvent("lb-open-chat", {
+                detail: { otherUser: {
+                  _id: customer._id,
+                  fullName: customer.fullName,
+                  avatar: customer.avatar,
+                  role: "traveler",
+                } },
+              }));
+            }}>
+              {t("actions.messageTraveler")}
+            </button>
+          )}
+        </BookingDetailsModal>
+      )}
 
       {cancellationBooking && (
         <div className="fixed inset-0 z-[70] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm">

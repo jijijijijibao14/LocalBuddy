@@ -16,6 +16,7 @@ import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
 import { filterAccounts, paginate } from "../utils/adminPagination";
 import Pagination from "../components/Pagination";
+import BookingDetailsModal from "../components/BookingDetailsModal";
 
 function AdminPagination({ result, onChange, t }) {
   return (
@@ -51,6 +52,8 @@ export default function AdminDashboard() {
   const [accountPage, setAccountPage] = useState(1);
   const [buddyPage, setBuddyPage] = useState(1);
   const [bookingStatusTab, setBookingStatusTab] = useState("Pending");
+  const [bookingPage, setBookingPage] = useState(1);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [message, setMessage] = useState("");
   const [refundAction, setRefundAction] = useState(null);
   const [refundNote, setRefundNote] = useState("");
@@ -58,6 +61,10 @@ export default function AdminDashboard() {
   const [refundActionLoading, setRefundActionLoading] = useState(false);
   const accountsResult = paginate(filterAccounts(users, accountRoleTab, accountQuery, accountStatus), accountPage);
   const buddiesResult = paginate(buddies, buddyPage);
+  const filteredBookings = bookings.filter((booking) => bookingStatusTab === "Pending"
+    ? ["Pending", "Confirmed"].includes(booking.status)
+    : booking.status === bookingStatusTab);
+  const bookingResult = paginate(filteredBookings, bookingPage, 3);
   async function load() {
     try {
       const [s, u, bp, b, r, policy] = await Promise.all([
@@ -469,7 +476,7 @@ export default function AdminDashboard() {
               type="button"
               role="tab"
               aria-selected={bookingStatusTab === status}
-              onClick={() => setBookingStatusTab(status)}
+              onClick={() => { setBookingStatusTab(status); setBookingPage(1); }}
               className={bookingStatusTab === status ? "btn-primary" : "btn-light"}
             >
               {label} ({bookings.filter((booking) => status === "Pending"
@@ -478,258 +485,58 @@ export default function AdminDashboard() {
             </button>
           ))}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-xs">
-            <thead className="bg-slate-50 text-[10px] uppercase text-slate-500">
-              <tr>
-                <th className="p-4">{t("requests.colCustomer")}</th>
-                <th className="p-4">{t("requests.colBuddy")}</th>
-                <th className="p-4">{t("requests.colDateTime")}</th>
-                <th className="p-4">{t("requests.colDetails")}</th>
-                <th className="p-4">{t("accounts.colStatus")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.filter((booking) => bookingStatusTab === "Pending"
-                ? ["Pending", "Confirmed"].includes(booking.status)
-                : booking.status === bookingStatusTab).map((b) => (
-                <tr key={b._id} className="border-t border-slate-100">
-                  <td className="p-4">
-                    <b>{b.customer?.fullName || t("requests.defaultCustomer")}</b>
-                    <p className="mt-1 text-slate-500">
-                      {b.customer?.email || ""}
-                    </p>
-                    <p className="mt-1 text-slate-500">
-                      {b.customer?.phone || ""}
-                    </p>
-                  </td>
-                  <td className="p-4">{b.buddy?.fullName || t("requests.defaultBuddy")}</td>
-                  <td className="p-4">
-                    {new Date(b.date).toLocaleDateString(locale)}
-                    <p className="mt-1 text-slate-500">{b.time}</p>
-                  </td>
-                  <td className="p-4">
-                    {t("requests.guests", { count: b.guestCount || 1 })} ·{" "}
-                    {b.language || t("requests.defaultLanguage")}
-                    <p className="mt-1 text-slate-500">
-                      {t("requests.service", { amount: formatCurrency(b.price || 0) })}
-                    </p>
-                    <p className="mt-1 text-slate-500">
-                      {t("requests.food", { amount: formatCurrency(b.foodBudget || 0) })}
-                    </p>
-                    <p className="mt-1 text-slate-500">
-                      {t("requests.extra", { amount: formatCurrency(b.experienceBudget || 0) })}
-                    </p>
-                    {b.message && (
-                      <p className="mt-1 max-w-xs whitespace-pre-wrap text-slate-600">
-                        {t("requests.note", { message: b.message })}
-                      </p>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    <span className="pill">{b.status}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!bookings.some((booking) => bookingStatusTab === "Pending"
-            ? ["Pending", "Confirmed"].includes(booking.status)
-            : booking.status === bookingStatusTab) && (
+        <div className="space-y-3 px-5 pb-2">
+          {bookingResult.items.map((b) => (
+            <button
+              key={b._id}
+              type="button"
+              onClick={() => setSelectedBooking(b)}
+              className="w-full rounded-xl border border-slate-200 p-4 text-left hover:border-brand/40 hover:bg-slate-50"
+            >
+                <span className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-navy">{b.customer?.fullName || t("requests.defaultCustomer")}</span>
+                  <span className="text-xs text-slate-500">{b.buddy?.fullName || t("requests.defaultBuddy")}</span>
+                  <span className="text-xs text-slate-500">{new Date(b.date).toLocaleDateString(locale)} · {b.time}</span>
+                  <span className="pill">{t(`requests.status${b.status}`)}</span>
+                </span>
+                <span className="mt-2 block text-xs text-slate-500">
+                  {b.customer?.email || ""} · {b.buddy?.area || ""}
+                </span>
+            </button>
+          ))}
+          {!filteredBookings.length && (
             <p className="p-8 text-center text-xs text-slate-500">
               {t("requests.empty")}
             </p>
           )}
         </div>
+        {filteredBookings.length > 3 && (
+          <AdminPagination result={bookingResult} onChange={setBookingPage} t={t} />
+        )}
       </section>
-      <section className="panel mt-6 p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-extrabold">Chính sách hủy và hoàn tiền</h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Các tỷ lệ được tính ở backend theo thời điểm gửi yêu cầu.
-            </p>
-          </div>
-          <button type="button" className="btn-primary !py-2" onClick={saveCancellationPolicy}>
-            Lưu chính sách
-          </button>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            ["overSixHoursPercent", "Trước hơn 6 tiếng"],
-            ["threeToSixHoursPercent", "Trước 3–6 tiếng"],
-            ["oneToThreeHoursPercent", "Trước 1–3 tiếng"],
-            ["underOneHourPercent", "Trước dưới 1 tiếng"],
-          ].map(([field, label]) => (
-            <label key={field} className="text-xs font-bold text-slate-700">
-              {label} (%)
-              <input
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                value={cancellationPolicy[field]}
-                onChange={(event) => setCancellationPolicy((prev) => ({
-                  ...prev,
-                  [field]: event.target.value === "" ? "" : Number(event.target.value),
-                }))}
-                className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2"
-              />
-            </label>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-slate-500">Từ thời điểm bắt đầu trải nghiệm trở đi: hoàn 0%.</p>
-      </section>
-
-      <section className="panel mt-6 overflow-hidden">
-        <div className="p-5">
-          <h2 className="font-extrabold">Yêu cầu hoàn tiền ({refunds.length})</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            PayOS không hỗ trợ hoàn tiền qua SDK hiện tại; xử lý trên Merchant Portal rồi nhập mã xác nhận tại đây.
-          </p>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {refunds.map((refund) => (
-            <div key={refund._id} className="flex flex-wrap items-center justify-between gap-4 p-5">
-              <div className="min-w-[220px]">
-                <p className="font-bold text-navy">
-                  {refund.customer?.fullName || "Traveler"} · {refund.booking?.buddy?.fullName || "Local"}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {refund.reason} · {refund.percentage}% · {formatCurrency(refund.amount || 0)}
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {refund.paymentMethod} · {refund.booking?.time || ""}
-                </p>
-                <p className="mt-1 text-xs font-bold text-amber-700">
-                  {refund.status}{refund.providerRefundId ? ` · ${refund.providerRefundId}` : ""}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {refund.status === "PENDING" && (
-                  <>
-                    <button className="btn-primary !py-2" onClick={() => openRefundAction(refund, "APPROVE")}>
-                      Duyệt
-                    </button>
-                    <button className="btn-light !py-2" onClick={() => openRefundAction(refund, "REJECT")}>
-                      Từ chối
-                    </button>
-                  </>
-                )}
-                {refund.status === "PROCESSING" && refund.paymentMethod !== "Wallet" && !refund.providerRefundId && (
-                  <button className="btn-primary !py-2" onClick={() => openRefundAction(refund, "EXTERNAL")}>
-                    Ghi nhận PayOS đã hoàn
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-          {!refunds.length && <p className="p-8 text-center text-xs text-slate-500">Chưa có yêu cầu hoàn tiền.</p>}
-        </div>
-      </section>
-
-      {refundAction && (
-        <div
-          className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !refundActionLoading) setRefundAction(null);
-          }}
-        >
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="refund-action-title"
-            className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
-          >
-            <header className="border-b border-slate-100 px-6 py-5">
-              <span className="pill">
-                <Wallet size={12} /> Quản lý hoàn tiền
-              </span>
-              <h2 id="refund-action-title" className="mt-3 text-xl font-black text-navy">
-                {refundAction.action === "EXTERNAL"
-                  ? "Ghi nhận hoàn tiền PayOS"
-                  : refundAction.action === "APPROVE"
-                    ? "Duyệt yêu cầu hoàn tiền"
-                    : "Từ chối yêu cầu hoàn tiền"}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {refundAction.refund.customer?.fullName || "Traveller"} · {formatCurrency(refundAction.refund.amount || 0)}
-              </p>
-            </header>
-            <form onSubmit={submitRefundAction}>
-              <div className="space-y-4 px-6 py-5">
-                {refundAction.action === "EXTERNAL" && (
-                  <div>
-                    <label className="block text-xs font-extrabold text-slate-700" htmlFor="provider-refund-id">
-                      Mã giao dịch hoàn tiền PayOS
-                    </label>
-                    <input
-                      id="provider-refund-id"
-                      value={providerRefundId}
-                      onChange={(event) => setProviderRefundId(event.target.value)}
-                      maxLength={200}
-                      required
-                      autoFocus
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-blue-100"
-                      placeholder="Nhập mã giao dịch đã xác nhận"
-                    />
-                  </div>
-                )}
-                <div>
-                  <label className="block text-xs font-extrabold text-slate-700" htmlFor="refund-action-note">
-                    {refundAction.action === "REJECT" ? "Lý do từ chối" : "Ghi chú"}
-                    {refundAction.action === "APPROVE" && (
-                      <span className="ml-1 font-medium text-slate-400">(không bắt buộc)</span>
-                    )}
-                  </label>
-                  <textarea
-                    id="refund-action-note"
-                    value={refundNote}
-                    onChange={(event) => setRefundNote(event.target.value)}
-                    maxLength={500}
-                    rows={3}
-                    required={refundAction.action === "EXTERNAL"}
-                    autoFocus={refundAction.action !== "EXTERNAL"}
-                    className="mt-2 w-full resize-y rounded-xl border border-slate-200 px-3.5 py-3 text-sm outline-none transition focus:border-brand focus:ring-4 focus:ring-blue-100"
-                    placeholder={refundAction.action === "REJECT"
-                      ? "Nhập lý do từ chối..."
-                      : "Nhập ghi chú nếu cần..."}
-                  />
-                </div>
-                {message && (
-                  <p className="rounded-xl bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" role="alert">
-                    {message}
-                  </p>
-                )}
-              </div>
-              <footer className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  className="btn-light justify-center"
-                  disabled={refundActionLoading}
-                  onClick={() => setRefundAction(null)}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className={refundAction.action === "REJECT"
-                    ? "rounded-xl bg-red-700 px-5 py-2.5 text-sm font-extrabold text-white transition hover:bg-red-800 disabled:opacity-60"
-                    : "btn-primary"}
-                  disabled={refundActionLoading}
-                >
-                  {refundActionLoading
-                    ? "Đang xử lý..."
-                    : refundAction.action === "EXTERNAL"
-                      ? "Xác nhận đã hoàn"
-                      : refundAction.action === "APPROVE"
-                        ? "Duyệt hoàn tiền"
-                        : "Xác nhận từ chối"}
-                </button>
-              </footer>
-            </form>
-          </section>
-        </div>
+      {selectedBooking && (
+        <BookingDetailsModal
+          title={t("requests.details")}
+          closeLabel={t("requests.close")}
+          onClose={() => setSelectedBooking(null)}
+          fields={[
+            { label: t("requests.customer"), value: selectedBooking.customer?.fullName || t("requests.defaultCustomer") },
+            { label: t("requests.status"), value: t(`requests.status${selectedBooking.status}`) },
+            { label: t("requests.customerEmail"), value: selectedBooking.customer?.email },
+            { label: t("requests.customerPhone"), value: selectedBooking.customer?.phone },
+            { label: t("requests.buddy"), value: selectedBooking.buddy?.fullName || t("requests.defaultBuddy") },
+            { label: t("requests.area"), value: selectedBooking.buddy?.area },
+            { label: t("requests.dateTime"), value: `${new Date(selectedBooking.date).toLocaleDateString(locale)} · ${selectedBooking.time}` },
+            { label: t("requests.guests", { count: selectedBooking.guestCount || 1 }), value: selectedBooking.language || t("requests.defaultLanguage") },
+            { label: t("requests.serviceLabel"), value: formatCurrency(selectedBooking.price || 0) },
+            { label: t("requests.foodLabel"), value: formatCurrency(selectedBooking.foodBudget || 0) },
+            { label: t("requests.extraLabel"), value: formatCurrency(selectedBooking.experienceBudget || 0) },
+            { label: t("requests.paymentLabel"), value: selectedBooking.paymentStatus },
+            { label: t("requests.paymentMethodLabel"), value: selectedBooking.paymentMethod },
+            { label: t("requests.meetingAddressLabel"), value: selectedBooking.meetingAddress, fullWidth: true },
+            { label: t("requests.noteLabel"), value: selectedBooking.message, fullWidth: true },
+          ]}
+        />
       )}
     </div>
   );

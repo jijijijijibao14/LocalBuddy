@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Booking = require("../models/Booking");
 const BuddyProfile = require("../models/BuddyProfile");
-const { updateLocalStatus } = require("./bookingController");
+const { updateLocalStatus, localMine } = require("./bookingController");
 const { updateBooking } = require("./adminController");
 
 function response() {
@@ -12,6 +12,30 @@ function response() {
     json(body) { this.body = body; return this; },
   };
 }
+
+test("Local booking list includes cancelled bookings after refund", async (t) => {
+  const cancelledBooking = { _id: "cancelled-booking", status: "Cancelled", paymentStatus: "Refunded" };
+  t.mock.method(BuddyProfile, "findOne", async () => ({ _id: "buddy" }));
+  let query;
+  t.mock.method(Booking, "find", (filter) => {
+    query = filter;
+    return {
+      populate() { return this; },
+      sort: async () => [cancelledBooking],
+    };
+  });
+  const res = response();
+  await localMine({ user: { _id: "local-user", role: "local" } }, res);
+
+  assert.deepEqual(query, {
+    buddy: "buddy",
+    $or: [
+      { paymentStatus: "Paid" },
+      { status: "Cancelled", paymentStatus: "Refunded" },
+    ],
+  });
+  assert.deepEqual(res.body, [cancelledBooking]);
+});
 
 for (const actor of ["local", "admin"]) {
   for (const status of ["Confirmed", "Completed"]) {

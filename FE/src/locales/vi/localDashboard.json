@@ -51,6 +51,25 @@
     "title": "Yêu cầu trải nghiệm",
     "subtitle": "Các yêu cầu gửi đến hồ sơ Local của bạn.",
     "filterLabel": "Lọc yêu cầu trải nghiệm",
+    "details": "Chi tiết yêu cầu",
+    "close": "Đóng",
+    "customer": "Traveler",
+    "statusLabel": "Trạng thái",
+    "email": "Email",
+    "dateLabel": "Ngày trải nghiệm",
+    "timeLabel": "Khung giờ",
+    "guestsLabel": "Số khách",
+    "foodBudgetLabel": "Ngân sách ăn uống",
+    "extraBudgetLabel": "Ngân sách phát sinh",
+    "meetingAddressLabel": "Địa điểm gặp mặt",
+    "messageLabel": "Lời nhắn",
+    "serviceLabel": "Phí dịch vụ",
+    "paymentLabel": "Thanh toán",
+    "pagination": {
+      "previous": "Trang trước",
+      "next": "Trang tiếp",
+      "page": "Trang {{page}} / {{total}}"
+    },
     "emptyPending": "Chưa có yêu cầu trải nghiệm nào đang chờ xác nhận.",
     "emptyConfirmed": "Chưa có yêu cầu trải nghiệm nào đã xác nhận.",
     "emptyCompleted": "Chưa có trải nghiệm nào hoàn thành.",
@@ -60,6 +79,7 @@
     "time_other": "Giờ: {{start}} – {{end}} ({{count}} giờ)",
     "guests_one": "Số khách: {{count}} người",
     "guests_other": "Số khách: {{count}} người",
+    "meetingAddress": "Địa điểm gặp mặt: {{address}}",
     "language": "Ngôn ngữ: {{language}}",
     "defaultLanguage": "Tiếng Việt",
     "foodBudget": "Ngân sách ăn uống/người: {{amount}}",
@@ -70,7 +90,8 @@
   "status": {
     "rejected": "Đã từ chối",
     "pending": "Chờ xác nhận",
-    "confirmed": "Đã xác nhận"
+    "confirmed": "Đã xác nhận",
+    "cancelled": "Đã hủy"
   },
   "actions": {
     "confirm": "Xác nhận",

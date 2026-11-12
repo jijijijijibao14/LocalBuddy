@@ -42,7 +42,7 @@
   "welcomeLocal": "Chào mừng đến với LocalBuddy, Bước đầu bạn hãy hoàn thiện profile của bạn!",
   "completeProfileDescription": "Hoàn thiện thông tin cá nhân để khách hàng hiểu bạn hơn và có thể tìm thấy bạn.",
   "completeProfile": "Hoàn thiện profile",
-  "helloAdmin": "Xin chào quản trị viên, {{name}}",
+  "helloAdmin": "quản trị viên, {{name}}",
   "manageAdmin": "Quản lý tài khoản, Local Buddy và yêu cầu đặt lịch từ khu vực quản trị.",
   "openAdmin": "Mở bảng quản trị",
   "categoryPrompt": "Bạn muốn khám phá gì?",

@@ -51,6 +51,25 @@
     "title": "체험 요청",
     "subtitle": "내 Local 프로필로 온 요청입니다.",
     "filterLabel": "체험 요청 필터",
+    "details": "요청 상세",
+    "close": "닫기",
+    "customer": "Traveler",
+    "statusLabel": "상태",
+    "email": "이메일",
+    "dateLabel": "체험 날짜",
+    "timeLabel": "시간대",
+    "guestsLabel": "인원",
+    "foodBudgetLabel": "식비 예산",
+    "extraBudgetLabel": "추가 예산",
+    "meetingAddressLabel": "만남 장소",
+    "messageLabel": "메시지",
+    "serviceLabel": "서비스 요금",
+    "paymentLabel": "결제",
+    "pagination": {
+      "previous": "이전 페이지",
+      "next": "다음 페이지",
+      "page": "{{page}} / {{total}} 페이지"
+    },
     "emptyPending": "확인 대기 중인 체험 요청이 없습니다.",
     "emptyConfirmed": "확인된 체험 요청이 없습니다.",
     "emptyCompleted": "완료된 체험이 없습니다.",
@@ -60,6 +79,7 @@
     "time_other": "시간: {{start}} – {{end}} ({{count}}시간)",
     "guests_one": "인원: {{count}}명",
     "guests_other": "인원: {{count}}명",
+    "meetingAddress": "만남 장소: {{address}}",
     "language": "언어: {{language}}",
     "defaultLanguage": "베트남어",
     "foodBudget": "1인당 식비 예산: {{amount}}",
@@ -70,7 +90,8 @@
   "status": {
     "rejected": "거절됨",
     "pending": "확인 대기",
-    "confirmed": "확인됨"
+    "confirmed": "확인됨",
+    "cancelled": "취소됨"
   },
   "actions": {
     "confirm": "확인",

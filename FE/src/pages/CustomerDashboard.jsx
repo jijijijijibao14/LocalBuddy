@@ -7,9 +7,6 @@ import {
   ArrowUpRight,
   UserRound,
   RefreshCw,
-  CheckCircle2,
-  AlertCircle,
-  QrCode,
 } from "lucide-react";
 import api from "../services/api";
 import { Link } from "react-router-dom";
@@ -18,6 +15,9 @@ import WalletTopUpModal from "../components/WalletTopUpModal";
 import ConversationList from "../components/ConversationList";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
+import { paginate } from "../utils/pagination";
+import Pagination from "../components/Pagination";
+import BookingDetailsModal from "../components/BookingDetailsModal";
 
 function getStoredUser() {
   try {
@@ -41,13 +41,18 @@ export default function CustomerDashboard() {
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
   const [selectedBookingForPay, setSelectedBookingForPay] = useState(null);
+  const [selectedBooking, setSelectedBooking] = useState(null);
   const [isBookingPayOpen, setIsBookingPayOpen] = useState(false);
-  const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-  const [selectedBookingForCancellation, setSelectedBookingForCancellation] = useState(null);
-  const [refundQuote, setRefundQuote] = useState(null);
-  const [cancellationReason, setCancellationReason] = useState("");
-  const [cancellationLoading, setCancellationLoading] = useState(false);
-  const [refundNotice, setRefundNotice] = useState("");
+  const [bookingStatusTab, setBookingStatusTab] = useState("Pending");
+  const [bookingPage, setBookingPage] = useState(1);
+  const bookingTabs = [
+    ["Pending", t("status.pending")],
+    ["Confirmed", t("status.confirmed")],
+    ["Completed", t("status.completed")],
+    ["Cancelled", t("status.cancelled")],
+  ];
+  const filteredBookings = bookings.filter((booking) => booking.status === bookingStatusTab);
+  const bookingResult = paginate(filteredBookings, bookingPage, 3);
   useEffect(() => {
     api
       .get("/bookings/mine")
@@ -226,104 +231,67 @@ export default function CustomerDashboard() {
             {error && <p className="mt-3 text-xs text-amber-700">{error}</p>}
             {refundNotice && <p className="mt-3 text-xs text-emerald-700" role="status">{refundNotice}</p>}
             {bookings.length ? (
-              <div className="mt-4 space-y-3">
-                {bookings.map((b) => (
-                  <div
-                    key={b._id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs hover:border-slate-300 transition-all"
-                  >
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-extrabold text-navy">
-                          {b.buddy?.fullName || t("bookings.defaultBuddy")}
-                        </p>
-                        {b.paymentStatus === "Paid" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 size={11} />{" "}
-                            {t("bookings.paid", {
-                              method:
-                                b.paymentMethod === "Wallet"
-                                  ? t("bookings.methodWallet")
-                                  : "VNPAY-QR",
-                            })}
-                          </span>
-                        ) : b.paymentStatus === "Refunded" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700">
-                            <CheckCircle2 size={11} /> Đã hoàn tiền
-                          </span>
-                        ) : b.paymentStatus === "RefundPending" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800">
-                            <Clock size={11} /> Đang xử lý hoàn tiền
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800 border border-amber-200">
-                            <AlertCircle size={11} /> {t("bookings.unpaid")}
-                          </span>
-                        )}
+              <>
+                <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label={t("bookings.filterLabel")}>
+                  {bookingTabs.map(([status, label]) => {
+                    const count = bookings.filter((booking) => booking.status === status).length;
+                    return (
+                      <button
+                        key={status}
+                        type="button"
+                        role="tab"
+                        aria-selected={bookingStatusTab === status}
+                        onClick={() => { setBookingStatusTab(status); setBookingPage(1); }}
+                        className={bookingStatusTab === status ? "btn-primary" : "btn-light"}
+                      >
+                        {label} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+                {bookingResult.items.length ? (
+                  <div className="mt-4 space-y-3">
+                    {bookingResult.items.map((b) => (
+                      <div key={b._id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() => setSelectedBooking(b)}
+                          >
+                              <span className="font-extrabold text-navy">{b.buddy?.fullName || t("bookings.defaultBuddy")}</span>
+                              <span className="ml-2 text-xs text-slate-500">
+                                <CalendarDays size={12} className="mr-1 inline" />
+                                {new Date(b.date).toLocaleDateString(locale)} · {b.time}
+                              </span>
+                              <span className="ml-2 pill">{t(`status.${b.status.toLowerCase()}`)}</span>
+                          </button>
+                          {b.paymentStatus !== "Paid" && b.status !== "Cancelled" && (
+                            <button
+                              onClick={() => { setSelectedBookingForPay(b); setIsBookingPayOpen(true); }}
+                              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:opacity-95"
+                              title={t("bookings.payTitle")}
+                            >
+                              <QrCode size={13} /> <span>{t("bookings.payNow")}</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        <CalendarDays size={12} className="mr-1 inline" />
-                        {new Date(b.date).toLocaleDateString(locale)} ·{" "}
-                        {b.time}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {t("bookings.guests", { count: b.guestCount || 1 })} ·{" "}
-                        {b.language || t("bookings.defaultLanguage")} ·{" "}
-                        {t("bookings.service")}{" "}
-                        <b className="text-slate-800 font-bold">
-                          {formatCurrency(b.price || 0)}
-                        </b>
-                      </p>
-                      {refunds.find((item) => item.booking?._id === b._id) && (
-                        <p className="mt-2 text-xs font-semibold text-amber-700">
-                          Hoàn tiền: {refunds.find((item) => item.booking?._id === b._id).status}
-                          {" · "}{formatCurrency(refunds.find((item) => item.booking?._id === b._id).amount || 0)}
-                        </p>
-                      )}
-                      {b.foodBudget > 0 && (
-                        <p className="mt-1 text-xs text-slate-500">
-                          {t("bookings.foodBudget", {
-                            amount: Number(b.foodBudget).toLocaleString(locale),
-                          })}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="pill">
-                        {b.status === "Pending"
-                          ? t("status.pending")
-                          : b.status === "Confirmed"
-                            ? t("status.confirmed")
-                            : b.status === "Completed"
-                              ? t("status.completed")
-                              : t("status.cancelled")}
-                      </span>
-
-                      {b.paymentStatus !== "Paid" && b.status !== "Cancelled" && (
-                        <button
-                          onClick={() => {
-                            setSelectedBookingForPay(b);
-                            setIsBookingPayOpen(true);
-                          }}
-                          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#005baa] to-emerald-600 px-3.5 py-2 text-xs font-black text-white shadow-sm hover:opacity-95 transition-all cursor-pointer"
-                          title={t("bookings.payTitle")}
-                        >
-                          <QrCode size={13} />
-                          <span>{t("bookings.payNow")}</span>
-                        </button>
-                      )}
-                      {["Pending", "Confirmed"].includes(b.status) && !b.refundRequestId && (
-                        <button
-                          onClick={() => startCancellation(b)}
-                          className="rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50"
-                        >
-                          Hủy lịch
-                        </button>
-                      )}
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <p className="mt-4 rounded-xl bg-blue-50 p-5 text-center text-sm text-slate-600">{t("bookings.emptyStatus")}</p>
+                )}
+                {filteredBookings.length > 3 && (
+                  <Pagination
+                    result={bookingResult}
+                    onChange={setBookingPage}
+                    previousLabel={t("bookings.previous")}
+                    nextLabel={t("bookings.next")}
+                    pageLabel={t("bookings.page", { page: bookingResult.page, total: bookingResult.pageCount })}
+                  />
+                )}
+              </>
             ) : (
               <div className="mt-4 rounded-xl bg-blue-50 p-6 text-center">
                 <CalendarDays className="mx-auto text-brand" size={25} />
@@ -519,6 +487,36 @@ export default function CustomerDashboard() {
           setIsTopUpOpen(true);
         }}
       />
+      {selectedBooking && (
+        <BookingDetailsModal
+          title={t("bookings.details")}
+          closeLabel={t("bookings.close")}
+          onClose={() => setSelectedBooking(null)}
+          fields={[
+            { label: t("bookings.buddy"), value: selectedBooking.buddy?.fullName || t("bookings.defaultBuddy") },
+            { label: t("bookings.status"), value: t(`status.${selectedBooking.status.toLowerCase()}`) },
+            { label: t("bookings.dateTime"), value: `${new Date(selectedBooking.date).toLocaleDateString(locale)} · ${selectedBooking.time}` },
+            { label: t("bookings.guestsLabel"), value: `${selectedBooking.guestCount || 1} · ${selectedBooking.language || t("bookings.defaultLanguage")}` },
+            { label: t("bookings.service"), value: formatCurrency(selectedBooking.price || 0) },
+            { label: t("bookings.payment"), value: selectedBooking.paymentStatus === "Paid"
+              ? t("bookings.paid", { method: selectedBooking.paymentMethod === "Wallet" ? t("bookings.methodWallet") : "VNPAY-QR" })
+              : t("bookings.unpaid") },
+            ...(selectedBooking.foodBudget > 0 ? [{ label: t("bookings.foodBudgetLabel"), value: t("bookings.foodBudget", { amount: Number(selectedBooking.foodBudget).toLocaleString(locale) }) }] : []),
+            { label: t("bookings.meetingAddressLabel"), value: selectedBooking.meetingAddress, fullWidth: true },
+            { label: t("bookings.message"), value: selectedBooking.message, fullWidth: true },
+          ]}
+        >
+          {selectedBooking.paymentStatus !== "Paid" && selectedBooking.status !== "Cancelled" && (
+            <button type="button" className="btn-primary" onClick={() => {
+              setSelectedBookingForPay(selectedBooking);
+              setSelectedBooking(null);
+              setIsBookingPayOpen(true);
+            }}>
+              <QrCode size={14} /> {t("bookings.payNow")}
+            </button>
+          )}
+        </BookingDetailsModal>
+      )}
 
       <WalletTopUpModal
         isOpen={isTopUpOpen}

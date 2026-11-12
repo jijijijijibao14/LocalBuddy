@@ -50,6 +50,7 @@ exports.create = async (req, res) => {
       language = "Tiếng Việt",
       foodBudget = 0,
       experienceBudget = 0,
+      meetingAddress = "",
       message = "",
       paymentMethod = "None",
     } = req.body;
@@ -87,6 +88,15 @@ exports.create = async (req, res) => {
     if (!Number.isFinite(plannedSpend) || plannedSpend < 0) {
       return res.status(400).json({
         message: "Ngân sách dự kiến không hợp lệ.",
+      });
+    }
+    if (
+      typeof meetingAddress !== "string" ||
+      !meetingAddress.trim() ||
+      meetingAddress.trim().length > 300
+    ) {
+      return res.status(400).json({
+        message: "Vui lòng nhập địa điểm gặp mặt công cộng (tối đa 300 ký tự).",
       });
     }
 
@@ -223,6 +233,7 @@ exports.create = async (req, res) => {
       language: language.trim(),
       foodBudget: budget,
       experienceBudget: plannedSpend,
+      meetingAddress: meetingAddress.trim(),
     });
 
     let qrData = null;
@@ -358,7 +369,10 @@ exports.localMine = async (req, res) => {
 
     const rows = await Booking.find({
       buddy: profile._id,
-      $or: [{ paymentStatus: "Paid" }, { status: "Cancelled" }],
+      $or: [
+        { paymentStatus: "Paid" },
+        { status: "Cancelled", paymentStatus: "Refunded" },
+      ],
     })
       .populate("customer", "fullName email")
       .populate("buddy", "fullName area")

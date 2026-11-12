@@ -51,6 +51,25 @@
     "title": "体験リクエスト",
     "subtitle": "あなたの Local プロフィールに届いたリクエスト。",
     "filterLabel": "体験リクエストを絞り込む",
+    "details": "リクエストの詳細",
+    "close": "閉じる",
+    "customer": "Traveler",
+    "statusLabel": "ステータス",
+    "email": "メール",
+    "dateLabel": "体験日",
+    "timeLabel": "時間帯",
+    "guestsLabel": "ゲスト数",
+    "foodBudgetLabel": "飲食予算",
+    "extraBudgetLabel": "追加予算",
+    "meetingAddressLabel": "待ち合わせ場所",
+    "messageLabel": "メッセージ",
+    "serviceLabel": "サービス料金",
+    "paymentLabel": "支払い",
+    "pagination": {
+      "previous": "前のページ",
+      "next": "次のページ",
+      "page": "{{page}} / {{total}} ページ"
+    },
     "emptyPending": "確認待ちの体験リクエストはありません。",
     "emptyConfirmed": "確認済みの体験リクエストはありません。",
     "emptyCompleted": "完了した体験はありません。",
@@ -60,6 +79,7 @@
     "time_other": "時間：{{start}} – {{end}}（{{count}}時間）",
     "guests_one": "ゲスト数：{{count}}名",
     "guests_other": "ゲスト数：{{count}}名",
+    "meetingAddress": "待ち合わせ場所：{{address}}",
     "language": "言語：{{language}}",
     "defaultLanguage": "ベトナム語",
     "foodBudget": "1人あたりの飲食予算：{{amount}}",
@@ -70,7 +90,8 @@
   "status": {
     "rejected": "辞退済み",
     "pending": "確認待ち",
-    "confirmed": "確認済み"
+    "confirmed": "確認済み",
+    "cancelled": "キャンセル済み"
   },
   "actions": {
     "confirm": "承認",

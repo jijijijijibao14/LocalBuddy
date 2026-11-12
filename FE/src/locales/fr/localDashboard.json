@@ -51,6 +51,25 @@
     "title": "Demandes d'expérience",
     "subtitle": "Les demandes envoyées à votre profil Local.",
     "filterLabel": "Filtrer les demandes d'expérience",
+    "details": "Détails de la demande",
+    "close": "Fermer",
+    "customer": "Traveler",
+    "statusLabel": "Statut",
+    "email": "E-mail",
+    "dateLabel": "Date de l'expérience",
+    "timeLabel": "Créneau",
+    "guestsLabel": "Invités",
+    "foodBudgetLabel": "Budget repas",
+    "extraBudgetLabel": "Budget supplémentaire",
+    "meetingAddressLabel": "Lieu de rendez-vous",
+    "messageLabel": "Message",
+    "serviceLabel": "Frais de service",
+    "paymentLabel": "Paiement",
+    "pagination": {
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "page": "Page {{page}} / {{total}}"
+    },
     "emptyPending": "Aucune demande d'expérience en attente de confirmation.",
     "emptyConfirmed": "Aucune demande d'expérience confirmée.",
     "emptyCompleted": "Aucune expérience terminée.",
@@ -60,6 +79,7 @@
     "time_other": "Heure : {{start}} – {{end}} ({{count}} heures)",
     "guests_one": "Nombre d'invités : {{count}} personne",
     "guests_other": "Nombre d'invités : {{count}} personnes",
+    "meetingAddress": "Lieu de rendez-vous : {{address}}",
     "language": "Langue : {{language}}",
     "defaultLanguage": "Vietnamien",
     "foodBudget": "Budget repas/personne : {{amount}}",
@@ -70,7 +90,8 @@
   "status": {
     "rejected": "Refusée",
     "pending": "En attente de confirmation",
-    "confirmed": "Confirmée"
+    "confirmed": "Confirmée",
+    "cancelled": "Annulée"
   },
   "actions": {
     "confirm": "Confirmer",

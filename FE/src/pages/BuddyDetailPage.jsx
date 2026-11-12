@@ -49,6 +49,7 @@ export default function BuddyDetailPage() {
   const [language, setLanguage] = useState("Tiếng Việt");
   const [foodBudget, setFoodBudget] = useState("150000");
   const [experienceBudget, setExperienceBudget] = useState("");
+  const [meetingAddress, setMeetingAddress] = useState("");
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -221,6 +222,10 @@ export default function BuddyDetailPage() {
       setNotice(t("invalidTime"));
       return;
     }
+    if (!meetingAddress.trim()) {
+      setNotice(t("meetingAddressRequired"));
+      return;
+    }
 
     if (paymentMethod === "Wallet" && !isBalanceEnough) {
       setNotice(
@@ -244,6 +249,7 @@ export default function BuddyDetailPage() {
         language,
         foodBudget: Number(foodBudget),
         experienceBudget: Number(experienceBudget || 0),
+        meetingAddress: meetingAddress.trim(),
         message,
         paymentMethod,
       });
@@ -690,6 +696,21 @@ export default function BuddyDetailPage() {
             </span>
           </label>
           <label className="mt-4 block text-xs font-bold">
+            {t("meetingAddress")}
+            <input
+              className="field mt-2"
+              type="text"
+              maxLength={300}
+              required
+              value={meetingAddress}
+              onChange={(e) => setMeetingAddress(e.target.value)}
+              placeholder={t("meetingAddressPlaceholder")}
+            />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              {t("meetingAddressNote")}
+            </span>
+          </label>
+          <label className="mt-4 block text-xs font-bold">
             {t("messageLabel")}
             <textarea
               className="field mt-2 min-h-20"
@@ -800,34 +821,6 @@ export default function BuddyDetailPage() {
                 />
               </label>
 
-              {/* Thanh toán sau */}
-              <label
-                onClick={() => setPaymentMethod("None")}
-                className={`flex cursor-pointer items-start justify-between rounded-xl border p-3 transition-all ${
-                  paymentMethod === "None"
-                    ? "border-slate-500 bg-slate-100 shadow-xs ring-2 ring-slate-400/20"
-                    : "border-slate-200 bg-white hover:bg-slate-50"
-                }`}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-600 text-white shrink-0 mt-0.5">
-                    <Clock size={16} />
-                  </div>
-                  <div>
-                    <span className="text-xs font-black text-navy block">{t("payLater")}</span>
-                    <span className="text-[11px] text-slate-500">
-                      {t("reservePayLater")}
-                    </span>
-                  </div>
-                </div>
-                <input
-                  type="radio"
-                  name="detailPaymentMethod"
-                  checked={paymentMethod === "None"}
-                  onChange={() => setPaymentMethod("None")}
-                  className="mt-1 h-3.5 w-3.5 text-brand"
-                />
-              </label>
             </div>
           </div>
 
@@ -842,14 +835,11 @@ export default function BuddyDetailPage() {
           >
             {paymentMethod === "Wallet" && <Wallet size={16} />}
             {(paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR") && <QrCode size={16} />}
-            {paymentMethod === "None" && <CalendarDays size={16} />}
             {submitting
               ? t("processing")
               : paymentMethod === "Wallet"
                 ? t("payWithWalletBook")
-                : (paymentMethod === "PAYOS_QR" || paymentMethod === "VNPAY_QR")
-                  ? "Quét mã PayOS-QR thanh toán"
-                  : t("sendRequestPayLater")}
+                : "Quét mã PayOS-QR thanh toán"}
           </button>
             </dialog>
           )}

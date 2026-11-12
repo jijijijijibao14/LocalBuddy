@@ -51,6 +51,25 @@
     "title": "Experience requests",
     "subtitle": "Requests sent to your Local profile.",
     "filterLabel": "Filter experience requests",
+    "details": "Request details",
+    "close": "Close",
+    "customer": "Traveler",
+    "statusLabel": "Status",
+    "email": "Email",
+    "dateLabel": "Experience date",
+    "timeLabel": "Time slot",
+    "guestsLabel": "Guests",
+    "foodBudgetLabel": "Food budget",
+    "extraBudgetLabel": "Extra budget",
+    "meetingAddressLabel": "Meeting place",
+    "messageLabel": "Message",
+    "serviceLabel": "Service fee",
+    "paymentLabel": "Payment",
+    "pagination": {
+      "previous": "Previous page",
+      "next": "Next page",
+      "page": "Page {{page}} / {{total}}"
+    },
     "emptyPending": "No experience requests are awaiting confirmation.",
     "emptyConfirmed": "No experience requests have been confirmed.",
     "emptyCompleted": "No experiences have been completed.",
@@ -60,6 +79,7 @@
     "time_other": "Time: {{start}} – {{end}} ({{count}} hours)",
     "guests_one": "Guests: {{count}} person",
     "guests_other": "Guests: {{count}} people",
+    "meetingAddress": "Meeting place: {{address}}",
     "language": "Language: {{language}}",
     "defaultLanguage": "Vietnamese",
     "foodBudget": "Food budget/person: {{amount}}",
@@ -70,7 +90,8 @@
   "status": {
     "rejected": "Declined",
     "pending": "Pending confirmation",
-    "confirmed": "Confirmed"
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled"
   },
   "actions": {
     "confirm": "Confirm",

@@ -57,6 +57,12 @@ const schema = new mongoose.Schema(
       min: 0,
     },
     experienceBudget: { type: Number, default: 0, min: 0 },
+    meetingAddress: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 300,
+    },
 
     message: {
       type: String,
