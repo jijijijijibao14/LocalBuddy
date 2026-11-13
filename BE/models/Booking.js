@@ -97,6 +97,27 @@ const schema = new mongoose.Schema(
       enum: ["None", "Processing", "Held", "Released", "Refunded"],
       default: "None",
     },
+    feedback: {
+      type: [
+        {
+          author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+          authorRole: { type: String, enum: ["local", "traveler"], required: true },
+          rating: { type: Number, min: 1, max: 5, required: true },
+          comment: { type: String, trim: true, maxlength: 1000, required: true },
+          reply: { type: String, trim: true, maxlength: 1000, default: "" },
+          repliedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+          repliedAt: { type: Date, default: null },
+        },
+      ],
+      default: [],
+    },
+    localEarning: { type: Number, min: 0, default: 0 },
+    adminCommission: { type: Number, min: 0, default: 0 },
+    settlementStatus: {
+      type: String,
+      enum: ["None", "Pending", "Processing", "Completed"],
+      default: "None",
+    },
     cancellationReason: { type: String, default: "", maxlength: 500 },
     refundRequestId: {
       type: mongoose.Schema.Types.ObjectId,

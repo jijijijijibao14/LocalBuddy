@@ -16,7 +16,7 @@ function transactionHistoryFilter(user) {
   if (user.role === "admin") {
     return {
       $or: [
-        { walletOwner: "System", type: "Escrow" },
+        { walletOwner: "System", type: { $in: ["Escrow", "Earning"] } },
         { walletOwner: "Admin", type: "Commission" },
         { walletOwner: "Admin", type: "Withdrawal" },
       ],

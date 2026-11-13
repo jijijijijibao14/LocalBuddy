@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";
 import api from "../services/api";
 import { useLocale } from "../contexts/LocaleContext";
 import { disconnectSocket } from "../utils/socket";
+import NotificationBell from "./NotificationBell";
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [authVersion, setAuthVersion] = useState(0);
@@ -191,6 +192,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           {token && user ? (
             <>
+              <NotificationBell onNavigate={() => setOpen(false)} />
               <Link to={homeLink} className="btn-light hidden sm:flex">
                 {role === "admin" ? (
                   <ShieldCheck size={15} />

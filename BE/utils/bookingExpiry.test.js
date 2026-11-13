@@ -4,7 +4,7 @@ const { bookingEndInstant, processExpiredBooking } = require("./bookingExpiry");
 
 function fixture(status = "Confirmed", escrowStatus = "Held") {
   const booking = {
-    _id: "booking", date: new Date("2026-11-09T00:00:00Z"), endTime: "14:30",
+    _id: "booking", date: new Date("2026-11-09T00:00:00Z"), startTime: "13:30", endTime: "14:30",
     status, escrowStatus, paymentStatus: escrowStatus === "Held" ? "Paid" : "Unpaid",
   };
   const state = { ...booking };
@@ -44,16 +44,19 @@ test("confirmed booking is settled at end, not before, and only once", async () 
   assert.deepEqual(calls, ["release"]);
 });
 
-test("expired pending paid booking is cancelled and refunded", async () => {
+test("pending paid booking is cancelled and refunded at its start time", async () => {
   const { booking, state, calls, dependencies } = fixture("Pending");
-  assert.equal(await processExpiredBooking(booking, new Date("2026-11-09T07:30:00Z"), dependencies), true);
+  assert.equal(await processExpiredBooking(booking, new Date("2026-11-09T06:29:59Z"), dependencies), false);
+  assert.equal(state.status, "Pending");
+  assert.deepEqual(calls, []);
+  assert.equal(await processExpiredBooking(booking, new Date("2026-11-09T06:30:00Z"), dependencies), true);
   assert.equal(state.status, "Cancelled");
   assert.deepEqual(calls, ["refund"]);
 });
 
 test("expired unpaid booking is cancelled without refund", async () => {
   const { booking, state, calls, dependencies } = fixture("Pending", "None");
-  assert.equal(await processExpiredBooking(booking, new Date("2026-11-09T07:30:00Z"), dependencies), true);
+  assert.equal(await processExpiredBooking(booking, new Date("2026-11-09T06:30:00Z"), dependencies), true);
   assert.equal(state.status, "Cancelled");
   assert.deepEqual(calls, []);
 });

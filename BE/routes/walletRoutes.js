@@ -34,6 +34,8 @@ router.post("/confirm-deposit", protect, walletController.confirmDeposit);
 router.post("/simulate-topup", protect, walletController.simulateTopUp);
 router.get("/exchange-rates", walletController.getExchangeRates);
 router.get("/overview", protect, walletController.getOverview);
+router.get("/settlements", protect, allowRoles("admin"), walletController.getPendingSettlements);
+router.patch("/settlements/:id", protect, allowRoles("admin"), walletController.settleLocalBooking);
 router.post("/withdraw", protect, walletController.requestWithdrawal);
 router.get("/withdrawals", protect, allowRoles("admin"), walletController.getPendingWithdrawals);
 router.patch(

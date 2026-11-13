@@ -18,6 +18,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { paginate } from "../utils/pagination";
 import Pagination from "../components/Pagination";
 import BookingDetailsModal from "../components/BookingDetailsModal";
+import TripFeedback from "../components/TripFeedback";
 
 function todayString() {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -633,6 +634,16 @@ export default function LocalDashboard() {
             { label: t("requests.paymentLabel"), value: selectedBooking.paymentStatus },
           ]}
         >
+          {selectedBooking.status === "Completed" && (
+            <TripFeedback
+              booking={selectedBooking}
+              viewerRole="local"
+              onUpdated={(updated) => {
+                setSelectedBooking(updated);
+                setBookings((current) => current.map((item) => item._id === updated._id ? updated : item));
+              }}
+            />
+          )}
           {selectedBooking.status === "Pending" && (
             <>
               <button type="button" className="btn-primary" onClick={async () => {

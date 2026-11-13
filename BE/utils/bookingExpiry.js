@@ -2,20 +2,29 @@ const Booking = require("../models/Booking");
 const { availabilityInstant, getDaNangDate } = require("./availability");
 const { refundBookingFunds, releaseBookingFunds } = require("./walletLedger");
 
-function bookingEndInstant(booking) {
+function bookingInstant(booking, timeField) {
   const date = booking.date instanceof Date && !Number.isNaN(booking.date.getTime())
     ? booking.date.toISOString().slice(0, 10)
     : "";
-  return availabilityInstant(date, booking.endTime);
+  return availabilityInstant(date, booking[timeField]);
+}
+
+function bookingStartInstant(booking) {
+  return bookingInstant(booking, "startTime");
+}
+
+function bookingEndInstant(booking) {
+  return bookingInstant(booking, "endTime");
 }
 
 async function processExpiredBooking(booking, now = new Date(), dependencies = {}) {
-  const end = bookingEndInstant(booking);
-  if (!end) throw new Error(`Giờ kết thúc không hợp lệ cho đặt lịch ${booking._id}.`);
-  if (end > now) return false;
   const { model = Booking, refund = refundBookingFunds, release = releaseBookingFunds } = dependencies;
   const isConfirmed = booking.status === "Confirmed";
   if (!isConfirmed && booking.status !== "Pending") return false;
+  const deadline = isConfirmed ? bookingEndInstant(booking) : bookingStartInstant(booking);
+  const deadlineLabel = isConfirmed ? "kết thúc" : "bắt đầu";
+  if (!deadline) throw new Error(`Giờ ${deadlineLabel} không hợp lệ cho đặt lịch ${booking._id}.`);
+  if (deadline > now) return false;
   if (booking.escrowStatus === "Processing") return false;
   if (isConfirmed && (booking.paymentStatus !== "Paid" || booking.escrowStatus !== "Held")) {
     throw new Error(`Đặt lịch ${booking._id} đã xác nhận nhưng tiền chưa được giữ hợp lệ (paymentStatus=${booking.paymentStatus}, escrowStatus=${booking.escrowStatus}). Cần đối soát giao dịch.`);
@@ -90,4 +99,10 @@ function startBookingExpiryWorker() {
   return setInterval(run, 60_000);
 }
 
-module.exports = { bookingEndInstant, processExpiredBooking, processExpiredBookings, startBookingExpiryWorker };
+module.exports = {
+  bookingStartInstant,
+  bookingEndInstant,
+  processExpiredBooking,
+  processExpiredBookings,
+  startBookingExpiryWorker,
+};

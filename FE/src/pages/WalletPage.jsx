@@ -7,6 +7,8 @@ import { useLocale } from "../contexts/LocaleContext";
 import { filterTransactions, transactionAmountPrefix } from "../utils/walletTransactions";
 import { paginate } from "../utils/pagination";
 import Pagination from "../components/Pagination";
+import BookingDetailsModal from "../components/BookingDetailsModal";
+import TripFeedback from "../components/TripFeedback";
 
 const VIETNAMESE_BANKS = [
   "Vietcombank", "VietinBank", "BIDV", "Agribank", "MB Bank", "Techcombank",
@@ -35,6 +37,10 @@ export default function WalletPage() {
   const [overview, setOverview] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [pendingWithdrawals, setPendingWithdrawals] = useState([]);
+  const [pendingSettlements, setPendingSettlements] = useState([]);
+  const [selectedSettlement, setSelectedSettlement] = useState(null);
+  const [settlementConfirmation, setSettlementConfirmation] = useState(null);
+  const [settling, setSettling] = useState(false);
   const [historyWallet, setHistoryWallet] = useState("System");
   const [historyDate, setHistoryDate] = useState("");
   const [historyDirection, setHistoryDirection] = useState("");
@@ -58,10 +64,11 @@ export default function WalletPage() {
     setLoading(true);
     setError("");
     try {
-      const [walletResult, transactionsResult, withdrawalsResult] = await Promise.allSettled([
+      const [walletResult, transactionsResult, withdrawalsResult, settlementsResult] = await Promise.allSettled([
         api.get("/wallet/overview"),
         api.get("/wallet/transactions"),
         isAdmin ? api.get("/wallet/withdrawals") : Promise.resolve(null),
+        isAdmin ? api.get("/wallet/settlements") : Promise.resolve(null),
       ]);
       const loadErrors = [];
       if (walletResult.status === "fulfilled") {
@@ -85,6 +92,11 @@ export default function WalletPage() {
         setPendingWithdrawals(withdrawalsResult.value.data.withdrawals || []);
       } else if (isAdmin && withdrawalsResult.status === "rejected") {
         loadErrors.push(withdrawalsResult.reason.response?.data?.message || t("errLoadWithdrawals", "Không tải được yêu cầu rút tiền."));
+      }
+      if (isAdmin && settlementsResult.status === "fulfilled") {
+        setPendingSettlements(settlementsResult.value.data || []);
+      } else if (isAdmin && settlementsResult.status === "rejected") {
+        loadErrors.push(settlementsResult.reason.response?.data?.message || "Không tải được danh sách tất toán.");
       }
       if (loadErrors.length) setError(loadErrors.join(" "));
     } catch (requestError) {
@@ -168,6 +180,24 @@ export default function WalletPage() {
     } catch (requestError) {
       setError(requestError.response?.data?.message || t("errResolveWithdrawal"));
     }
+
+    async function confirmSettlement() {
+      if (!settlementConfirmation || settling) return;
+      setSettling(true);
+      setError("");
+      try {
+        await api.patch(`/wallet/settlements/${settlementConfirmation._id}`);
+        setNotice(`Đã tất toán ${formatCurrency(settlementConfirmation.localEarning)} cho ${settlementConfirmation.buddy?.user?.fullName || "Local"}.`);
+        setSettlementConfirmation(null);
+        setSelectedSettlement(null);
+        await load();
+        window.dispatchEvent(new Event("lb-notifications-change"));
+      } catch (requestError) {
+        setError(requestError.response?.data?.message || "Không thể tất toán cho Local.");
+      } finally {
+        setSettling(false);
+      }
+    }
   }
 
   function transactionTitle(transaction) {
@@ -212,7 +242,7 @@ export default function WalletPage() {
             {
               title: t("systemWallet", "Ví hệ thống"),
               amount: overview?.systemBalance,
-              description: t("systemEscrowDescription", "Tiền đặt lịch đang được giữ trong escrow."),
+              description: t("systemEscrowDescription", "Tiền escrow và khoản thu nhập Local đang chờ tất toán."),
               tone: "from-sky-50 to-cyan-50",
             },
             {
@@ -273,6 +303,36 @@ export default function WalletPage() {
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
             {t("payosTopupHint", "Hỗ trợ quét VietQR qua mọi ứng dụng ngân hàng và ví điện tử. Xác nhận tức thì.")}
           </p>
+        </section>
+      )}
+
+      {isAdmin && (
+        <section className="panel overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-3 p-5">
+            <div>
+              <h2 className="font-extrabold text-navy">Tất toán cho Local</h2>
+              <p className="mt-1 text-xs text-slate-500">Khoản thu nhập sau hoa hồng đang được giữ trong ví hệ thống.</p>
+            </div>
+            <span className="pill">{pendingSettlements.length} đang chờ</span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {pendingSettlements.map((booking) => (
+              <button
+                key={booking._id}
+                type="button"
+                onClick={() => setSelectedSettlement(booking)}
+                className="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50"
+              >
+                <span>
+                  <b className="block text-sm text-navy">{booking.buddy?.user?.fullName || booking.buddy?.fullName || "Local"}</b>
+                  <small className="mt-1 block text-slate-500">{booking.buddy?.user?.email || "—"} · {booking.date?.slice(0, 10)} · {booking.time}</small>
+                  <small className="mt-1 block text-slate-400">{booking.customer?.fullName || "Traveler"} · {booking.customer?.email || ""}</small>
+                </span>
+                <b className="text-sm text-brand">{formatCurrency(booking.localEarning)}</b>
+              </button>
+            ))}
+            {!pendingSettlements.length && <p className="p-7 text-center text-sm text-slate-500">Không có khoản tất toán đang chờ.</p>}
+          </div>
         </section>
       )}
 
@@ -491,6 +551,52 @@ export default function WalletPage() {
               <div className="sm:col-span-2"><dt className="text-slate-500">{t("description", "Nội dung")}</dt><dd className="font-bold">{selectedTransaction.description}</dd></div>
               {selectedTransaction.withdrawalDetails?.bankName && (
                 <div className="sm:col-span-2"><dt className="text-slate-500">{t("withdrawalAccount", "Tài khoản nhận")}</dt><dd className="font-bold">{selectedTransaction.withdrawalDetails.bankName} · {selectedTransaction.withdrawalDetails.accountNumber}{selectedTransaction.withdrawalDetails.accountName ? ` · ${selectedTransaction.withdrawalDetails.accountName}` : ""}</dd></div>
+              )}
+              {selectedSettlement && (
+                <BookingDetailsModal
+                  title="Chi tiết tất toán"
+                  closeLabel={t("close", "Đóng")}
+                  onClose={() => setSelectedSettlement(null)}
+                  fields={[
+                    { label: "Local", value: selectedSettlement.buddy?.user?.fullName || selectedSettlement.buddy?.fullName },
+                    { label: "Email Local", value: selectedSettlement.buddy?.user?.email },
+                    { label: "Traveler", value: selectedSettlement.customer?.fullName },
+                    { label: "Email Traveler", value: selectedSettlement.customer?.email },
+                    { label: "Ngày và giờ", value: `${selectedSettlement.date?.slice(0, 10)} · ${selectedSettlement.time}` },
+                    { label: "Khung giờ trải nghiệm", value: `${selectedSettlement.startTime}–${selectedSettlement.endTime} · ${selectedSettlement.durationHours || 0} giờ` },
+                    { label: "Số khách", value: selectedSettlement.guestCount || 1 },
+                    { label: "Khu vực", value: selectedSettlement.buddy?.area },
+                    { label: "Địa điểm gặp mặt", value: selectedSettlement.meetingAddress, fullWidth: true },
+                    { label: "Ghi chú chuyến đi", value: selectedSettlement.message, fullWidth: true },
+                    { label: "Ngân sách ăn uống", value: formatCurrency(selectedSettlement.foodBudget || 0) },
+                    { label: "Ngân sách trải nghiệm", value: formatCurrency(selectedSettlement.experienceBudget || 0) },
+                    { label: "Giá dịch vụ", value: formatCurrency(selectedSettlement.price || 0) },
+                    { label: "Số tiền tất toán", value: formatCurrency(selectedSettlement.localEarning) },
+                    { label: "Hoa hồng Admin", value: formatCurrency(selectedSettlement.adminCommission) },
+                  ]}
+                >
+                  <TripFeedback booking={selectedSettlement} viewerRole="admin" />
+                  <button type="button" className="btn-primary" onClick={() => setSettlementConfirmation(selectedSettlement)}>
+                    Tất toán
+                  </button>
+                </BookingDetailsModal>
+              )}
+              {settlementConfirmation && (
+                <div className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4" role="presentation">
+                  <section className="panel w-full max-w-md p-6" role="dialog" aria-modal="true" aria-labelledby="settlement-confirm-title">
+                    <h2 id="settlement-confirm-title" className="text-lg font-black text-navy">Xác nhận tất toán</h2>
+                    <p className="mt-3 text-sm leading-6 text-slate-600">
+                      Bạn có chắc chắn muốn thanh toán <b>{formatCurrency(settlementConfirmation.localEarning)}</b> cho <b>{settlementConfirmation.buddy?.user?.fullName || settlementConfirmation.buddy?.fullName || "Local"}</b> không?
+                    </p>
+                    <div className="mt-5 flex justify-end gap-2">
+                      <button type="button" className="btn-light" onClick={() => setSettlementConfirmation(null)} disabled={settling}>Hủy</button>
+                      <button type="button" className="btn-primary" onClick={confirmSettlement} disabled={settling}>
+                        {settling ? "Đang tất toán..." : "Đồng ý"}
+                      </button>
+                    </div>
+                    {error && <p className="mt-4 text-sm text-red-700" role="alert">{error}</p>}
+                  </section>
+                </div>
               )}
             </dl>
           </section>

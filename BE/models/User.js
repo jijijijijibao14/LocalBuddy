@@ -83,6 +83,7 @@ const userSchema = new mongoose.Schema(
     },
     isPremium: { type: Boolean, default: false },
     walletBalance: { type: Number, default: 0, min: 0 },
+    lastLoginAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

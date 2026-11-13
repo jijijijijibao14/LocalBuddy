@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Transaction = require("../models/Transaction");
 const WalletSettings = require("../models/WalletSettings");
+const { notifyUser, notifyRole } = require("./notifications");
 
 async function getWalletSettings() {
   return WalletSettings.findOneAndUpdate(
@@ -84,6 +85,22 @@ async function holdBookingFunds(booking, userId, paymentMethod, recordPayment = 
       },
     ];
     await Transaction.create(records);
+    if (paymentMethod === "Wallet") {
+      await notifyUser(userId, {
+        title: "Số dư ví đã thay đổi",
+        message: `Ví đã trừ ${booking.price.toLocaleString("vi-VN")} đ để thanh toán chuyến đi.`,
+        link: "/wallet",
+        type: "wallet_changed",
+        booking: booking._id,
+      });
+    }
+    await notifyRole("admin", {
+      title: "Số dư ví hệ thống đã thay đổi",
+      message: `Ví hệ thống vừa nhận khoản thanh toán ${booking.price.toLocaleString("vi-VN")} đ.`,
+      link: "/wallet",
+      type: "wallet_changed",
+      booking: booking._id,
+    });
     return { ok: true, newBalance: updatedUser?.walletBalance };
   } catch (error) {
     if (systemFunded) {
@@ -375,13 +392,15 @@ async function releaseBookingFunds(booking, adminSharePercent = null) {
     : adminSharePercent;
   const commission = Math.round((booking.price * rate) / 100);
   const localAmount = booking.price - commission;
+  const deferLocalSettlement = adminSharePercent === null && localAmount > 0;
+  const systemDebitAmount = deferLocalSettlement ? commission : booking.price;
   let systemDebit;
   try {
     systemDebit = await WalletSettings.updateOne(
       { _id: settings._id, systemBalance: { $gte: booking.price } },
       {
         $inc: {
-          systemBalance: -booking.price,
+          systemBalance: -systemDebitAmount,
           adminBalance: commission,
         },
       },
@@ -400,23 +419,42 @@ async function releaseBookingFunds(booking, adminSharePercent = null) {
     );
     throw new Error("Số dư ví hệ thống không đủ để quyết toán.");
   }
-  let credited = false;
+  let creditedLocal = false;
   try {
-    const creditResult = await User.updateOne(
-      { _id: buddy.user._id },
-      { $inc: { walletBalance: localAmount } },
-    );
-    if (!creditResult.matchedCount) throw new Error("Không tìm thấy tài khoản Local để quyết toán.");
-    credited = true;
+    if (deferLocalSettlement) {
+      const bookingUpdate = await booking.constructor.updateOne(
+        { _id: booking._id, escrowStatus: "Released" },
+        {
+          $set: {
+            localEarning: localAmount,
+            adminCommission: commission,
+            settlementStatus: "Pending",
+          },
+        },
+      );
+      if (!bookingUpdate.matchedCount) {
+        throw new Error("Không thể cập nhật khoản tất toán đang chờ.");
+      }
+    } else {
+      const creditResult = await User.updateOne(
+        { _id: buddy.user._id },
+        { $inc: { walletBalance: localAmount } },
+      );
+      if (!creditResult.matchedCount) throw new Error("Không tìm thấy tài khoản Local để quyết toán.");
+      creditedLocal = true;
+    }
     await Transaction.create([
       {
         user: buddy.user._id,
         booking: booking._id,
         type: "Earning",
         amount: localAmount,
-        status: "Completed",
+        status: deferLocalSettlement ? "Pending" : "Completed",
+        walletOwner: deferLocalSettlement ? "System" : "User",
         paymentMethod: "Wallet",
-        description: `Thu nhập sau hoa hồng từ đặt lịch #${booking._id}`,
+        description: deferLocalSettlement
+          ? `Chờ Admin tất toán khoản thu nhập từ đặt lịch #${booking._id}`
+          : `Thu nhập sau hoa hồng từ đặt lịch #${booking._id}`,
       },
       {
         user: adminUser?._id || buddy.user._id,
@@ -441,22 +479,32 @@ async function releaseBookingFunds(booking, adminSharePercent = null) {
     ]);
   } catch (error) {
     await Promise.all([
-      ...(credited ? [User.updateOne(
-        { _id: buddy.user._id, walletBalance: { $gte: localAmount } },
-        { $inc: { walletBalance: -localAmount } },
-      )] : []),
+      ...(creditedLocal
+        ? [User.updateOne(
+            { _id: buddy.user._id, walletBalance: { $gte: localAmount } },
+            { $inc: { walletBalance: -localAmount } },
+          )]
+        : []),
       WalletSettings.updateOne(
         { _id: settings._id },
         {
           $inc: {
-            systemBalance: booking.price,
+            systemBalance: systemDebitAmount,
             adminBalance: -commission,
           },
         },
       ),
       booking.constructor.updateOne(
         { _id: booking._id },
-        { $set: { escrowStatus: "Held", paymentStatus: previousPaymentStatus } },
+        {
+          $set: {
+            escrowStatus: "Held",
+            paymentStatus: previousPaymentStatus,
+            ...(deferLocalSettlement
+              ? { settlementStatus: "None", localEarning: 0, adminCommission: 0 }
+              : {}),
+          },
+        },
       ),
     ]);
     await Transaction.deleteMany({
@@ -464,11 +512,122 @@ async function releaseBookingFunds(booking, adminSharePercent = null) {
       type: { $in: ["Earning", "Commission", "Escrow"] },
       status: "Completed",
     });
+    await Transaction.deleteMany({
+      booking: booking._id,
+      type: "Earning",
+      status: "Pending",
+      walletOwner: "System",
+    });
     throw error;
+  }
+  if (deferLocalSettlement) {
+    booking.localEarning = localAmount;
+    booking.adminCommission = commission;
+    booking.settlementStatus = "Pending";
   }
   booking.paymentStatus = "Paid";
   booking.escrowStatus = "Released";
+  if (!deferLocalSettlement) {
+    await notifyUser(buddy.user._id, {
+      title: "Số dư ví đã thay đổi",
+      message: `Đã cộng ${localAmount.toLocaleString("vi-VN")} đ thu nhập từ chuyến đi.`,
+      link: "/wallet",
+      type: "wallet_changed",
+      booking: booking._id,
+    });
+    await notifyRole("admin", {
+      title: "Số dư ví hệ thống và ví Admin thay đổi",
+      message: `Đã chia escrow chuyến ${booking._id}: hoa hồng ${commission.toLocaleString("vi-VN")} đ.`,
+      link: "/wallet",
+      type: "wallet_changed",
+      booking: booking._id,
+    });
+  }
   return { commission, localAmount, rate };
+}
+
+async function settleLocalEarning(booking) {
+  const claimed = await booking.constructor.findOneAndUpdate(
+    { _id: booking._id, status: "Completed", settlementStatus: "Pending", escrowStatus: "Released" },
+    { $set: { settlementStatus: "Processing" } },
+    { new: true },
+  );
+  if (!claimed) return false;
+
+  const amount = booking.localEarning;
+  let settings;
+  let localUserId;
+  let debited = false;
+  let credited = false;
+  let earning;
+  try {
+    if (!Number.isSafeInteger(amount) || amount <= 0) {
+      throw new Error("Số tiền tất toán không hợp lệ.");
+    }
+    const buddy = await require("../models/BuddyProfile")
+      .findById(booking.buddy)
+      .select("user");
+    if (!buddy?.user) throw new Error("Không tìm thấy tài khoản Local để tất toán.");
+    localUserId = buddy.user;
+    settings = await getWalletSettings();
+    const debit = await WalletSettings.updateOne(
+      { _id: settings._id, systemBalance: { $gte: amount } },
+      { $inc: { systemBalance: -amount } },
+    );
+    if (!debit.modifiedCount) throw new Error("Số dư ví hệ thống không đủ để tất toán.");
+    debited = true;
+
+    const credit = await User.updateOne(
+      { _id: localUserId },
+      { $inc: { walletBalance: amount } },
+    );
+    if (!credit.matchedCount) throw new Error("Không tìm thấy tài khoản Local để tất toán.");
+    credited = true;
+
+    earning = await Transaction.findOneAndUpdate(
+      {
+        booking: booking._id,
+        type: "Earning",
+        status: "Pending",
+        walletOwner: "System",
+      },
+      { $set: { status: "Completed", walletOwner: "User" } },
+      { new: true },
+    );
+    if (!earning) throw new Error("Không tìm thấy khoản thu nhập đang chờ tất toán.");
+
+    const completed = await booking.constructor.updateOne(
+      { _id: booking._id, settlementStatus: "Processing" },
+      { $set: { settlementStatus: "Completed" } },
+    );
+    if (!completed.matchedCount && !completed.modifiedCount) {
+      throw new Error("Không thể cập nhật trạng thái tất toán.");
+    }
+  } catch (error) {
+    await Promise.all([
+      ...(credited
+        ? [User.updateOne(
+            { _id: localUserId, walletBalance: { $gte: amount } },
+            { $inc: { walletBalance: -amount } },
+          )]
+        : []),
+      ...(debited
+        ? [WalletSettings.updateOne({ _id: settings._id }, { $inc: { systemBalance: amount } })]
+        : []),
+      ...(earning
+        ? [Transaction.updateOne(
+            { _id: earning._id },
+            { $set: { status: "Pending", walletOwner: "System" } },
+          )]
+        : []),
+      booking.constructor.updateOne(
+        { _id: booking._id, settlementStatus: "Processing" },
+        { $set: { settlementStatus: "Pending" } },
+      ),
+    ]);
+    throw error;
+  }
+  return true;
 }
 
 module.exports = {
@@ -477,4 +636,5 @@ module.exports = {
   refundBookingFunds,
   settleBookingRefund,
   releaseBookingFunds,
+  settleLocalEarning,
 };

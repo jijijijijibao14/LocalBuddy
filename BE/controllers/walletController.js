@@ -4,6 +4,9 @@ const Transaction = require("../models/Transaction");
 const User = require("../models/User");
 const { getWalletSettings } = require("../utils/walletLedger");
 const { transactionHistoryFilter } = require("../utils/walletHistory");
+const Booking = require("../models/Booking");
+const { notifyUser, notifyRole } = require("../utils/notifications");
+const { settleLocalEarning } = require("../utils/walletLedger");
 const {
   generateOrderCode,
   createPaymentLink,
@@ -14,6 +17,22 @@ const {
 
 let exchangeRateCache = null;
 let exchangeRateFetchedAt = 0;
+
+async function notifyWalletChange(userId, role, amount, description) {
+  const notification = {
+    title: role === "admin" ? "Số dư ví Admin đã thay đổi" : "Số dư ví đã thay đổi",
+    message: description || `Số dư ví đã thay đổi ${Number(amount || 0).toLocaleString("vi-VN")} đ.`,
+    link: "/wallet",
+    type: "wallet_changed",
+  };
+  if (role === "admin") {
+    await notifyRole("admin", {
+      ...notification,
+    });
+  } else {
+    await notifyUser(userId, notification);
+  }
+}
 
 function sortObject(obj) {
   let sorted = {};
@@ -184,6 +203,7 @@ exports.handleVNPayReturn = async (req, res) => {
           { $inc: { walletBalance: transaction.amount } },
           { new: true }
         );
+        await notifyWalletChange(updatedUser._id, transaction.user.role, transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
 
         return res.json({
           success: true,
@@ -281,6 +301,7 @@ exports.handleVNPayIpn = async (req, res) => {
       await User.findByIdAndUpdate(transaction.user, {
         $inc: { walletBalance: transaction.amount },
       });
+      await notifyWalletChange(transaction.user, "traveler", transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
       return res.status(200).json({ RspCode: "00", Message: "Confirm Success" });
     } else {
       transaction.status = "Failed";
@@ -357,6 +378,7 @@ exports.simulateTopUp = async (req, res) => {
       { $inc: { walletBalance: transaction.amount } },
       { new: true }
     );
+    await notifyWalletChange(user._id, req.user.role, transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
 
     return res.json({
       success: true,
@@ -432,6 +454,7 @@ exports.confirmDeposit = async (req, res) => {
       { $inc: { walletBalance: transaction.amount } },
       { new: true }
     );
+    await notifyWalletChange(user._id, req.user.role, transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
 
     return res.json({
       success: true,
@@ -490,6 +513,7 @@ exports.checkPayOSStatus = async (req, res) => {
           { $inc: { walletBalance: transaction.amount } },
           { new: true }
         );
+        await notifyWalletChange(user._id, req.user.role, transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
 
         return res.json({
           success: true,
@@ -569,6 +593,7 @@ exports.handlePayOSReturn = async (req, res) => {
             { $inc: { walletBalance: transaction.amount } },
             { new: true }
           );
+          await notifyWalletChange(updatedUser._id, transaction.user.role, transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
           return res.json({
             success: true,
             message: "Nạp tiền vào ví Local Buddy thành công!",
@@ -655,6 +680,7 @@ exports.handlePayOSWebhook = async (req, res) => {
         await User.findByIdAndUpdate(transaction.user, {
           $inc: { walletBalance: transaction.amount },
         });
+        await notifyWalletChange(transaction.user, "traveler", transaction.amount, `Ví đã được cộng ${transaction.amount.toLocaleString("vi-VN")} đ.`);
       } else if (transaction.type === "Booking") {
         const Booking = require("../models/Booking");
         const booking = await Booking.findById(transaction.booking);
@@ -701,6 +727,71 @@ exports.getOverview = async (req, res) => {
   } catch (error) {
     console.error("Load wallet overview error:", error);
     res.status(500).json({ message: "Không thể tải thông tin ví." });
+  }
+};
+
+exports.getPendingSettlements = async (req, res) => {
+  try {
+    const bookings = await Booking.find({ status: "Completed", settlementStatus: "Pending" })
+      .populate("customer", "fullName email")
+      .populate({
+        path: "buddy",
+        select: "fullName area user",
+        populate: { path: "user", select: "fullName email" },
+      })
+      .populate("feedback.author", "fullName")
+      .populate("feedback.repliedBy", "fullName")
+      .sort({ updatedAt: -1 })
+      .limit(200);
+    res.json(bookings);
+  } catch (error) {
+    console.error("Load pending local settlements error:", error);
+    res.status(500).json({ message: "Không thể tải danh sách tất toán." });
+  }
+};
+
+exports.settleLocalBooking = async (req, res) => {
+  try {
+    if (!require("mongoose").isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Mã yêu cầu tất toán không hợp lệ." });
+    }
+    const booking = await Booking.findOne({
+      _id: req.params.id,
+      status: "Completed",
+      settlementStatus: "Pending",
+    });
+    if (!booking) {
+      return res.status(404).json({ message: "Không tìm thấy khoản tất toán đang chờ." });
+    }
+    if (!(await settleLocalEarning(booking))) {
+      return res.status(409).json({ message: "Khoản tất toán vừa được xử lý hoặc không còn hợp lệ." });
+    }
+    const buddy = await require("../models/BuddyProfile")
+      .findById(booking.buddy)
+      .populate("user", "fullName email");
+    const localName = buddy?.user?.fullName || "Local";
+    await notifyWalletChange(
+      buddy?.user?._id,
+      "local",
+      booking.localEarning,
+      `Admin đã tất toán ${booking.localEarning.toLocaleString("vi-VN")} đ vào ví.`,
+    );
+    await notifyRole("admin", {
+      title: "Đã tất toán cho Local",
+      message: `Đã thanh toán ${booking.localEarning.toLocaleString("vi-VN")} đ cho ${localName}.`,
+      link: "/wallet",
+      type: "local_settlement",
+      booking: booking._id,
+    });
+    res.json({
+      success: true,
+      bookingId: booking._id,
+      settlementStatus: "Completed",
+      amount: booking.localEarning,
+    });
+  } catch (error) {
+    console.error("Settle local booking earnings error:", error);
+    res.status(500).json({ message: "Không thể tất toán khoản thu nhập cho Local." });
   }
 };
 
@@ -792,6 +883,7 @@ exports.requestWithdrawal = async (req, res) => {
         accountNumber: accountNumber.trim(),
       },
     });
+    await notifyWalletChange(req.user._id, req.user.role, amount, `Ví đã trừ ${amount.toLocaleString("vi-VN")} đ để tạo yêu cầu rút tiền.`);
     res.status(201).json({ transaction, balance: updatedBalance });
   } catch (error) {
     console.error("Request withdrawal error:", error);
@@ -850,6 +942,12 @@ exports.resolveWithdrawal = async (req, res) => {
         );
         throw error;
       }
+      await notifyWalletChange(
+        transaction.user,
+        transaction.walletOwner === "Admin" ? "admin" : null,
+        transaction.amount,
+        `Đã hoàn ${transaction.amount.toLocaleString("vi-VN")} đ sau khi từ chối yêu cầu rút tiền.`,
+      );
     }
     res.json({ transaction });
   } catch (error) {

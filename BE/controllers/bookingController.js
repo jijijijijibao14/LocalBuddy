@@ -9,6 +9,7 @@ const {
   releaseBookingFunds,
 } = require("../utils/walletLedger");
 const refundController = require("./refundController");
+const { notifyUser, notifyRole, notifyBookingStatus } = require("../utils/notifications");
 const {
   generateOrderCode,
   createPaymentLink,
@@ -311,7 +312,27 @@ exports.create = async (req, res) => {
       { path: "buddy", select: "fullName area coverImage price" },
       { path: "customer", select: "fullName email" },
     ]);
-
+    await notifyUser(buddy.user, {
+      title: "Yêu cầu trải nghiệm mới",
+      message: `${req.user.fullName} vừa gửi yêu cầu trải nghiệm.`,
+      link: "/local-dashboard",
+      type: "booking_new",
+      booking: booking._id,
+    });
+    await notifyUser(req.user._id, {
+      title: "Đặt yêu cầu thành công",
+      message: `Yêu cầu trải nghiệm với ${buddy.fullName} đã được gửi.`,
+      link: "/dashboard",
+      type: "booking_new",
+      booking: booking._id,
+    });
+    await notifyRole("admin", {
+      title: "Yêu cầu trải nghiệm mới",
+      message: `Có yêu cầu trải nghiệm mới cho Local ${buddy.fullName}.`,
+      link: "/admin",
+      type: "booking_new",
+      booking: booking._id,
+    });
     res.status(201).json({
       message:
         paymentStatus === "Paid"
@@ -617,6 +638,7 @@ exports.updateLocalStatus = async (req, res) => {
       );
       throw error;
     }
+    await notifyBookingStatus(updatedBooking, status, "local");
 
     // 10. Lấy thông tin Traveler và Local để trả về frontend.
     const responseBooking = await Booking.findById(updatedBooking._id);
@@ -629,7 +651,7 @@ exports.updateLocalStatus = async (req, res) => {
       message: status === "Confirmed"
         ? "Đã xác nhận yêu cầu trải nghiệm."
         : status === "Completed"
-          ? "Đã hoàn thành trải nghiệm và quyết toán ví."
+          ? "Đã hoàn thành trải nghiệm. Khoản thu nhập của Local đang chờ Admin tất toán."
           : "Đã từ chối yêu cầu trải nghiệm.",
       booking: responseBooking,
     });

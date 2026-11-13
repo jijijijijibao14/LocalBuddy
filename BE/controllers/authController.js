@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { notifyRole } = require("../utils/notifications");
 function makeToken(user) {
   return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: "7d",
@@ -93,6 +94,17 @@ exports.login = async (req, res) => {
       return res
         .status(403)
         .json({ message: `Tài khoản đang ở trạng thái: ${user.status}.` });
+    const firstLogin = !user.lastLoginAt;
+    user.lastLoginAt = new Date();
+    if (typeof user.save === "function") await user.save();
+    if (firstLogin && ["local", "traveler"].includes(user.role)) {
+      await notifyRole("admin", {
+        title: "Người dùng mới đăng nhập",
+        message: `${user.fullName} (${user.email}) đăng nhập lần đầu với vai trò ${user.role === "local" ? "Local" : "Traveler"}.`,
+        link: "/admin",
+        type: "first_login",
+      });
+    }
     res.json({ token: makeToken(user), user: safeUser(user) });
   } catch (e) {
     res.status(500).json({ message: "Đăng nhập thất bại." });

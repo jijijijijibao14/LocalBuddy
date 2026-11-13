@@ -19,6 +19,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { paginate } from "../utils/pagination";
 import Pagination from "../components/Pagination";
 import BookingDetailsModal from "../components/BookingDetailsModal";
+import TripFeedback from "../components/TripFeedback";
 
 function getStoredUser() {
   try {
@@ -616,6 +617,16 @@ export default function CustomerDashboard() {
             { label: t("bookings.message"), value: selectedBooking.message, fullWidth: true },
           ]}
         >
+          {selectedBooking.status === "Completed" && (
+            <TripFeedback
+              booking={selectedBooking}
+              viewerRole="traveler"
+              onUpdated={(updated) => {
+                setSelectedBooking(updated);
+                setBookings((current) => current.map((item) => item._id === updated._id ? updated : item));
+              }}
+            />
+          )}
           {selectedBooking.paymentStatus !== "Paid" && selectedBooking.status !== "Cancelled" && (
             <button type="button" className="btn-primary" onClick={() => {
               setSelectedBookingForPay(selectedBooking);

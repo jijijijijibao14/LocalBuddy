@@ -17,6 +17,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { filterAccounts, paginate } from "../utils/adminPagination";
 import Pagination from "../components/Pagination";
 import BookingDetailsModal from "../components/BookingDetailsModal";
+import TripFeedback from "../components/TripFeedback";
 
 function AdminPagination({ result, onChange, t, showPageNumbers = false }) {
   return (
@@ -691,7 +692,11 @@ export default function AdminDashboard() {
             { label: t("requests.meetingAddressLabel"), value: selectedBooking.meetingAddress, fullWidth: true },
             { label: t("requests.noteLabel"), value: selectedBooking.message, fullWidth: true },
           ]}
-        />
+        >
+          {selectedBooking.status === "Completed" && (
+            <TripFeedback booking={selectedBooking} viewerRole="admin" />
+          )}
+        </BookingDetailsModal>
       )}
       {refundAction && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm">

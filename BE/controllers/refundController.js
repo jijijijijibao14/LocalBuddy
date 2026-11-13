@@ -14,6 +14,7 @@ const {
   calculateCancellationQuote,
   isValidCancellationPolicy,
 } = require("../utils/refundPolicy");
+const { notifyBookingStatus, notifyUser, notifyRole } = require("../utils/notifications");
 
 function isCancellable(booking) {
   return ["Pending", "Confirmed"].includes(booking.status);
@@ -45,9 +46,9 @@ async function submitCancellation(booking, actor, reason, percentage) {
       },
       { new: true },
     );
-    return updated
-      ? { booking: updated, refund: null }
-      : { error: "Lịch vừa được cập nhật hoặc thanh toán đang được đối soát." };
+    if (!updated) return { error: "Lịch vừa được cập nhật hoặc thanh toán đang được đối soát." };
+    await notifyBookingStatus(updated, "Cancelled", actor.role);
+    return { booking: updated, refund: null };
   }
 
   const amount = Math.round((booking.price * percentage) / 100);
@@ -108,6 +109,20 @@ async function submitCancellation(booking, actor, reason, percentage) {
       if (!(await settleBookingRefund(updated, refund))) {
         throw new Error("Không thể ghi nhận hoàn tiền vào ví Traveler.");
       }
+      await notifyUser(booking.customer, {
+        title: "Số dư ví đã thay đổi",
+        message: `Đã hoàn ${refund.amount.toLocaleString("vi-VN")} đ vào ví.`,
+        link: "/wallet",
+        type: "wallet_changed",
+        booking: booking._id,
+      });
+      await notifyRole("admin", {
+        title: "Số dư ví hệ thống đã thay đổi",
+        message: `Ví hệ thống đã hoàn ${refund.amount.toLocaleString("vi-VN")} đ cho chuyến ${booking._id}.`,
+        link: "/wallet",
+        type: "wallet_changed",
+        booking: booking._id,
+      });
       const settledRefund = await Refund.findOneAndUpdate(
         { _id: refund._id, status: "PENDING" },
         {
@@ -131,6 +146,7 @@ async function submitCancellation(booking, actor, reason, percentage) {
     }
   }
 
+  await notifyBookingStatus(updated, "Cancelled", actor.role);
   return { booking: updated, refund };
 }
 
@@ -376,6 +392,20 @@ exports.review = async (req, res) => {
     try {
       const settled = await settleBookingRefund(booking, refund);
       if (!settled) throw new Error("Số dư/escrow đặt lịch không còn ở trạng thái có thể hoàn.");
+      await notifyUser(booking.customer, {
+        title: "Số dư ví đã thay đổi",
+        message: `Đã hoàn ${refund.amount.toLocaleString("vi-VN")} đ vào ví.`,
+        link: "/wallet",
+        type: "wallet_changed",
+        booking: booking._id,
+      });
+      await notifyRole("admin", {
+        title: "Số dư ví hệ thống đã thay đổi",
+        message: `Ví hệ thống đã hoàn ${refund.amount.toLocaleString("vi-VN")} đ cho chuyến ${booking._id}.`,
+        link: "/wallet",
+        type: "wallet_changed",
+        booking: booking._id,
+      });
       const completed = await Refund.findOneAndUpdate(
         { _id: refund._id, status: "PROCESSING" },
         {
@@ -444,6 +474,13 @@ exports.confirmExternalRefund = async (req, res) => {
         );
         return res.status(409).json({ message: "Không thể đối soát sổ cái sau xác nhận PayOS; yêu cầu được đánh dấu để xử lý thủ công." });
       }
+      await notifyRole("admin", {
+        title: "Số dư ví hệ thống đã thay đổi",
+        message: `Đã đối soát khoản hoàn ${refund.amount.toLocaleString("vi-VN")} đ cho chuyến ${booking._id}.`,
+        link: "/wallet",
+        type: "wallet_changed",
+        booking: booking._id,
+      });
     }
     const completed = await Refund.findOneAndUpdate(
       { _id: refund._id, status: "PROCESSING", providerRefundId },

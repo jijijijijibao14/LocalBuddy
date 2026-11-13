@@ -4,6 +4,7 @@ const Booking = require("../models/Booking");
 const Transaction = require("../models/Transaction");
 const { releaseBookingFunds } = require("../utils/walletLedger");
 const { bookingEndInstant } = require("../utils/bookingExpiry");
+const { notifyBookingStatus } = require("../utils/notifications");
 const refundController = require("./refundController");
 
 exports.stats = async (req, res) => {
@@ -149,7 +150,9 @@ exports.bookings = async (req, res) =>
   res.json(
     await Booking.find()
       .populate("customer", "fullName email phone")
-      .populate("buddy", "fullName area")
+      .populate("buddy", "fullName area user")
+      .populate("feedback.author", "fullName")
+      .populate("feedback.repliedBy", "fullName")
       .sort({ createdAt: -1 })
       .limit(200),
   );
@@ -262,6 +265,7 @@ exports.updateBooking = async (req, res) => {
     });
   }
   const updated = await Booking.findById(current._id);
+  await notifyBookingStatus(updated, req.body.status, "admin");
   await updated.populate([
     { path: "customer", select: "fullName email phone" },
     { path: "buddy", select: "fullName area" },
