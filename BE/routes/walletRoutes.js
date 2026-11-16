@@ -36,7 +36,20 @@ router.get("/exchange-rates", walletController.getExchangeRates);
 router.get("/overview", protect, walletController.getOverview);
 router.get("/settlements", protect, allowRoles("admin"), walletController.getPendingSettlements);
 router.patch("/settlements/:id", protect, allowRoles("admin"), walletController.settleLocalBooking);
+// Rút tiền - Dành cho người dùng
 router.post("/withdraw", protect, walletController.requestWithdrawal);
+router.get("/withdrawals/mine", protect, walletController.getMyWithdrawals);
+router.get("/withdrawals/:id", protect, walletController.getWithdrawalDetail);
+router.patch("/withdrawals/:id", protect, walletController.updatePendingWithdrawal);
+router.patch("/withdrawals/:id/cancel", protect, walletController.cancelPendingWithdrawal);
+
+// Quản lý rút tiền - Dành cho Admin
+router.get("/admin/withdrawals", protect, allowRoles("admin"), walletController.getAdminWithdrawals);
+router.patch("/admin/withdrawals/:id/process", protect, allowRoles("admin"), walletController.processWithdrawal);
+router.patch("/admin/withdrawals/:id/complete", protect, allowRoles("admin"), walletController.completeWithdrawal);
+router.patch("/admin/withdrawals/:id/reject", protect, allowRoles("admin"), walletController.rejectWithdrawal);
+
+// Tương thích ngược với các endpoint cũ
 router.get("/withdrawals", protect, allowRoles("admin"), walletController.getPendingWithdrawals);
 router.patch(
   "/withdrawals/:id",

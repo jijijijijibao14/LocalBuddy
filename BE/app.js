@@ -99,6 +99,7 @@ app.use("/api/buddies", require("./routes/buddyRoutes"));
 app.use("/api/bookings", require("./routes/bookingRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/wallet", require("./routes/walletRoutes"));
+app.use("/api/premium", require("./routes/premiumRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/chat", require("./routes/chatRoutes"));

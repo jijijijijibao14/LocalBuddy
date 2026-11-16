@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Wallet,
   Languages,
+  Crown,
 } from "lucide-react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -89,7 +90,7 @@ export default function Navbar() {
     navigate("/");
   }
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-100 bg-white/95 backdrop-blur">
+    <header className={`sticky top-0 z-40 border-b bg-white/95 backdrop-blur ${user?.isPremium ? "border-amber-300 shadow-sm shadow-amber-500/5 border-t-2 border-t-amber-400" : "border-slate-100"}`}>
       <div className="container-page flex h-[70px] items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2">
           <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand text-white">
@@ -193,8 +194,23 @@ export default function Navbar() {
           {token && user ? (
             <>
               <NotificationBell onNavigate={() => setOpen(false)} />
-              <Link to={homeLink} className="btn-light hidden sm:flex">
-                {role === "admin" ? (
+              {user?.isPremium && (
+                <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 text-amber-950 font-black text-[10px] shadow-sm select-none">
+                  <Crown size={12} className="fill-amber-950" />
+                  Local Premium
+                </span>
+              )}
+              <Link
+                to={homeLink}
+                className={`hidden sm:flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${
+                  user?.isPremium
+                    ? "bg-amber-50 hover:bg-amber-100/80 text-amber-950 border border-amber-300 shadow-sm"
+                    : "btn-light"
+                }`}
+              >
+                {user?.isPremium ? (
+                  <Crown size={14} className="text-amber-600 fill-amber-500 shrink-0" />
+                ) : role === "admin" ? (
                   <ShieldCheck size={15} />
                 ) : role === "local" ? (
                   <MapPin size={15} />

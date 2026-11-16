@@ -136,13 +136,31 @@ exports.updateBuddyVerification = async (req, res) => {
 exports.updateLocalPremium = async (req, res) => {
   if (typeof req.body.isPremium !== "boolean")
     return res.status(400).json({ message: "Trạng thái Premium không hợp lệ." });
+  const isPremium = req.body.isPremium;
+  const updateData = {
+    isPremium,
+    premiumStatus: isPremium ? "Active" : "None",
+  };
+  if (isPremium) {
+    updateData.premiumStartedAt = new Date();
+    // Default 30 days if not set
+    updateData.premiumExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  } else {
+    updateData.premiumExpiresAt = null;
+  }
   const user = await User.findOneAndUpdate(
     { _id: req.params.id, role: "local" },
-    { $set: { isPremium: req.body.isPremium } },
+    { $set: updateData },
     { new: true },
   ).select("-password");
   if (!user)
     return res.status(404).json({ message: "Không tìm thấy tài khoản Local." });
+
+  await BuddyProfile.updateOne(
+    { user: user._id },
+    { $set: { isPremium } },
+  );
+
   res.json(user);
 };
 

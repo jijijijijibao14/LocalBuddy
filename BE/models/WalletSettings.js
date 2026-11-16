@@ -5,8 +5,9 @@ const schema = new mongoose.Schema(
     key: { type: String, unique: true, default: "primary" },
     systemBalance: { type: Number, min: 0, default: 0 },
     adminBalance: { type: Number, min: 0, default: 0 },
-    standardCommissionPercent: { type: Number, min: 0, max: 100, default: 10 },
-    premiumCommissionPercent: { type: Number, min: 0, max: 100, default: 5 },
+    adminPendingWithdrawalAmount: { type: Number, min: 0, default: 0 },
+    standardCommissionPercent: { type: Number, min: 0, max: 100, default: 15 },
+    premiumCommissionPercent: { type: Number, min: 0, max: 100, default: 10 },
     cancellationPolicy: {
       overSixHoursPercent: { type: Number, min: 0, max: 100, default: 100 },
       threeToSixHoursPercent: { type: Number, min: 0, max: 100, default: 75 },

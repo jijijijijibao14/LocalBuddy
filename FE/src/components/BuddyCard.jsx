@@ -33,9 +33,15 @@ export default function BuddyCard({
             alt={buddy.fullName || "Local Buddy"}
           />
 
-          <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-extrabold text-brand">
-            ✦ Local Mate
-          </span>
+          {buddy.isPremium ? (
+            <span className="absolute left-3 top-3 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 px-2.5 py-1 text-[10px] font-black text-amber-950 shadow-md flex items-center gap-1">
+              👑 Local Premium
+            </span>
+          ) : (
+            <span className="absolute left-3 top-3 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-extrabold text-brand">
+              ✦ Local Mate
+            </span>
+          )}
 
           <span className="absolute bottom-3 right-3 rounded-lg bg-slate-900/70 px-2 py-1 text-xs font-bold text-white">
             <Star size={12} className="mr-1 inline fill-amber-300 text-amber-300" />

@@ -9,6 +9,7 @@ import {
   Upload,
   ChevronDown,
   X,
+  Crown,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import api, { mediaUrl } from "../services/api";
@@ -121,6 +122,13 @@ export default function ProfilePage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [role, setRole] = useState("traveler");
+  const [isPremium, setIsPremium] = useState(() => {
+    try {
+      return Boolean(JSON.parse(localStorage.getItem("lb_user") || "{}")?.isPremium);
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     api
@@ -128,6 +136,7 @@ export default function ProfilePage() {
       .then(({ data }) => {
         const user = data.user;
         setRole(user.role);
+        setIsPremium(Boolean(user.isPremium));
         setForm({
           fullName: user.fullName || "",
           phone: user.phone || "",
@@ -266,6 +275,9 @@ export default function ProfilePage() {
           ...response.data.user,
         }),
       );
+      if (response.data.user?.isPremium !== undefined) {
+        setIsPremium(Boolean(response.data.user.isPremium));
+      }
       window.dispatchEvent(new Event("lb-auth-change"));
       setForm((old) => ({
         ...old,
@@ -305,13 +317,50 @@ export default function ProfilePage() {
       >
         <ArrowLeft size={16} /> {t("backHome")}
       </Link>
-      <div className="mx-auto max-w-3xl panel p-6 sm:p-9">
+      <div
+        className={`mx-auto max-w-3xl panel p-6 sm:p-9 transition-all ${
+          isPremium
+            ? "border-2 border-amber-300 shadow-xl shadow-amber-500/10 ring-1 ring-amber-400/40"
+            : ""
+        }`}
+      >
+        {isPremium && (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300/80 bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-yellow-500/20 p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-amber-500 to-yellow-400 text-slate-950 shadow-md">
+                <Crown size={22} className="fill-slate-950" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-amber-950">Local Premium Partner</span>
+                  <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-800">
+                    VIP Active
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-amber-800/90">
+                  Hồ sơ ưu tiên hiển thị cao nhất & phí sàn đặc quyền chỉ 10%
+                </p>
+              </div>
+            </div>
+            <span className="rounded-xl border border-amber-300/80 bg-white/90 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-sm">
+              👑 Huy hiệu VIP kích hoạt
+            </span>
+          </div>
+        )}
         <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-blue-50 text-brand">
-            <UserRound />
+          <div
+            className={`grid h-12 w-12 place-items-center rounded-xl ${
+              isPremium
+                ? "bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/20"
+                : "bg-blue-50 text-brand"
+            }`}
+          >
+            {isPremium ? <Crown size={24} className="fill-white" /> : <UserRound />}
           </div>
           <div>
-            <p className="eyebrow">{t("eyebrow", { role: role.toUpperCase() })}</p>
+            <p className="eyebrow">
+              {isPremium ? "👑 LOCAL PREMIUM" : t("eyebrow", { role: role.toUpperCase() })}
+            </p>
             <h1 className="text-2xl font-black text-navy">
               {t("title")}
             </h1>
@@ -391,10 +440,20 @@ export default function ProfilePage() {
             {(avatarFile || form.avatar) && (
               <div className="relative mt-2 w-fit">
                 <img
-                  className="h-24 w-24 rounded-xl object-cover"
+                  className={`h-24 w-24 rounded-xl object-cover ${
+                    isPremium ? "ring-4 ring-amber-400 ring-offset-2 shadow-lg" : ""
+                  }`}
                   src={avatarFile ? avatarPreview : mediaUrl(form.avatar)}
                   alt={t("avatar")}
                 />
+                {isPremium && (
+                  <span
+                    className="absolute -bottom-2 -right-2 grid h-7 w-7 place-items-center rounded-full bg-gradient-to-br from-amber-500 to-yellow-400 text-slate-950 shadow-md ring-2 ring-white"
+                    title="Huy hiệu Local VIP"
+                  >
+                    <Crown size={14} className="fill-slate-950" />
+                  </span>
+                )}
                 <button
                   type="button"
                   disabled={saving}

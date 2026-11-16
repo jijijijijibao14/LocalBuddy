@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   ArrowDownToLine,
+  ArrowUpFromLine,
   CheckCircle2,
   ClipboardList,
   RefreshCw,
@@ -10,6 +11,12 @@ import {
   Wallet,
   ChartNoAxesCombined,
   MessageCircle,
+  Clock,
+  AlertCircle,
+  XCircle,
+  Building2,
+  CreditCard,
+  Crown,
 } from "lucide-react";
 import api from "../services/api";
 import { useTranslation } from "react-i18next";
@@ -18,6 +25,7 @@ import { filterAccounts, paginate } from "../utils/adminPagination";
 import Pagination from "../components/Pagination";
 import BookingDetailsModal from "../components/BookingDetailsModal";
 import TripFeedback from "../components/TripFeedback";
+import WithdrawalDetailModal from "../components/WithdrawalDetailModal";
 
 function AdminPagination({ result, onChange, t, showPageNumbers = false }) {
   return (
@@ -62,6 +70,21 @@ export default function AdminDashboard() {
   const [refundNote, setRefundNote] = useState("");
   const [providerRefundId, setProviderRefundId] = useState("");
   const [refundActionLoading, setRefundActionLoading] = useState(false);
+
+  // Quản lý rút tiền
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [withdrawalStatusTab, setWithdrawalStatusTab] = useState("All");
+  const [withdrawalQuery, setWithdrawalQuery] = useState("");
+  const [withdrawalPage, setWithdrawalPage] = useState(1);
+  const [selectedAdminWithdrawal, setSelectedAdminWithdrawal] = useState(null);
+  const [completeModalWithdrawal, setCompleteModalWithdrawal] = useState(null);
+  const [rejectModalWithdrawal, setRejectModalWithdrawal] = useState(null);
+  const [bankTransactionCode, setBankTransactionCode] = useState("");
+  const [transferDate, setTransferDate] = useState("");
+  const [adminWithdrawalNote, setAdminWithdrawalNote] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [adminWithdrawalActionLoading, setAdminWithdrawalActionLoading] = useState(false);
+
   const accountsResult = paginate(filterAccounts(users, accountRoleTab, accountQuery, accountStatus), accountPage);
   const buddiesResult = paginate(buddies, buddyPage);
   const filteredBookings = bookings.filter((booking) => bookingStatusTab === "Pending"
@@ -69,15 +92,32 @@ export default function AdminDashboard() {
     : booking.status === bookingStatusTab);
   const bookingResult = paginate(filteredBookings, bookingPage, 3);
   const refundResult = paginate(refunds, refundPage, 3);
+
+  const filteredWithdrawals = withdrawals.filter((w) => {
+    if (withdrawalStatusTab !== "All" && w.status !== withdrawalStatusTab) return false;
+    if (withdrawalQuery.trim()) {
+      const q = withdrawalQuery.toLowerCase();
+      const matchName = w.user?.fullName?.toLowerCase().includes(q);
+      const matchEmail = w.user?.email?.toLowerCase().includes(q);
+      const matchAcc = w.accountNumber?.toLowerCase().includes(q);
+      const matchAccName = w.accountName?.toLowerCase().includes(q);
+      const matchCode = w.bankTransactionCode?.toLowerCase().includes(q);
+      if (!matchName && !matchEmail && !matchAcc && !matchAccName && !matchCode) return false;
+    }
+    return true;
+  });
+  const withdrawalResult = paginate(filteredWithdrawals, withdrawalPage, 10);
+
   async function load() {
     try {
-      const [s, u, bp, b, r, policy] = await Promise.all([
+      const [s, u, bp, b, r, policy, w] = await Promise.all([
         api.get("/admin/stats"),
         api.get("/admin/users"),
         api.get("/admin/buddies"),
         api.get("/admin/bookings"),
         api.get("/admin/refunds"),
         api.get("/admin/settings/cancellation-policy"),
+        api.get("/admin/withdrawals"),
       ]);
       setStats(s.data);
       setUsers(u.data);
@@ -85,6 +125,7 @@ export default function AdminDashboard() {
       setBookings(b.data);
       setRefunds(r.data);
       setCancellationPolicy(policy.data.cancellationPolicy);
+      setWithdrawals(w.data.withdrawals || []);
       setMessage("");
     } catch (e) {
       setMessage(
@@ -196,6 +237,62 @@ export default function AdminDashboard() {
       setMessage("Đã cập nhật chính sách hủy và hoàn tiền.");
     } catch (e) {
       setMessage(e.response?.data?.message || "Không thể lưu chính sách hủy.");
+    }
+  }
+
+  async function handleProcessWithdrawal(wId) {
+    try {
+      setAdminWithdrawalActionLoading(true);
+      const { data } = await api.patch(`/admin/withdrawals/${wId}/process`);
+      setWithdrawals((prev) => prev.map((w) => (w._id === wId ? data.withdrawal : w)));
+      setMessage("Đã chuyển yêu cầu sang trạng thái Đang xử lý.");
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Không thể chuyển trạng thái.");
+    } finally {
+      setAdminWithdrawalActionLoading(false);
+    }
+  }
+
+  async function handleCompleteWithdrawal(e) {
+    e.preventDefault();
+    if (!completeModalWithdrawal || !bankTransactionCode.trim()) return;
+    try {
+      setAdminWithdrawalActionLoading(true);
+      const { data } = await api.patch(`/admin/withdrawals/${completeModalWithdrawal._id}/complete`, {
+        bankTransactionCode: bankTransactionCode.trim(),
+        transferDate: transferDate || new Date().toISOString(),
+        adminNote: adminWithdrawalNote.trim(),
+      });
+      setWithdrawals((prev) => prev.map((w) => (w._id === completeModalWithdrawal._id ? data.withdrawal : w)));
+      setMessage(`Đã hoàn tất chuyển khoản ${formatCurrency(completeModalWithdrawal.amount)} cho ${completeModalWithdrawal.user?.fullName || "Người dùng"}.`);
+      setCompleteModalWithdrawal(null);
+      setBankTransactionCode("");
+      setAdminWithdrawalNote("");
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Không thể xác nhận hoàn tất rút tiền.");
+    } finally {
+      setAdminWithdrawalActionLoading(false);
+    }
+  }
+
+  async function handleRejectWithdrawal(e) {
+    e.preventDefault();
+    if (!rejectModalWithdrawal || !rejectionReason.trim()) return;
+    try {
+      setAdminWithdrawalActionLoading(true);
+      const { data } = await api.patch(`/admin/withdrawals/${rejectModalWithdrawal._id}/reject`, {
+        rejectionReason: rejectionReason.trim(),
+        adminNote: adminWithdrawalNote.trim(),
+      });
+      setWithdrawals((prev) => prev.map((w) => (w._id === rejectModalWithdrawal._id ? data.withdrawal : w)));
+      setMessage(`Đã từ chối yêu cầu rút tiền và hoàn lại số dư khả dụng cho ${rejectModalWithdrawal.user?.fullName || "Người dùng"}.`);
+      setRejectModalWithdrawal(null);
+      setRejectionReason("");
+      setAdminWithdrawalNote("");
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Không thể từ chối yêu cầu.");
+    } finally {
+      setAdminWithdrawalActionLoading(false);
     }
   }
   return (
@@ -670,6 +767,173 @@ export default function AdminDashboard() {
           />
         )}
       </section>
+
+      {/* QUẢN LÝ RÚT TIỀN THỰC TẾ */}
+      <section className="panel mt-6 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-5 border-b border-slate-100">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-extrabold text-navy">Quản lý yêu cầu rút tiền</h2>
+              <span className="pill !bg-amber-100 !text-amber-800">
+                {withdrawals.filter((w) => w.status === "Pending").length} chờ duyệt
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Kiểm tra thông tin tài khoản, bắt đầu xử lý và xác nhận chuyển khoản ngân hàng thực tế ngoài ứng dụng.
+            </p>
+          </div>
+          <ArrowUpFromLine size={20} className="text-brand" />
+        </div>
+
+        {/* Status filter tabs */}
+        <div className="flex flex-wrap gap-2 px-5 py-4 border-b border-slate-100" role="tablist">
+          {[
+            ["All", "Tất cả"],
+            ["Pending", "Chờ duyệt (Pending)"],
+            ["Processing", "Đang xử lý (Processing)"],
+            ["Completed", "Đã chuyển tiền (Completed)"],
+            ["Rejected", "Bị từ chối (Rejected)"],
+            ["Cancelled", "Đã hủy (Cancelled)"],
+          ].map(([status, label]) => (
+            <button
+              key={status}
+              type="button"
+              role="tab"
+              aria-selected={withdrawalStatusTab === status}
+              onClick={() => { setWithdrawalStatusTab(status); setWithdrawalPage(1); }}
+              className={withdrawalStatusTab === status ? "btn-primary !py-2 text-xs" : "btn-light !py-2 text-xs"}
+            >
+              {label} ({status === "All" ? withdrawals.length : withdrawals.filter((w) => w.status === status).length})
+            </button>
+          ))}
+        </div>
+
+        {/* Search input */}
+        <div className="flex flex-wrap gap-3 px-5 py-3">
+          <input
+            className="field max-w-sm text-xs"
+            type="search"
+            value={withdrawalQuery}
+            placeholder="Tìm theo tên user, email, STK, chủ TK, mã GD..."
+            onChange={(e) => { setWithdrawalQuery(e.target.value); setWithdrawalPage(1); }}
+          />
+        </div>
+
+        {/* Withdrawals Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[850px] text-left text-xs">
+            <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-500">
+              <tr>
+                <th className="p-4">Người yêu cầu</th>
+                <th className="p-4">Vai trò</th>
+                <th className="p-4">Số tiền rút</th>
+                <th className="p-4">Tài khoản ngân hàng</th>
+                <th className="p-4">Trạng thái</th>
+                <th className="p-4">Ngày tạo</th>
+                <th className="p-4 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {withdrawalResult.items.map((w) => {
+                return (
+                  <tr key={w._id} className="hover:bg-slate-50/70 transition">
+                    <td className="p-4">
+                      <b className="text-navy block">{w.user?.fullName || "—"}</b>
+                      <span className="text-[11px] text-slate-500">{w.user?.email}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className="uppercase text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        {w.userRole || w.user?.role || "user"}
+                      </span>
+                    </td>
+                    <td className="p-4 font-black text-brand text-sm">
+                      {formatCurrency(w.amount)}
+                    </td>
+                    <td className="p-4">
+                      <b className="text-navy block">{w.bankName}</b>
+                      <span className="font-mono text-slate-500 block">{w.accountNumber}</span>
+                      <span className="uppercase text-[11px] font-semibold text-slate-400">{w.accountName}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                        w.status === "Completed"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                          : w.status === "Processing"
+                          ? "bg-blue-100 text-blue-800 border-blue-200"
+                          : w.status === "Pending"
+                          ? "bg-amber-100 text-amber-800 border-amber-200"
+                          : w.status === "Rejected"
+                          ? "bg-rose-100 text-rose-800 border-rose-200"
+                          : "bg-slate-100 text-slate-600 border-slate-200"
+                      }`}>
+                        {w.status === "Completed" ? "Đã chuyển tiền" :
+                         w.status === "Processing" ? "Đang xử lý" :
+                         w.status === "Pending" ? "Chờ duyệt" :
+                         w.status === "Rejected" ? "Từ chối" : "Đã hủy"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-slate-500 text-[11px]">
+                      {new Date(w.createdAt).toLocaleString(locale)}
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAdminWithdrawal(w)}
+                          className="px-2.5 py-1 rounded-lg border border-slate-200 text-slate-600 hover:text-navy text-xs font-bold transition hover:bg-slate-50"
+                        >
+                          Chi tiết
+                        </button>
+
+                        {w.status === "Pending" && (
+                          <button
+                            type="button"
+                            onClick={() => handleProcessWithdrawal(w._id)}
+                            disabled={adminWithdrawalActionLoading}
+                            className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition"
+                          >
+                            Xử lý
+                          </button>
+                        )}
+
+                        {["Pending", "Processing"].includes(w.status) && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCompleteModalWithdrawal(w);
+                                setBankTransactionCode("");
+                                setTransferDate(new Date().toISOString().slice(0, 10));
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition"
+                            >
+                              Xác nhận đã chuyển
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRejectModalWithdrawal(w);
+                                setRejectionReason("");
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 text-xs font-bold transition"
+                            >
+                              Từ chối
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!withdrawals.length && (
+            <p className="p-8 text-center text-xs text-slate-500">Chưa có yêu cầu rút tiền nào.</p>
+          )}
+        </div>
+        <AdminPagination result={withdrawalResult} onChange={setWithdrawalPage} t={t} showPageNumbers />
+      </section>
       {selectedBooking && (
         <BookingDetailsModal
           title={t("requests.details")}
@@ -764,6 +1028,187 @@ export default function AdminDashboard() {
             </footer>
           </form>
         </div>
+      )}
+
+      {/* MODAL: XÁC NHẬN HOÀN TẤT CHUYỂN KHOẢN (ADMIN) */}
+      {completeModalWithdrawal && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={handleCompleteWithdrawal}
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <header className="border-b border-slate-100 px-6 py-5 bg-emerald-50/60">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={20} className="text-emerald-600" />
+                <h2 className="text-lg font-black text-navy">Xác nhận chuyển khoản thành công</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-600">
+                Chỉ thực hiện sau khi bạn đã chuyển khoản ngân hàng thành công cho người dùng bên ngoài hệ thống.
+              </p>
+            </header>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Người nhận:</span>
+                  <span className="font-bold text-navy">{completeModalWithdrawal.user?.fullName} ({completeModalWithdrawal.userRole})</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Số tiền:</span>
+                  <span className="font-black text-brand text-sm">{formatCurrency(completeModalWithdrawal.amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Ngân hàng:</span>
+                  <span className="font-bold text-navy">{completeModalWithdrawal.bankName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Số tài khoản:</span>
+                  <span className="font-mono font-bold text-navy">{completeModalWithdrawal.accountNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Chủ tài khoản:</span>
+                  <span className="font-bold text-navy uppercase">{completeModalWithdrawal.accountName}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Mã giao dịch ngân hàng / Mã tham chiếu (Bắt buộc)
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: FT240891238910 hoặc 98213891"
+                  value={bankTransactionCode}
+                  onChange={(e) => setBankTransactionCode(e.target.value)}
+                  className="field w-full text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Ngày chuyển tiền
+                </label>
+                <input
+                  type="date"
+                  value={transferDate}
+                  onChange={(e) => setTransferDate(e.target.value)}
+                  className="field w-full text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Ghi chú Admin (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ghi chú nội bộ hoặc lời nhắn..."
+                  value={adminWithdrawalNote}
+                  onChange={(e) => setAdminWithdrawalNote(e.target.value)}
+                  className="field w-full text-xs"
+                />
+              </div>
+            </div>
+
+            <footer className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4">
+              <button
+                type="button"
+                className="btn-light !py-2 text-xs"
+                onClick={() => setCompleteModalWithdrawal(null)}
+                disabled={adminWithdrawalActionLoading}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={adminWithdrawalActionLoading || !bankTransactionCode.trim()}
+                className="btn-primary !py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700"
+              >
+                {adminWithdrawalActionLoading ? "Đang xử lý..." : "Xác nhận & Khấu trừ số dư"}
+              </button>
+            </footer>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL: TỪ CHỐI YÊU CẦU RÚT TIỀN (ADMIN) */}
+      {rejectModalWithdrawal && (
+        <div className="fixed inset-0 z-[80] grid place-items-center bg-navy/60 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={handleRejectWithdrawal}
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl"
+          >
+            <header className="border-b border-slate-100 px-6 py-5 bg-rose-50/60">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={20} className="text-rose-600" />
+                <h2 className="text-lg font-black text-navy">Từ chối yêu cầu rút tiền</h2>
+              </div>
+              <p className="mt-1 text-xs text-slate-600">
+                Số tiền tạm giữ ({formatCurrency(rejectModalWithdrawal.amount)}) sẽ được hoàn trả lại ngay lập tức vào số dư khả dụng của người dùng.
+              </p>
+            </header>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Lý do từ chối (Bắt buộc - sẽ hiển thị cho người dùng)
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Ví dụ: Sai thông tin số tài khoản hoặc tên người thụ hưởng không khớp..."
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="field w-full text-xs min-h-24 resize-y"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Ghi chú nội bộ (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ghi chú thêm..."
+                  value={adminWithdrawalNote}
+                  onChange={(e) => setAdminWithdrawalNote(e.target.value)}
+                  className="field w-full text-xs"
+                />
+              </div>
+            </div>
+
+            <footer className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-6 py-4">
+              <button
+                type="button"
+                className="btn-light !py-2 text-xs"
+                onClick={() => setRejectModalWithdrawal(null)}
+                disabled={adminWithdrawalActionLoading}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={adminWithdrawalActionLoading || !rejectionReason.trim()}
+                className="btn-primary !py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700"
+              >
+                {adminWithdrawalActionLoading ? "Đang xử lý..." : "Xác nhận từ chối & Hoàn tiền"}
+              </button>
+            </footer>
+          </form>
+        </div>
+      )}
+
+      {/* CHI TIẾT YÊU CẦU RÚT TIỀN (DETAIL MODAL) */}
+      {selectedAdminWithdrawal && (
+        <WithdrawalDetailModal
+          isOpen={Boolean(selectedAdminWithdrawal)}
+          onClose={() => setSelectedAdminWithdrawal(null)}
+          withdrawal={selectedAdminWithdrawal}
+          availableBalance={selectedAdminWithdrawal.user?.walletBalance || 0}
+          isUserView={false}
+          onUpdated={load}
+        />
       )}
     </div>
   );

@@ -9,10 +9,15 @@ import {
   Compass,
   UserRound,
   Star,
+  Crown,
+  Sparkles,
+  Zap,
+  ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api, { mediaUrl } from "../services/api";
 import ConversationList from "../components/ConversationList";
+import PremiumPackageCard from "../components/PremiumPackageCard";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../contexts/LocaleContext";
 import { paginate } from "../utils/pagination";
@@ -83,6 +88,7 @@ export default function LocalDashboard() {
   const [cancellationBooking, setCancellationBooking] = useState(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [bookingActionLoading, setBookingActionLoading] = useState(false);
+  const [showRenewPlans, setShowRenewPlans] = useState(false);
 
   async function loadData() {
     try {
@@ -248,66 +254,232 @@ export default function LocalDashboard() {
 
   return (
     <div className="container-page space-y-6 py-8">
-      <section className="rounded-2xl bg-gradient-to-r from-[#e2f4ff] via-white to-[#e7fff5] p-6 sm:p-9">
-        <span className="pill">
-          <MapPin size={13} /> {t("hero.eyebrow")}
-        </span>
-        <h1 className="mt-4 text-3xl font-black text-navy">{t("hero.title")}</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          {t("hero.subtitle")}
-        </p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link to="/" className="btn-primary">
-            <Compass size={15} /> {t("hero.home")}
-          </Link>
-          <Link to="/profile" className="btn-light">
-            {t("hero.myProfile")}
-          </Link>
-        </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          {
-            label: t("stats.profileScore"),
-            value: `${profileScore}%`,
-            sub: t("stats.profileScoreSub"),
-            icon: UserRound,
-          },
-          {
-            label: t("stats.rating"),
-            value:
-              profile?.rating == null
-                ? t("stats.noRating")
-                : `${Number(profile.rating).toFixed(1)}/5`,
-            sub: t("stats.ratingSub"),
-            icon: Star,
-          },
-          {
-            label: t("stats.bookings"),
-            value: String(bookings.length),
-            sub: t("stats.bookingsSub"),
-            icon: CalendarDays,
-          },
-        ].map((item) => (
-          <div key={item.label} className="panel p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500">
-                {item.label}
-              </span>
-              <item.icon size={18} className="text-brand" />
-            </div>
-            <p className="mt-3 text-2xl font-black text-navy">{item.value}</p>
-            <p className="mt-1 text-[11px] text-slate-500">{item.sub}</p>
+      {/* HERO SECTION */}
+      {currentLocalUser?.isPremium ? (
+        <section className="rounded-3xl bg-gradient-to-br from-slate-950 via-[#111c2e] to-[#251806] p-7 sm:p-10 text-white shadow-2xl border-2 border-amber-400/50 relative overflow-hidden">
+          {/* Ambient Crown Watermark */}
+          <div className="absolute -right-12 -top-12 opacity-10 pointer-events-none text-amber-300">
+            <Crown size={380} />
           </div>
-        ))}
-      </section>
 
-      <section className="panel p-5 sm:p-7">
+          <div className="relative z-10">
+            {/* VIP Status Badges */}
+            <div className="flex flex-wrap items-center gap-2.5 mb-3">
+              <span className="vip-badge text-xs shadow-lg shadow-amber-500/20">
+                <Crown size={14} className="fill-amber-950" />
+                VIP LOCAL PREMIUM PARTNER
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/40">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                Ưu tiên Top 1 kết quả tìm kiếm
+              </span>
+              {currentLocalUser?.premiumExpiresAt && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-amber-200 text-xs font-semibold backdrop-blur">
+                  <Clock size={12} /> Hạn dùng: {new Date(currentLocalUser.premiumExpiresAt).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                </span>
+              )}
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+              Xin chào, {currentLocalUser?.fullName || "Bạn"} 👑
+            </h1>
+            <p className="mt-2 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Bạn đang ở giao diện đặc quyền dành riêng cho thành viên <b>Local Premium</b>. Hồ sơ của bạn được hệ thống ưu tiên đề xuất cao nhất tới hàng ngàn khách du lịch tại Đà Nẵng.
+            </p>
+
+            {/* 4 Active VIP Perks Pill Cards */}
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3.5 rounded-2xl bg-white/10 border border-amber-400/30 backdrop-blur">
+                <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold mb-1">
+                  <Sparkles size={14} /> Ưu tiên tìm kiếm
+                </div>
+                <p className="text-[11px] text-slate-300">Vị trí #1 tại Đà Nẵng</p>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white/10 border border-amber-400/30 backdrop-blur">
+                <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold mb-1">
+                  <Zap size={14} /> Phí hoa hồng
+                </div>
+                <p className="text-[11px] text-slate-300">Chỉ 10% (tiết kiệm 5%)</p>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white/10 border border-amber-400/30 backdrop-blur">
+                <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold mb-1">
+                  <Crown size={14} /> Huy hiệu Vàng
+                </div>
+                <p className="text-[11px] text-slate-300">Gắn trên toàn hệ thống</p>
+              </div>
+              <div className="p-3.5 rounded-2xl bg-white/10 border border-amber-400/30 backdrop-blur">
+                <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold mb-1">
+                  <ShieldCheck size={14} /> Chăm sóc 24/7
+                </div>
+                <p className="text-[11px] text-slate-300">Hỗ trợ riêng từ Admin</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link to="/profile" className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-amber-950 font-black text-xs shadow-lg shadow-amber-400/20 hover:brightness-105 transition flex items-center gap-2">
+                <Crown size={14} /> Hồ sơ VIP của bạn
+              </Link>
+              <button
+                type="button"
+                onClick={() => setShowRenewPlans(!showRenewPlans)}
+                className="px-5 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs border border-white/20 transition flex items-center gap-2"
+              >
+                <Sparkles size={14} className="text-amber-300" />
+                {showRenewPlans ? "Thu gọn gói gia hạn" : "Gia hạn thêm gói đặc quyền"}
+              </button>
+            </div>
+          </div>
+
+          {showRenewPlans && (
+            <div className="mt-7 pt-7 border-t border-white/15 relative z-10">
+              <p className="text-xs font-bold text-amber-300 mb-3">Chọn gói để gia hạn nối tiếp hạn dùng:</p>
+              <PremiumPackageCard
+                isCurrentPremium={true}
+                premiumExpiresAt={currentLocalUser?.premiumExpiresAt}
+                onSubscriptionSuccess={loadData}
+              />
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="rounded-2xl bg-gradient-to-r from-[#e2f4ff] via-white to-[#e7fff5] p-6 sm:p-9">
+          <span className="pill">
+            <MapPin size={13} /> {t("hero.eyebrow")}
+          </span>
+          <h1 className="mt-4 text-3xl font-black text-navy">{t("hero.title")}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            {t("hero.subtitle")}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link to="/" className="btn-primary">
+              <Compass size={15} /> {t("hero.home")}
+            </Link>
+            <Link to="/profile" className="btn-light">
+              {t("hero.myProfile")}
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* STATS SECTION */}
+      {currentLocalUser?.isPremium ? (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              label: t("stats.profileScore"),
+              value: `${profileScore}%`,
+              sub: "Hồ sơ VIP hoàn thiện",
+              icon: UserRound,
+              tone: "text-amber-600 bg-amber-50 border-amber-200",
+            },
+            {
+              label: t("stats.rating"),
+              value: profile?.rating == null ? t("stats.noRating") : `${Number(profile.rating).toFixed(1)}/5`,
+              sub: "Đánh giá uy tín cao",
+              icon: Star,
+              tone: "text-amber-600 bg-amber-50 border-amber-200",
+            },
+            {
+              label: t("stats.bookings"),
+              value: String(bookings.length),
+              sub: "Lượt đặt lịch thành công",
+              icon: CalendarDays,
+              tone: "text-brand bg-blue-50 border-blue-200",
+            },
+            {
+              label: "Thứ hạng tìm kiếm",
+              value: "TOP 1 VIP",
+              sub: "Ưu tiên hiển thị cao nhất",
+              icon: Crown,
+              tone: "text-amber-700 bg-amber-100/70 border-amber-300",
+            },
+          ].map((item) => (
+            <div key={item.label} className="panel-vip p-5 bg-gradient-to-br from-amber-50/20 via-white to-white">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{item.label}</span>
+                <div className={`p-2 rounded-xl border ${item.tone}`}>
+                  <item.icon size={16} />
+                </div>
+              </div>
+              <p className="mt-3 text-2xl font-black text-navy">{item.value}</p>
+              <p className="mt-1 text-[11px] text-amber-700 font-semibold">{item.sub}</p>
+            </div>
+          ))}
+        </section>
+      ) : (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            {
+              label: t("stats.profileScore"),
+              value: `${profileScore}%`,
+              sub: t("stats.profileScoreSub"),
+              icon: UserRound,
+            },
+            {
+              label: t("stats.rating"),
+              value:
+                profile?.rating == null
+                  ? t("stats.noRating")
+                  : `${Number(profile.rating).toFixed(1)}/5`,
+              sub: t("stats.ratingSub"),
+              icon: Star,
+            },
+            {
+              label: t("stats.bookings"),
+              value: String(bookings.length),
+              sub: t("stats.bookingsSub"),
+              icon: CalendarDays,
+            },
+          ].map((item) => (
+            <div key={item.label} className="panel p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500">{item.label}</span>
+                <item.icon size={18} className="text-brand" />
+              </div>
+              <p className="mt-3 text-2xl font-black text-navy">{item.value}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{item.sub}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* UPGRADE INVITATION FOR NON-PREMIUM USERS ONLY */}
+      {!currentLocalUser?.isPremium && (
+        <section className="rounded-3xl bg-slate-900 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-black uppercase tracking-wider mb-2">
+              <Crown size={14} className="fill-amber-300" />
+              Gói nâng cấp dịch vụ
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-black text-white">
+              Nâng cấp Local Premium – Nhận nhiều booking hơn
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Được ưu tiên lên đầu trang tìm kiếm của du khách, giảm phí hoa hồng sàn từ 15% xuống chỉ còn 10% và gắn huy hiệu uy tín 👑.
+            </p>
+
+            <div className="mt-6">
+              <PremiumPackageCard
+                isCurrentPremium={false}
+                onSubscriptionSuccess={loadData}
+              />
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className={`p-5 sm:p-7 ${currentLocalUser?.isPremium ? "panel-vip" : "panel"}`}>
         <div className="flex items-center gap-3">
-          <CalendarDays className="text-brand" size={25} />
+          <CalendarDays className={currentLocalUser?.isPremium ? "text-amber-600" : "text-brand"} size={25} />
           <div>
-            <h2 className="text-xl font-black text-navy">{t("availability.title")}</h2>
+            <h2 className="text-xl font-black text-navy flex items-center gap-2">
+              {t("availability.title")}
+              {currentLocalUser?.isPremium && (
+                <span className="vip-badge text-[10px]">
+                  <Crown size={11} className="fill-amber-950" /> Lịch đón khách VIP
+                </span>
+              )}
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
               {t("availability.subtitle")}
             </p>
@@ -392,12 +564,17 @@ export default function LocalDashboard() {
         </div>
       </section>
 
-      <section className="panel p-5 sm:p-7">
+      <section className={`p-5 sm:p-7 ${currentLocalUser?.isPremium ? "panel-vip" : "panel"}`}>
         <div className="flex items-center gap-3">
-          <CalendarDays className="text-brand" size={24} />
+          <CalendarDays className={currentLocalUser?.isPremium ? "text-amber-600" : "text-brand"} size={24} />
           <div>
-            <h2 className="text-xl font-black text-navy">
+            <h2 className="text-xl font-black text-navy flex items-center gap-2">
               {t("requests.title")}
+              {currentLocalUser?.isPremium && (
+                <span className="vip-badge text-[10px]">
+                  <Zap size={11} className="fill-amber-950" /> Hoa hồng VIP 10%
+                </span>
+              )}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {t("requests.subtitle")}

@@ -341,9 +341,16 @@ export default function BuddyDetailPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
               <div className="absolute bottom-5 left-5 right-5 flex items-end gap-4 text-white">
                 <div>
-                  <span className="pill">
-                    <ShieldCheck size={12} className="mr-1 inline" /> {t("verified")}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="pill">
+                      <ShieldCheck size={12} className="mr-1 inline" /> {t("verified")}
+                    </span>
+                    {buddy.isPremium && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 px-2.5 py-1 text-[11px] font-black text-amber-950 shadow-md">
+                        👑 Local Premium
+                      </span>
+                    )}
+                  </div>
                   <h1 className="mt-2 text-2xl font-black sm:text-3xl">
                     {buddy.fullName}
                   </h1>

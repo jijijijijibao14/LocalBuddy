@@ -2,6 +2,8 @@ const crypto = require("crypto");
 const qs = require("qs");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
+const WithdrawalRequest = require("../models/WithdrawalRequest");
+const PremiumSubscription = require("../models/PremiumSubscription");
 const { getWalletSettings } = require("../utils/walletLedger");
 const { transactionHistoryFilter } = require("../utils/walletHistory");
 const Booking = require("../models/Booking");
@@ -616,6 +618,24 @@ exports.handlePayOSReturn = async (req, res) => {
             amount: transaction.amount,
             bookingId: transaction.booking,
           });
+        } else if (transaction.type === "PremiumSubscription") {
+          const { activateSubscriptionInternal } = require("./premiumController");
+          const sub = await PremiumSubscription.findOne({
+            $or: [
+              { orderCode: numOrderCode || transaction.payosOrderCode },
+              { _id: transaction.relatedSubscription },
+            ],
+          });
+          if (sub) {
+            await activateSubscriptionInternal(sub);
+          }
+          return res.json({
+            success: true,
+            message: "Đăng ký Local Premium thành công!",
+            orderCode: numOrderCode || transaction.payosOrderCode,
+            amount: transaction.amount,
+            isPremium: true,
+          });
         }
       }
 
@@ -688,6 +708,17 @@ exports.handlePayOSWebhook = async (req, res) => {
           const { holdBookingFunds } = require("../utils/walletLedger");
           await holdBookingFunds(booking, transaction.user, "PAYOS_QR", false);
         }
+      } else if (transaction.type === "PremiumSubscription") {
+        const { activateSubscriptionInternal } = require("./premiumController");
+        const sub = await PremiumSubscription.findOne({
+          $or: [
+            { orderCode: numOrderCode },
+            { _id: transaction.relatedSubscription },
+          ],
+        });
+        if (sub) {
+          await activateSubscriptionInternal(sub);
+        }
       }
     } else {
       transaction.status = "Failed";
@@ -706,10 +737,17 @@ exports.getOverview = async (req, res) => {
   try {
     if (req.user.role === "admin") {
       const settings = await getWalletSettings();
+      const adminBalance = settings.adminBalance || 0;
+      const adminPending = settings.adminPendingWithdrawalAmount || 0;
+      const availableBalance = Math.max(0, adminBalance - adminPending);
       return res.json({
         role: "admin",
-        systemBalance: settings.systemBalance,
-        adminBalance: settings.adminBalance,
+        systemBalance: settings.systemBalance || 0,
+        adminBalance,
+        balance: adminBalance,
+        walletBalance: adminBalance,
+        pendingWithdrawalAmount: adminPending,
+        availableBalance,
         commissions: {
           standard: settings.standardCommissionPercent,
           premium: settings.premiumCommissionPercent,
@@ -717,12 +755,35 @@ exports.getOverview = async (req, res) => {
         isPremium: false,
       });
     }
-    const user = await User.findById(req.user._id).select("walletBalance isPremium");
+
+    const user = await User.findById(req.user._id).select(
+      "walletBalance pendingWithdrawalAmount isPremium premiumStatus premiumStartedAt premiumExpiresAt role fullName email"
+    );
     if (!user) return res.status(404).json({ message: "Không tìm thấy tài khoản." });
+
+    // Kiểm tra hết hạn Premium tự động
+    if (user.isPremium && user.premiumExpiresAt && new Date(user.premiumExpiresAt) < new Date()) {
+      user.isPremium = false;
+      user.premiumStatus = "Expired";
+      await user.save();
+      const BuddyProfile = require("../models/BuddyProfile");
+      await BuddyProfile.updateOne({ user: user._id }, { $set: { isPremium: false } });
+    }
+
+    const walletBalance = user.walletBalance || 0;
+    const pendingWithdrawalAmount = user.pendingWithdrawalAmount || 0;
+    const availableBalance = Math.max(0, walletBalance - pendingWithdrawalAmount);
+
     res.json({
       role: req.user.role,
-      balance: user.walletBalance,
+      balance: walletBalance,
+      walletBalance,
+      pendingWithdrawalAmount,
+      availableBalance,
       isPremium: Boolean(user.isPremium),
+      premiumStatus: user.premiumStatus,
+      premiumStartedAt: user.premiumStartedAt,
+      premiumExpiresAt: user.premiumExpiresAt,
     });
   } catch (error) {
     console.error("Load wallet overview error:", error);
@@ -824,136 +885,640 @@ exports.updateCommission = async (req, res) => {
   }
 };
 
+// POST /api/wallet/withdraw (Người dùng hoặc Admin tạo yêu cầu rút tiền)
 exports.requestWithdrawal = async (req, res) => {
-  const amount = Number(req.body.amount);
-  const { bankName, accountNumber } = req.body;
-  if (!Number.isSafeInteger(amount) || amount <= 0) {
-    return res.status(400).json({ message: "Số tiền rút phải là số nguyên lớn hơn 0." });
-  }
-  if (
-    typeof bankName !== "string" ||
-    typeof accountNumber !== "string" ||
-    !bankName.trim() ||
-    bankName.trim().length > 100 ||
-    !/^\d{6,40}$/.test(accountNumber.trim())
-  ) {
-    return res.status(400).json({ message: "Vui lòng nhập thông tin tài khoản nhận tiền hợp lệ." });
-  }
-
-  let debitedWallet = null;
   try {
-    let updatedBalance;
-    let walletOwner = "User";
-    if (req.user.role === "admin") {
-      walletOwner = "Admin";
+    const amount = Number(req.body.amount);
+    const { bankName, bankCode = "", accountNumber, accountName, note = "" } = req.body;
+
+    if (!Number.isSafeInteger(amount) || amount < 1000) {
+      return res.status(400).json({ message: "Số tiền rút tối thiểu là 1.000 VNĐ." });
+    }
+
+    if (
+      typeof bankName !== "string" ||
+      !bankName.trim() ||
+      typeof accountNumber !== "string" ||
+      !/^\d{6,40}$/.test(accountNumber.trim()) ||
+      typeof accountName !== "string" ||
+      !accountName.trim()
+    ) {
+      return res.status(400).json({
+        message: "Vui lòng nhập đầy đủ thông tin: Ngân hàng, Số tài khoản (6-40 chữ số) và Tên chủ tài khoản.",
+      });
+    }
+
+    const cleanBankName = bankName.trim();
+    const cleanAccountNumber = accountNumber.trim();
+    const cleanAccountName = accountName.trim().toUpperCase();
+    const cleanNote = typeof note === "string" ? note.trim() : "";
+
+    const userRole = req.user.role;
+    const walletOwner = userRole === "admin" ? "Admin" : "User";
+
+    // Thực hiện giữ tiền (reserve) vào pendingWithdrawalAmount một cách nguyên tử
+    if (userRole === "admin") {
       const settings = await getWalletSettings();
       const updated = await require("../models/WalletSettings").findOneAndUpdate(
-        { _id: settings._id, adminBalance: { $gte: amount } },
-        { $inc: { adminBalance: -amount } },
+        {
+          _id: settings._id,
+          $expr: {
+            $gte: [
+              { $subtract: ["$adminBalance", { $ifNull: ["$adminPendingWithdrawalAmount", 0] }] },
+              amount,
+            ],
+          },
+        },
+        { $inc: { adminPendingWithdrawalAmount: amount } },
         { new: true },
       );
       if (!updated) {
-        return res.status(400).json({ message: "Số dư ví Admin không đủ." });
+        return res.status(400).json({ message: "Số dư khả dụng của ví Admin không đủ để tạo yêu cầu rút." });
       }
-      updatedBalance = updated.adminBalance;
-      debitedWallet = { type: "admin", id: settings._id };
     } else {
-      const user = await User.findOneAndUpdate(
-        { _id: req.user._id, walletBalance: { $gte: amount } },
-        { $inc: { walletBalance: -amount } },
+      const updated = await User.findOneAndUpdate(
+        {
+          _id: req.user._id,
+          $expr: {
+            $gte: [
+              { $subtract: ["$walletBalance", { $ifNull: ["$pendingWithdrawalAmount", 0] }] },
+              amount,
+            ],
+          },
+        },
+        { $inc: { pendingWithdrawalAmount: amount } },
         { new: true },
       );
-      if (!user) {
-        return res.status(400).json({ message: "Số dư ví không đủ để rút." });
+      if (!updated) {
+        return res.status(400).json({ message: "Số dư khả dụng trong ví không đủ để tạo yêu cầu rút tiền." });
       }
-      updatedBalance = user.walletBalance;
-      debitedWallet = { type: "user", id: user._id };
     }
 
+    // Tạo yêu cầu rút tiền với trạng thái Pending
+    const withdrawal = await WithdrawalRequest.create({
+      user: req.user._id,
+      userRole,
+      amount,
+      bankName: cleanBankName,
+      bankCode: bankCode ? bankCode.trim() : "",
+      accountNumber: cleanAccountNumber,
+      accountName: cleanAccountName,
+      note: cleanNote,
+      status: "Pending",
+      history: [
+        {
+          action: "Tạo yêu cầu rút tiền",
+          performedBy: req.user._id,
+          timestamp: new Date(),
+          note: cleanNote || "Khởi tạo yêu cầu rút tiền về tài khoản ngân hàng",
+          details: {
+            amount,
+            bankName: cleanBankName,
+            accountNumber: cleanAccountNumber,
+            accountName: cleanAccountName,
+          },
+        },
+      ],
+    });
+
+    // Tạo bản ghi Transaction tạm giữ
     const transaction = await Transaction.create({
       user: req.user._id,
-      type: "Withdrawal",
+      type: "WithdrawalReserved",
       amount,
-      status: "Completed",
+      status: "Pending",
       walletOwner,
       paymentMethod: "Bank Transfer",
-      description: "Rút tiền demo thành công (không chuyển khoản thực)",
+      relatedWithdrawal: withdrawal._id,
+      description: `Tạm giữ ${amount.toLocaleString("vi-VN")} đ để xử lý yêu cầu rút tiền về ${cleanBankName} (${cleanAccountNumber})`,
       withdrawalDetails: {
-        bankName: bankName.trim(),
-        accountNumber: accountNumber.trim(),
+        bankName: cleanBankName,
+        accountNumber: cleanAccountNumber,
+        accountName: cleanAccountName,
       },
     });
-    await notifyWalletChange(req.user._id, req.user.role, amount, `Ví đã trừ ${amount.toLocaleString("vi-VN")} đ để tạo yêu cầu rút tiền.`);
-    res.status(201).json({ transaction, balance: updatedBalance });
+
+    await notifyUser(req.user._id, {
+      title: "Yêu cầu rút tiền đang chờ xử lý",
+      message: `Yêu cầu rút ${amount.toLocaleString("vi-VN")} đ về ${cleanBankName} đã được tiếp nhận và đang chờ Admin xử lý.`,
+      link: "/wallet",
+      type: "withdrawal_pending",
+    });
+
+    await notifyRole("admin", {
+      title: "Yêu cầu rút tiền mới",
+      message: `Người dùng ${req.user.fullName} (${userRole}) đã gửi yêu cầu rút ${amount.toLocaleString("vi-VN")} đ.`,
+      link: "/admin/dashboard",
+      type: "withdrawal_requested",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Tạo yêu cầu rút tiền thành công. Yêu cầu đang được chờ xử lý.",
+      withdrawal,
+      transaction,
+    });
   } catch (error) {
-    console.error("Request withdrawal error:", error);
-    if (debitedWallet) {
-      try {
-        const result = debitedWallet.type === "admin"
-          ? await require("../models/WalletSettings").updateOne(
-              { _id: debitedWallet.id }, { $inc: { adminBalance: amount } },
-            )
-          : await User.updateOne(
-              { _id: debitedWallet.id }, { $inc: { walletBalance: amount } },
-            );
-        if (!result.matchedCount) throw new Error("Không tìm thấy ví cần hoàn lại.");
-      } catch (rollbackError) {
-        console.error("Withdrawal rollback error:", rollbackError);
-        return res.status(500).json({
-          message: "Không tạo được yêu cầu và chưa hoàn lại số dư. Vui lòng liên hệ Admin để kiểm tra.",
-        });
-      }
-    }
-    res.status(500).json({ message: "Không thể tạo yêu cầu rút tiền." });
+    console.error("Lỗi tạo yêu cầu rút tiền:", error);
+    return res.status(500).json({ message: "Không thể tạo yêu cầu rút tiền. Vui lòng thử lại." });
   }
 };
 
-exports.resolveWithdrawal = async (req, res) => {
-  const { status } = req.body;
-  if (!["Completed", "Failed"].includes(status)) {
-    return res.status(400).json({ message: "Trạng thái xử lý không hợp lệ." });
-  }
+// GET /api/wallet/withdrawals/mine (Lấy danh sách yêu cầu rút tiền của user)
+exports.getMyWithdrawals = async (req, res) => {
   try {
-    const transaction = await Transaction.findOneAndUpdate(
-      { _id: req.params.id, type: "Withdrawal", status: "Pending" },
-      { $set: { status } },
-      { new: true },
-    );
-    if (!transaction) {
-      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền đang chờ." });
+    const withdrawals = await WithdrawalRequest.find({ user: req.user._id })
+      .sort({ createdAt: -1 })
+      .populate("processedBy", "fullName email")
+      .populate("completedBy", "fullName email");
+    return res.json({ success: true, withdrawals });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách rút tiền của tôi:", error);
+    return res.status(500).json({ message: "Không thể lấy danh sách yêu cầu rút tiền." });
+  }
+};
+
+// GET /api/wallet/withdrawals/:id (Chi tiết yêu cầu rút tiền)
+exports.getWithdrawalDetail = async (req, res) => {
+  try {
+    const withdrawal = await WithdrawalRequest.findById(req.params.id)
+      .populate("user", "fullName email phone role")
+      .populate("processedBy", "fullName email")
+      .populate("completedBy", "fullName email")
+      .populate("history.performedBy", "fullName role");
+
+    if (!withdrawal) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền." });
     }
-    if (status === "Failed") {
-      try {
-        let result;
-        if (transaction.walletOwner === "Admin") {
-          const settings = await getWalletSettings();
-          result = await settings.updateOne({ $inc: { adminBalance: transaction.amount } });
-        } else {
-          result = await User.updateOne(
-            { _id: transaction.user },
-            { $inc: { walletBalance: transaction.amount } },
-          );
-        }
-        if (!result.matchedCount) throw new Error("Không tìm thấy ví cần hoàn tiền.");
-      } catch (error) {
-        await Transaction.updateOne(
-          { _id: transaction._id, status: "Failed" },
-          { $set: { status: "Pending" } },
-        );
-        throw error;
+
+    if (req.user.role !== "admin" && String(withdrawal.user._id) !== String(req.user._id)) {
+      return res.status(403).json({ message: "Bạn không có quyền xem yêu cầu rút tiền này." });
+    }
+
+    return res.json({ success: true, withdrawal });
+  } catch (error) {
+    console.error("Lỗi lấy chi tiết yêu cầu rút tiền:", error);
+    return res.status(500).json({ message: "Không thể lấy thông tin yêu cầu rút tiền." });
+  }
+};
+
+// PATCH /api/wallet/withdrawals/:id (Chỉnh sửa khi còn Pending)
+exports.updatePendingWithdrawal = async (req, res) => {
+  try {
+    const withdrawal = await WithdrawalRequest.findById(req.params.id);
+    if (!withdrawal) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền." });
+    }
+
+    if (String(withdrawal.user) !== String(req.user._id)) {
+      return res.status(403).json({ message: "Bạn không có quyền chỉnh sửa yêu cầu này." });
+    }
+
+    if (withdrawal.status !== "Pending") {
+      return res.status(400).json({
+        message: "Chỉ có thể chỉnh sửa yêu cầu khi ở trạng thái Chờ xử lý (Pending).",
+      });
+    }
+
+    const { bankName, bankCode, accountNumber, accountName, note, amount } = req.body;
+
+    // Nếu người dùng thay đổi số tiền rút
+    if (amount !== undefined && Number(amount) !== withdrawal.amount) {
+      const newAmount = Number(amount);
+      if (!Number.isSafeInteger(newAmount) || newAmount < 1000) {
+        return res.status(400).json({ message: "Số tiền rút mới không hợp lệ." });
       }
-      await notifyWalletChange(
-        transaction.user,
-        transaction.walletOwner === "Admin" ? "admin" : null,
-        transaction.amount,
-        `Đã hoàn ${transaction.amount.toLocaleString("vi-VN")} đ sau khi từ chối yêu cầu rút tiền.`,
+      const delta = newAmount - withdrawal.amount;
+      if (delta > 0) {
+        // Cần giữ thêm delta
+        const user = await User.findOneAndUpdate(
+          {
+            _id: req.user._id,
+            $expr: {
+              $gte: [
+                { $subtract: ["$walletBalance", { $ifNull: ["$pendingWithdrawalAmount", 0] }] },
+                delta,
+              ],
+            },
+          },
+          { $inc: { pendingWithdrawalAmount: delta } },
+          { new: true },
+        );
+        if (!user) {
+          return res.status(400).json({ message: "Số dư khả dụng không đủ để tăng số tiền rút." });
+        }
+      } else if (delta < 0) {
+        // Giảm số tiền giữ
+        await User.updateOne(
+          { _id: req.user._id },
+          { $inc: { pendingWithdrawalAmount: delta } }
+        );
+      }
+      withdrawal.amount = newAmount;
+    }
+
+    if (bankName) withdrawal.bankName = bankName.trim();
+    if (bankCode !== undefined) withdrawal.bankCode = bankCode.trim();
+    if (accountNumber) withdrawal.accountNumber = accountNumber.trim();
+    if (accountName) withdrawal.accountName = accountName.trim().toUpperCase();
+    if (note !== undefined) withdrawal.note = note.trim();
+
+    withdrawal.history.push({
+      action: "Chỉnh sửa thông tin",
+      performedBy: req.user._id,
+      timestamp: new Date(),
+      note: "Người dùng cập nhật thông tin yêu cầu rút tiền",
+      details: {
+        bankName: withdrawal.bankName,
+        accountNumber: withdrawal.accountNumber,
+        accountName: withdrawal.accountName,
+        amount: withdrawal.amount,
+      },
+    });
+
+    await withdrawal.save();
+
+    return res.json({
+      success: true,
+      message: "Cập nhật yêu cầu rút tiền thành công.",
+      withdrawal,
+    });
+  } catch (error) {
+    console.error("Lỗi cập nhật yêu cầu rút tiền:", error);
+    return res.status(500).json({ message: "Không thể cập nhật yêu cầu rút tiền." });
+  }
+};
+
+// PATCH /api/wallet/withdrawals/:id/cancel (Hủy khi còn Pending)
+exports.cancelPendingWithdrawal = async (req, res) => {
+  try {
+    const withdrawal = await WithdrawalRequest.findById(req.params.id);
+    if (!withdrawal) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền." });
+    }
+
+    if (req.user.role !== "admin" && String(withdrawal.user) !== String(req.user._id)) {
+      return res.status(403).json({ message: "Bạn không có quyền hủy yêu cầu này." });
+    }
+
+    if (withdrawal.status !== "Pending") {
+      return res.status(400).json({
+        message: "Chỉ có thể hủy yêu cầu khi đang ở trạng thái Chờ xử lý (Pending).",
+      });
+    }
+
+    // Hoàn trả số tiền tạm giữ về số dư khả dụng
+    if (withdrawal.userRole === "admin") {
+      const settings = await getWalletSettings();
+      await require("../models/WalletSettings").updateOne(
+        { _id: settings._id },
+        { $inc: { adminPendingWithdrawalAmount: -withdrawal.amount } }
+      );
+    } else {
+      await User.updateOne(
+        { _id: withdrawal.user },
+        { $inc: { pendingWithdrawalAmount: -withdrawal.amount } }
       );
     }
-    res.json({ transaction });
+
+    withdrawal.status = "Cancelled";
+    withdrawal.history.push({
+      action: "Hủy yêu cầu",
+      performedBy: req.user._id,
+      timestamp: new Date(),
+      note: req.body.reason || "Người dùng đã hủy yêu cầu rút tiền",
+    });
+    await withdrawal.save();
+
+    // Tạo bản ghi giao dịch giải phóng tiền giữ
+    await Transaction.create({
+      user: withdrawal.user,
+      type: "WithdrawalReleased",
+      amount: withdrawal.amount,
+      status: "Completed",
+      walletOwner: withdrawal.userRole === "admin" ? "Admin" : "User",
+      relatedWithdrawal: withdrawal._id,
+      description: `Giải phóng ${withdrawal.amount.toLocaleString("vi-VN")} đ tiền tạm giữ do hủy yêu cầu rút tiền`,
+    });
+
+    await notifyUser(withdrawal.user, {
+      title: "Yêu cầu rút tiền đã được hủy",
+      message: `Đã hoàn lại ${withdrawal.amount.toLocaleString("vi-VN")} đ vào số dư khả dụng của bạn.`,
+      link: "/wallet",
+      type: "withdrawal_cancelled",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã hủy yêu cầu rút tiền thành công. Số dư khả dụng đã được khôi phục.",
+      withdrawal,
+    });
   } catch (error) {
-    console.error("Resolve withdrawal error:", error);
-    res.status(500).json({ message: "Không thể cập nhật yêu cầu rút tiền." });
+    console.error("Lỗi hủy yêu cầu rút tiền:", error);
+    return res.status(500).json({ message: "Không thể hủy yêu cầu rút tiền." });
   }
+};
+
+// GET /api/wallet/admin/withdrawals (Danh sách yêu cầu rút tiền cho Admin)
+exports.getAdminWithdrawals = async (req, res) => {
+  try {
+    const { status, role, search, from, to, page = 1, limit = 20 } = req.query;
+    const query = {};
+
+    if (status && status !== "All") {
+      query.status = status;
+    }
+    if (role && role !== "All") {
+      query.userRole = role;
+    }
+    if (from || to) {
+      query.createdAt = {};
+      if (from) query.createdAt.$gte = new Date(from);
+      if (to) query.createdAt.$lte = new Date(new Date(to).setHours(23, 59, 59, 999));
+    }
+
+    if (search && search.trim()) {
+      const keyword = search.trim();
+      const users = await User.find({
+        $or: [
+          { fullName: { $regex: keyword, $options: "i" } },
+          { email: { $regex: keyword, $options: "i" } },
+        ],
+      }).select("_id");
+      const userIds = users.map((u) => u._id);
+
+      query.$or = [
+        { user: { $in: userIds } },
+        { accountNumber: { $regex: keyword, $options: "i" } },
+        { accountName: { $regex: keyword, $options: "i" } },
+        { bankTransactionCode: { $regex: keyword, $options: "i" } },
+      ];
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.max(1, parseInt(limit, 10));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [total, withdrawals] = await Promise.all([
+      WithdrawalRequest.countDocuments(query),
+      WithdrawalRequest.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .populate("user", "fullName email phone role walletBalance pendingWithdrawalAmount")
+        .populate("processedBy", "fullName email")
+        .populate("completedBy", "fullName email"),
+    ]);
+
+    return res.json({
+      success: true,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      withdrawals,
+    });
+  } catch (error) {
+    console.error("Lỗi lấy danh sách rút tiền cho Admin:", error);
+    return res.status(500).json({ message: "Không thể tải danh sách yêu cầu rút tiền." });
+  }
+};
+
+// PATCH /api/wallet/admin/withdrawals/:id/process (Admin bắt đầu xử lý)
+exports.processWithdrawal = async (req, res) => {
+  try {
+    const withdrawal = await WithdrawalRequest.findById(req.params.id);
+    if (!withdrawal) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền." });
+    }
+
+    if (withdrawal.status !== "Pending") {
+      return res.status(400).json({
+        message: `Chỉ có thể chuyển sang Đang xử lý khi yêu cầu đang ở trạng thái Chờ duyệt. (Hiện tại: ${withdrawal.status})`,
+      });
+    }
+
+    withdrawal.status = "Processing";
+    withdrawal.processedBy = req.user._id;
+    withdrawal.processedAt = new Date();
+    withdrawal.history.push({
+      action: "Bắt đầu xử lý",
+      performedBy: req.user._id,
+      timestamp: new Date(),
+      note: req.body.adminNote || "Admin bắt đầu tiến hành kiểm tra và thực hiện chuyển khoản.",
+    });
+    await withdrawal.save();
+
+    await notifyUser(withdrawal.user, {
+      title: "Yêu cầu rút tiền đang được xử lý",
+      message: `Yêu cầu rút ${withdrawal.amount.toLocaleString("vi-VN")} đ của bạn đang được Admin thực hiện chuyển khoản.`,
+      link: "/wallet",
+      type: "withdrawal_processing",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã cập nhật trạng thái sang Đang xử lý (Processing).",
+      withdrawal,
+    });
+  } catch (error) {
+    console.error("Lỗi xử lý yêu cầu rút tiền:", error);
+    return res.status(500).json({ message: "Không thể cập nhật trạng thái xử lý." });
+  }
+};
+
+// PATCH /api/wallet/admin/withdrawals/:id/complete (Admin xác nhận đã chuyển khoản thành công)
+exports.completeWithdrawal = async (req, res) => {
+  try {
+    const { bankTransactionCode, transferDate, adminNote = "" } = req.body;
+    if (!bankTransactionCode || !bankTransactionCode.trim()) {
+      return res.status(400).json({
+        message: "Vui lòng nhập Mã giao dịch ngân hàng / Mã tham chiếu chuyển khoản.",
+      });
+    }
+
+    const withdrawal = await WithdrawalRequest.findById(req.params.id);
+    if (!withdrawal) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền." });
+    }
+
+    if (!["Pending", "Processing"].includes(withdrawal.status)) {
+      return res.status(400).json({
+        message: `Không thể hoàn tất yêu cầu ở trạng thái ${withdrawal.status}.`,
+      });
+    }
+
+    const cleanTxCode = bankTransactionCode.trim();
+    const cleanTransferDate = transferDate ? new Date(transferDate) : new Date();
+
+    // Trừ số dư thực tế và giải phóng số tiền tạm giữ
+    if (withdrawal.userRole === "admin") {
+      const settings = await getWalletSettings();
+      await require("../models/WalletSettings").updateOne(
+        { _id: settings._id },
+        {
+          $inc: {
+            adminBalance: -withdrawal.amount,
+            adminPendingWithdrawalAmount: -withdrawal.amount,
+          },
+        }
+      );
+    } else {
+      await User.updateOne(
+        { _id: withdrawal.user },
+        {
+          $inc: {
+            walletBalance: -withdrawal.amount,
+            pendingWithdrawalAmount: -withdrawal.amount,
+          },
+        }
+      );
+    }
+
+    withdrawal.status = "Completed";
+    withdrawal.completedBy = req.user._id;
+    withdrawal.completedAt = new Date();
+    withdrawal.bankTransactionCode = cleanTxCode;
+    withdrawal.transferDate = cleanTransferDate;
+    withdrawal.adminNote = adminNote.trim();
+
+    withdrawal.history.push({
+      action: "Hoàn tất chuyển khoản",
+      performedBy: req.user._id,
+      timestamp: new Date(),
+      note: adminNote.trim() || `Admin đã chuyển tiền thành công với Mã GD: ${cleanTxCode}`,
+      details: {
+        bankTransactionCode: cleanTxCode,
+        transferDate: cleanTransferDate,
+      },
+    });
+    await withdrawal.save();
+
+    // Ghi nhận bản ghi Transaction rút tiền hoàn tất
+    await Transaction.create({
+      user: withdrawal.user,
+      type: "WithdrawalCompleted",
+      amount: withdrawal.amount,
+      status: "Completed",
+      walletOwner: withdrawal.userRole === "admin" ? "Admin" : "User",
+      paymentMethod: "Bank Transfer",
+      relatedWithdrawal: withdrawal._id,
+      description: `Rút tiền thành công ${withdrawal.amount.toLocaleString("vi-VN")} đ về ${withdrawal.bankName} (${withdrawal.accountNumber}). Mã GD: ${cleanTxCode}`,
+      withdrawalDetails: {
+        bankName: withdrawal.bankName,
+        accountNumber: withdrawal.accountNumber,
+        accountName: withdrawal.accountName,
+      },
+    });
+
+    await notifyUser(withdrawal.user, {
+      title: "Rút tiền thành công!",
+      message: `Đã hoàn tất chuyển ${withdrawal.amount.toLocaleString("vi-VN")} đ về tài khoản ${withdrawal.bankName} (${withdrawal.accountNumber}). Mã GD: ${cleanTxCode}`,
+      link: "/wallet",
+      type: "withdrawal_completed",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã xác nhận chuyển khoản rút tiền thành công.",
+      withdrawal,
+    });
+  } catch (error) {
+    console.error("Lỗi xác nhận hoàn tất rút tiền:", error);
+    return res.status(500).json({ message: "Không thể hoàn tất yêu cầu rút tiền." });
+  }
+};
+
+// PATCH /api/wallet/admin/withdrawals/:id/reject (Admin từ chối yêu cầu)
+exports.rejectWithdrawal = async (req, res) => {
+  try {
+    const { rejectionReason, adminNote = "" } = req.body;
+    if (!rejectionReason || !rejectionReason.trim()) {
+      return res.status(400).json({
+        message: "Vui lòng nhập lý do từ chối yêu cầu rút tiền.",
+      });
+    }
+
+    const withdrawal = await WithdrawalRequest.findById(req.params.id);
+    if (!withdrawal) {
+      return res.status(404).json({ message: "Không tìm thấy yêu cầu rút tiền." });
+    }
+
+    if (!["Pending", "Processing"].includes(withdrawal.status)) {
+      return res.status(400).json({
+        message: `Không thể từ chối yêu cầu ở trạng thái ${withdrawal.status}.`,
+      });
+    }
+
+    const cleanReason = rejectionReason.trim();
+
+    // Giải phóng số tiền tạm giữ lại cho số dư khả dụng
+    if (withdrawal.userRole === "admin") {
+      const settings = await getWalletSettings();
+      await require("../models/WalletSettings").updateOne(
+        { _id: settings._id },
+        { $inc: { adminPendingWithdrawalAmount: -withdrawal.amount } }
+      );
+    } else {
+      await User.updateOne(
+        { _id: withdrawal.user },
+        { $inc: { pendingWithdrawalAmount: -withdrawal.amount } }
+      );
+    }
+
+    withdrawal.status = "Rejected";
+    withdrawal.completedBy = req.user._id;
+    withdrawal.completedAt = new Date();
+    withdrawal.rejectionReason = cleanReason;
+    withdrawal.adminNote = adminNote.trim();
+
+    withdrawal.history.push({
+      action: "Từ chối yêu cầu",
+      performedBy: req.user._id,
+      timestamp: new Date(),
+      note: cleanReason,
+    });
+    await withdrawal.save();
+
+    // Ghi nhận bản ghi Transaction giải phóng tiền
+    await Transaction.create({
+      user: withdrawal.user,
+      type: "WithdrawalReleased",
+      amount: withdrawal.amount,
+      status: "Completed",
+      walletOwner: withdrawal.userRole === "admin" ? "Admin" : "User",
+      relatedWithdrawal: withdrawal._id,
+      description: `Hoàn trả ${withdrawal.amount.toLocaleString("vi-VN")} đ vào số dư khả dụng do yêu cầu rút tiền bị từ chối (${cleanReason})`,
+    });
+
+    await notifyUser(withdrawal.user, {
+      title: "Yêu cầu rút tiền bị từ chối",
+      message: `Yêu cầu rút ${withdrawal.amount.toLocaleString("vi-VN")} đ của bạn đã bị từ chối. Lý do: "${cleanReason}". Số tiền đã được hoàn lại vào số dư khả dụng.`,
+      link: "/wallet",
+      type: "withdrawal_rejected",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã từ chối yêu cầu rút tiền và hoàn lại số dư khả dụng.",
+      withdrawal,
+    });
+  } catch (error) {
+    console.error("Lỗi từ chối yêu cầu rút tiền:", error);
+    return res.status(500).json({ message: "Không thể từ chối yêu cầu rút tiền." });
+  }
+};
+
+// Legacy alias for old resolveWithdrawal route
+exports.resolveWithdrawal = async (req, res) => {
+  const { status, rejectionReason, bankTransactionCode } = req.body;
+  if (status === "Completed") {
+    req.body.bankTransactionCode = bankTransactionCode || `TX${Date.now()}`;
+    return exports.completeWithdrawal(req, res);
+  } else if (status === "Failed" || status === "Rejected") {
+    req.body.rejectionReason = rejectionReason || "Từ chối bởi Admin";
+    return exports.rejectWithdrawal(req, res);
+  }
+  return res.status(400).json({ message: "Trạng thái xử lý không hợp lệ." });
 };
 
 exports.getExchangeRates = async (req, res) => {

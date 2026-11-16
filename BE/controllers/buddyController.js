@@ -84,7 +84,9 @@ exports.list = async (req, res) => {
       };
     }
 
-    const items = await BuddyProfile.find(q).sort({ rating: -1 }).lean();
+    const items = await BuddyProfile.find(q)
+      .sort({ isPremium: -1, rating: -1, createdAt: -1 })
+      .lean();
     const now = new Date();
     res.json(
       items.map((item) => ({
