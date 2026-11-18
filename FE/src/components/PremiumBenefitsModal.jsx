@@ -5,11 +5,15 @@ export default function PremiumBenefitsModal({
   isOpen,
   onClose,
   plan,
+  commissions = { standard: 15, premium: 10 },
   onProceedToPayment,
 }) {
   const { formatCurrency } = useLocale();
 
   if (!isOpen || !plan) return null;
+
+  const standardRate = commissions?.standard ?? plan?.commissions?.standard ?? 15;
+  const premiumRate = commissions?.premium ?? plan?.commissions?.premium ?? 10;
 
   const keyBenefits = [
     {
@@ -25,7 +29,7 @@ export default function PremiumBenefitsModal({
     {
       icon: Zap,
       title: "Giảm phí hoa hồng sàn",
-      description: "Chỉ chịu mức hoa hồng 10% thay vì 15% tiêu chuẩn. Tối ưu thu nhập trên mỗi chuyến dẫn tour của bạn.",
+      description: `Chỉ chịu mức hoa hồng ${premiumRate}% thay vì ${standardRate}% tiêu chuẩn. Tối ưu thu nhập trên mỗi chuyến dẫn tour của bạn.`,
     },
     {
       icon: Sparkles,

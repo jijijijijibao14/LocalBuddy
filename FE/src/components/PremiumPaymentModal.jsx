@@ -19,9 +19,12 @@ export default function PremiumPaymentModal({
   isOpen,
   onClose,
   plan,
+  commissions = { standard: 15, premium: 10 },
   onSuccess,
 }) {
   const { formatCurrency } = useLocale();
+  const standardRate = commissions?.standard ?? plan?.commissions?.standard ?? 15;
+  const premiumRate = commissions?.premium ?? plan?.commissions?.premium ?? 10;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [paymentData, setPaymentData] = useState(null);
@@ -183,7 +186,7 @@ export default function PremiumPaymentModal({
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 inline-block text-left text-xs space-y-1.5">
                 <div className="flex items-center gap-2 font-bold text-amber-900">
                   <ShieldCheck size={16} className="text-amber-600" />
-                  <span>Hoa hồng sàn áp dụng: 10% (tiết kiệm so với 15% thông thường)</span>
+                  <span>Hoa hồng sàn áp dụng: {premiumRate}% (tiết kiệm so với {standardRate}% thông thường)</span>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-amber-900">
                   <Zap size={16} className="text-amber-600" />

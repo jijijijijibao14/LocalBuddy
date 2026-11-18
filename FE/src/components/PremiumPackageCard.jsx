@@ -12,6 +12,7 @@ export default function PremiumPackageCard({
 }) {
   const { formatCurrency } = useLocale();
   const [plans, setPlans] = useState([]);
+  const [commissions, setCommissions] = useState({ standard: 15, premium: 10 });
   const [loading, setLoading] = useState(true);
   const [selectedPlanForBenefits, setSelectedPlanForBenefits] = useState(null);
   const [selectedPlanForPayment, setSelectedPlanForPayment] = useState(null);
@@ -22,6 +23,9 @@ export default function PremiumPackageCard({
         const res = await api.get("/premium/plans");
         if (res.data?.plans) {
           setPlans(res.data.plans);
+        }
+        if (res.data?.commissions) {
+          setCommissions(res.data.commissions);
         }
       } catch (err) {
         console.error("Lỗi tải danh sách gói Premium:", err);
@@ -155,6 +159,7 @@ export default function PremiumPackageCard({
         isOpen={Boolean(selectedPlanForBenefits)}
         onClose={() => setSelectedPlanForBenefits(null)}
         plan={selectedPlanForBenefits}
+        commissions={commissions}
         onProceedToPayment={handleProceedToPayment}
       />
 
@@ -163,6 +168,7 @@ export default function PremiumPackageCard({
         isOpen={Boolean(selectedPlanForPayment)}
         onClose={() => setSelectedPlanForPayment(null)}
         plan={selectedPlanForPayment}
+        commissions={commissions}
         onSuccess={handlePaymentDone}
       />
     </div>

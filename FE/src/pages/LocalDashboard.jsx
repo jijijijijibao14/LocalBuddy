@@ -89,17 +89,23 @@ export default function LocalDashboard() {
   const [cancellationReason, setCancellationReason] = useState("");
   const [bookingActionLoading, setBookingActionLoading] = useState(false);
   const [showRenewPlans, setShowRenewPlans] = useState(false);
+  const [commissions, setCommissions] = useState({ standard: 15, premium: 10 });
 
   async function loadData() {
     try {
-      const [buddyResponse, bookingResponse, userResponse] = await Promise.all([
+      const [buddyResponse, bookingResponse, userResponse, walletOverviewResponse] = await Promise.all([
         api.get("/users/me/buddy-profile"),
         api.get("/bookings/local"),
         api.get("/users/me"),
+        api.get("/wallet/overview").catch(() => null),
       ]);
 
       const user = userResponse.data.user;
       const mine = buddyResponse.data;
+
+      if (walletOverviewResponse?.data?.commissions) {
+        setCommissions(walletOverviewResponse.data.commissions);
+      }
 
       setProfile(mine || null);
       setAvailability(
@@ -299,7 +305,9 @@ export default function LocalDashboard() {
                 <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold mb-1">
                   <Zap size={14} /> Phí hoa hồng
                 </div>
-                <p className="text-[11px] text-slate-300">Chỉ 10% (tiết kiệm 5%)</p>
+                <p className="text-[11px] text-slate-300">
+                  Chỉ {commissions.premium}% (tiết kiệm {Math.max(0, commissions.standard - commissions.premium)}%)
+                </p>
               </div>
               <div className="p-3.5 rounded-2xl bg-white/10 border border-amber-400/30 backdrop-blur">
                 <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold mb-1">
@@ -455,7 +463,7 @@ export default function LocalDashboard() {
               Nâng cấp Local Premium – Nhận nhiều booking hơn
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
-              Được ưu tiên lên đầu trang tìm kiếm của du khách, giảm phí hoa hồng sàn từ 15% xuống chỉ còn 10% và gắn huy hiệu uy tín 👑.
+              Được ưu tiên lên đầu trang tìm kiếm của du khách, giảm phí hoa hồng sàn từ {commissions.standard}% xuống chỉ còn {commissions.premium}% và gắn huy hiệu uy tín 👑.
             </p>
 
             <div className="mt-6">
@@ -572,7 +580,7 @@ export default function LocalDashboard() {
               {t("requests.title")}
               {currentLocalUser?.isPremium && (
                 <span className="vip-badge text-[10px]">
-                  <Zap size={11} className="fill-amber-950" /> Hoa hồng VIP 10%
+                  <Zap size={11} className="fill-amber-950" /> Hoa hồng VIP {commissions.premium}%
                 </span>
               )}
             </h2>

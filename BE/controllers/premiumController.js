@@ -3,6 +3,7 @@ const BuddyProfile = require("../models/BuddyProfile");
 const Transaction = require("../models/Transaction");
 const PremiumSubscription = require("../models/PremiumSubscription");
 const { notifyUser } = require("../utils/notifications");
+const { getWalletSettings } = require("../utils/walletLedger");
 const {
   generateOrderCode,
   createPaymentLink,
@@ -10,64 +11,73 @@ const {
   isPayOSConfigured,
 } = require("../utils/payos");
 
-const PREMIUM_PACKAGES = [
-  {
-    id: "premium_1m",
-    name: "Gói 1 Tháng",
-    durationDays: 30,
-    price: 199000,
-    originalPrice: 199000,
-    discountBadge: "",
-    description: "Trải nghiệm đầy đủ đặc quyền Local Premium trong 30 ngày.",
-    benefits: [
-      "Ưu tiên hiển thị vị trí đầu khi du khách tìm kiếm Local",
-      "Huy hiệu vàng 👑 Local Premium độc quyền trên hồ sơ",
-      "Giảm phí hoa hồng sàn (từ 15% xuống chỉ còn 10%)",
-      "Tăng cơ hội nhận booking lên gấp 3 lần",
-      "Huy hiệu nhận diện nổi bật trong kết quả tìm kiếm",
-    ],
-    isPopular: false,
-    active: true,
-  },
-  {
-    id: "premium_3m",
-    name: "Gói 3 Tháng",
-    durationDays: 90,
-    price: 499000,
-    originalPrice: 597000,
-    discountBadge: "Tiết kiệm 16%",
-    description: "Gói phổ biến nhất, tối ưu chi phí và tăng trưởng thu nhập vượt trội.",
-    benefits: [
-      "Toàn bộ đặc quyền của gói 1 Tháng",
-      "Ưu tiên hiển thị vị trí đầu khi du khách tìm kiếm Local",
-      "Huy hiệu vàng 👑 Local Premium độc quyền trên hồ sơ",
-      "Giảm phí hoa hồng sàn (từ 15% xuống chỉ còn 10%)",
-      "Tăng cơ hội nhận booking lên gấp 3 lần",
-      "Huy hiệu nhận diện nổi bật trong kết quả tìm kiếm",
-      "Ưu tiên hỗ trợ từ đội ngũ vận hành LocalBuddy 24/7",
-    ],
-    isPopular: true,
-    active: true,
-  },
-  {
-    id: "premium_12m",
-    name: "Gói 1 Năm (12 Tháng)",
-    durationDays: 365,
-    price: 1699000,
-    originalPrice: 2388000,
-    discountBadge: "Tiết kiệm 29%",
-    description: "Đồng hành cả năm cùng LocalBuddy với mức chiết khấu siêu ưu đãi.",
-    benefits: [
-      "Toàn bộ đặc quyền của gói 3 Tháng",
-      "Tối đa hoá doanh thu cả năm với hoa hồng cố định chỉ 10%",
-      "Được vinh danh vào danh sách Top Local dẫn tour tiêu biểu",
-      "Được giới thiệu nổi bật trên trang chủ và fanpage LocalBuddy",
-      "Hỗ trợ quảng bá hình ảnh cá nhân và chuyên gia tư vấn",
-    ],
-    isPopular: false,
-    active: true,
-  },
-];
+async function getPremiumPackages() {
+  const settings = await getWalletSettings();
+  const std = settings.standardCommissionPercent ?? 15;
+  const prm = settings.premiumCommissionPercent ?? 10;
+
+  return [
+    {
+      id: "premium_1m",
+      name: "Gói 1 Tháng",
+      durationDays: 30,
+      price: 199000,
+      originalPrice: 199000,
+      discountBadge: "",
+      description: "Trải nghiệm đầy đủ đặc quyền Local Premium trong 30 ngày.",
+      benefits: [
+        "Ưu tiên hiển thị vị trí đầu khi du khách tìm kiếm Local",
+        "Huy hiệu vàng 👑 Local Premium độc quyền trên hồ sơ",
+        `Giảm phí hoa hồng sàn (từ ${std}% xuống chỉ còn ${prm}%)`,
+        "Tăng cơ hội nhận booking lên gấp 3 lần",
+        "Huy hiệu nhận diện nổi bật trong kết quả tìm kiếm",
+      ],
+      isPopular: false,
+      active: true,
+      commissions: { standard: std, premium: prm },
+    },
+    {
+      id: "premium_3m",
+      name: "Gói 3 Tháng",
+      durationDays: 90,
+      price: 499000,
+      originalPrice: 597000,
+      discountBadge: "Tiết kiệm 16%",
+      description: "Gói phổ biến nhất, tối ưu chi phí và tăng trưởng thu nhập vượt trội.",
+      benefits: [
+        "Toàn bộ đặc quyền của gói 1 Tháng",
+        "Ưu tiên hiển thị vị trí đầu khi du khách tìm kiếm Local",
+        "Huy hiệu vàng 👑 Local Premium độc quyền trên hồ sơ",
+        `Giảm phí hoa hồng sàn (từ ${std}% xuống chỉ còn ${prm}%)`,
+        "Tăng cơ hội nhận booking lên gấp 3 lần",
+        "Huy hiệu nhận diện nổi bật trong kết quả tìm kiếm",
+        "Ưu tiên hỗ trợ từ đội ngũ vận hành LocalBuddy 24/7",
+      ],
+      isPopular: true,
+      active: true,
+      commissions: { standard: std, premium: prm },
+    },
+    {
+      id: "premium_12m",
+      name: "Gói 1 Năm (12 Tháng)",
+      durationDays: 365,
+      price: 1699000,
+      originalPrice: 2388000,
+      discountBadge: "Tiết kiệm 29%",
+      description: "Đồng hành cả năm cùng LocalBuddy với mức chiết khấu siêu ưu đãi.",
+      benefits: [
+        "Toàn bộ đặc quyền của gói 3 Tháng",
+        `Tối đa hoá doanh thu cả năm với hoa hồng cố định chỉ ${prm}%`,
+        "Được vinh danh vào danh sách Top Local dẫn tour tiêu biểu",
+        "Được giới thiệu nổi bật trên trang chủ và fanpage LocalBuddy",
+        "Hỗ trợ quảng bá hình ảnh cá nhân và chuyên gia tư vấn",
+      ],
+      isPopular: false,
+      active: true,
+      commissions: { standard: std, premium: prm },
+    },
+  ];
+}
 
 // Helper: Kích hoạt gói Premium cho User và đồng bộ BuddyProfile
 async function activateSubscriptionInternal(subscription) {
@@ -130,8 +140,17 @@ async function activateSubscriptionInternal(subscription) {
 // 1. Lấy danh sách gói Premium đang mở bán
 exports.getPlans = async (req, res) => {
   try {
-    const plans = PREMIUM_PACKAGES.filter((p) => p.active);
-    res.json({ success: true, plans });
+    const allPackages = await getPremiumPackages();
+    const plans = allPackages.filter((p) => p.active);
+    const settings = await getWalletSettings();
+    res.json({
+      success: true,
+      plans,
+      commissions: {
+        standard: settings.standardCommissionPercent,
+        premium: settings.premiumCommissionPercent,
+      },
+    });
   } catch (error) {
     console.error("Lỗi lấy danh sách gói Premium:", error);
     res.status(500).json({ message: "Không thể lấy danh sách gói Premium." });
@@ -142,7 +161,8 @@ exports.getPlans = async (req, res) => {
 exports.subscribe = async (req, res) => {
   try {
     const { packageId } = req.body;
-    const plan = PREMIUM_PACKAGES.find((p) => p.id === packageId && p.active);
+    const allPackages = await getPremiumPackages();
+    const plan = allPackages.find((p) => p.id === packageId && p.active);
     if (!plan) {
       return res.status(400).json({ message: "Gói Premium đã chọn không hợp lệ." });
     }

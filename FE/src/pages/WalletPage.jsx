@@ -403,15 +403,15 @@ export default function WalletPage() {
                       Tài khoản Ví VIP Local Premium
                     </div>
                     <h3 className="text-xl sm:text-2xl font-black text-white">
-                      Đặc quyền Hoa hồng 10% đang có hiệu lực
+                      Đặc quyền Hoa hồng {overview?.commissions?.premium ?? 10}% đang có hiệu lực
                     </h3>
                     <p className="mt-1 text-xs text-amber-200/90 max-w-lg leading-relaxed">
-                      Bạn được giữ lại 90% doanh thu mỗi chuyến dẫn tour (chỉ nộp 10% hoa hồng thay vì 15% tiêu chuẩn).
+                      Bạn được giữ lại {100 - (overview?.commissions?.premium ?? 10)}% doanh thu mỗi chuyến dẫn tour (chỉ nộp {overview?.commissions?.premium ?? 10}% hoa hồng thay vì {overview?.commissions?.standard ?? 15}% tiêu chuẩn).
                     </p>
                   </div>
                   <div className="relative z-10 flex items-center gap-2">
                     <span className="px-3.5 py-1.5 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300 text-xs font-bold flex items-center gap-1.5">
-                      <Zap size={14} className="text-yellow-400" /> Tiết kiệm 5% phí sàn
+                      <Zap size={14} className="text-yellow-400" /> Tiết kiệm {Math.max(0, (overview?.commissions?.standard ?? 15) - (overview?.commissions?.premium ?? 10))}% phí sàn
                     </span>
                   </div>
                 </div>

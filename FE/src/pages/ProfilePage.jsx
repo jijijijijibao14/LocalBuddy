@@ -129,8 +129,15 @@ export default function ProfilePage() {
       return false;
     }
   });
+  const [premiumCommission, setPremiumCommission] = useState(10);
 
   useEffect(() => {
+    api.get("/wallet/overview").then((res) => {
+      if (res.data?.commissions?.premium) {
+        setPremiumCommission(res.data.commissions.premium);
+      }
+    }).catch(() => {});
+
     api
       .get("/users/me")
       .then(({ data }) => {
@@ -338,7 +345,7 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <p className="text-xs font-medium text-amber-800/90">
-                  Hồ sơ ưu tiên hiển thị cao nhất & phí sàn đặc quyền chỉ 10%
+                  Hồ sơ ưu tiên hiển thị cao nhất & phí sàn đặc quyền chỉ {premiumCommission}%
                 </p>
               </div>
             </div>

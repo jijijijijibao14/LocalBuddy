@@ -773,6 +773,7 @@ exports.getOverview = async (req, res) => {
     const walletBalance = user.walletBalance || 0;
     const pendingWithdrawalAmount = user.pendingWithdrawalAmount || 0;
     const availableBalance = Math.max(0, walletBalance - pendingWithdrawalAmount);
+    const settings = await getWalletSettings();
 
     res.json({
       role: req.user.role,
@@ -784,6 +785,10 @@ exports.getOverview = async (req, res) => {
       premiumStatus: user.premiumStatus,
       premiumStartedAt: user.premiumStartedAt,
       premiumExpiresAt: user.premiumExpiresAt,
+      commissions: {
+        standard: settings.standardCommissionPercent,
+        premium: settings.premiumCommissionPercent,
+      },
     });
   } catch (error) {
     console.error("Load wallet overview error:", error);
@@ -873,6 +878,24 @@ exports.updateCommission = async (req, res) => {
     settings.standardCommissionPercent = Number(standard);
     settings.premiumCommissionPercent = Number(premium);
     await settings.save();
+
+    // Đồng bộ cấu hình hoa hồng mới nhất vào các gói Premium đang hoạt động
+    try {
+      const PremiumSubscription = require("../models/PremiumSubscription");
+      await PremiumSubscription.updateMany(
+        { status: "Active" },
+        {
+          $set: {
+            "metadata.appliedStandardCommission": settings.standardCommissionPercent,
+            "metadata.appliedPremiumCommission": settings.premiumCommissionPercent,
+            "metadata.updatedAt": new Date(),
+          },
+        },
+      );
+    } catch (subErr) {
+      console.warn("Không thể cập nhật metadata gói Premium active:", subErr.message);
+    }
+
     res.json({
       commissions: {
         standard: settings.standardCommissionPercent,
